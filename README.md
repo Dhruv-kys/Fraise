@@ -1,5 +1,11 @@
 # 🍓 Fraise
 
+<p align="center">
+  <img src="assets/fraise.png" alt="Fraise" width="240" />
+  <br />
+  <strong><em>talk to me</em></strong>
+</p>
+
 **A voice assistant that does real work through MCP tools.**
 
 Talk to it in your browser. Say _"what is 2 plus 2"_ and it speaks back _"4"_ —
