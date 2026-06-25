@@ -1,0 +1,89 @@
+/* Stage wrapper around the ElevenLabs WebGL orb. */
+
+@keyframes glowPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: .7; }
+  50% { transform: translate(-50%, -50%) scale(1.08); opacity: .95; }
+}
+
+.orb-stage {
+  position: relative;
+  width: 340px;
+  height: 340px;
+  max-width: 72vw;
+  max-height: 72vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orb-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  width: 190px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(190, 40, 70, .22), transparent);
+  filter: blur(9px);
+  pointer-events: none;
+}
+
+/* soft ambient bloom behind the orb */
+.orb-bloom-a {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 460px;
+  height: 460px;
+  max-width: 90vw;
+  max-height: 90vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, #FFC2D2 0%, #FFD9C9 42%, transparent 70%);
+  filter: blur(44px);
+  transform: translate(-50%, -50%);
+  animation: glowPulse 6s ease-in-out infinite;
+  pointer-events: none;
+  transition: opacity .5s ease;
+}
+.phase-listening .orb-bloom-a,
+.phase-speaking .orb-bloom-a { opacity: 1; }
+
+.orb {
+  position: relative;
+  width: 300px;
+  height: 300px;
+  max-width: 64vw;
+  max-height: 64vw;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .2s ease;
+}
+.orb:hover { transform: scale(1.02); }
+.orb:active { transform: scale(.98); }
+.orb:focus-visible { outline: 2px solid rgba(240, 86, 139, .5); outline-offset: 10px; }
+
+/* the WebGL canvas fills the button; drop-shadow follows the orb's alpha */
+.orb-gl {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 14px 26px rgba(190, 45, 85, .28));
+}
+
+/* shown while the WebGL chunk loads */
+.orb-fallback {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 44%, #FFDDE9 0%, #F58FB4 68%, #EC6F9C 100%);
+  filter: drop-shadow(0 14px 26px rgba(190, 45, 85, .28));
+  opacity: .55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb-bloom-a { animation: none !important; }
+}

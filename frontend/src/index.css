@@ -1,0 +1,13 @@
+html, body { margin: 0; padding: 0; height: 100%; background: #FFF4F0; }
+
+* { box-sizing: border-box; }
+
+#root { min-height: 100vh; }
+
+body {
+  font-family: "Hanken Grotesk", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #3E2228;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: #FFD0D9; }
