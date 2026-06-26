@@ -29,7 +29,7 @@ Browser (Vite + React)                 Backend (FastAPI, one process)
 - **Frontend** — a voice UI with an animated [ElevenLabs orb](https://ui.elevenlabs.io/docs/components/orb)
   that reacts to your voice and the agent's state. The browser transcribes your
   speech (Web Speech API), sends it over a WebSocket, and speaks the reply back.
-  frontend staging link : https://starlit-seahorse-dd88e7.netlify.app (WIP)
+  frontend staging link : https://fraise-mcp.netlify.app (WIP)
 - **Backend** — FastAPI in a single process. The `/ws` socket hands each
   utterance to `run_agent`, which calls tools on a **FastMCP** server. Tools are
   plain `@mcp.tool` functions with pydantic-typed input/output. The same MCP
