@@ -7,6 +7,7 @@
 </p>
 
 **A voice assistant that does real work through MCP tools.**
+https://starlit-seahorse-dd88e7.netlify.app (WIP FE only)
 
 Talk to it in your browser. Say _"what is 2 plus 2"_ and it speaks back _"4"_ —
 and that answer comes from an actual MCP `calculate` tool, not a canned reply.
@@ -29,6 +30,7 @@ Browser (Vite + React)                 Backend (FastAPI, one process)
 - **Frontend** — a voice UI with an animated [ElevenLabs orb](https://ui.elevenlabs.io/docs/components/orb)
   that reacts to your voice and the agent's state. The browser transcribes your
   speech (Web Speech API), sends it over a WebSocket, and speaks the reply back.
+  frontend staging link : https://starlit-seahorse-dd88e7.netlify.app (WIP)
 - **Backend** — FastAPI in a single process. The `/ws` socket hands each
   utterance to `run_agent`, which calls tools on a **FastMCP** server. Tools are
   plain `@mcp.tool` functions with pydantic-typed input/output. The same MCP
