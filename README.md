@@ -6,7 +6,7 @@
   <strong><em>talk to me</em></strong>
 </p>
 
-**Voice for anything that speaks MCP.**
+**Voice for _anything_ that speaks MCP.**
 
 Talk to it in your browser. Say _"what is 2 plus 2"_ and it speaks back _"4"_ —
 and that answer comes from an actual MCP `calculate` tool, not a canned reply.
