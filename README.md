@@ -1,4 +1,4 @@
-# Fraise
+# Fraise 🍓
 
 <p align="center">
   <img src="assets/fraise.png" alt="Fraise" width="240" />
