@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "calculator": {
+      "type": "builtin",
+      "module": "app.mcp_server",
+      "attr": "mcp"
+    }
+  }
+}
