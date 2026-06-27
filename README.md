@@ -40,8 +40,10 @@ You speak
   (STT + LLM + TTS in one socket). When the LLM picks a tool, Fraise runs it
   on the right MCP server and returns the result. Tools are discovered
   automatically — no hardcoding.
-- **MCP layer** — FastMCP with `@mcp.tool` for built-in tools. Phase 1 adds
-  an `MCPManager` that connects to any number of servers from `mcp_servers.json`.
+- **MCP layer** — built-in tools are FastMCP `@mcp.tool` functions. An
+  `MCPManager` connects to every server listed in `mcp_servers.json`
+  (`builtin` / `stdio` / `http`), aggregates their tools, and routes each call
+  to the server that owns it.
 
 ---
 
@@ -60,8 +62,9 @@ backend/
   app/
     main.py              FastAPI app — /ws, /health, /mcp, serves frontend
     voice_agent.py       Deepgram bridge + MCP function call handler
+    mcp_manager.py       connects to MCP servers, aggregates + routes tools
     mcp_server.py        built-in FastMCP tools (@mcp.tool)
-  mcp_servers.json       MCP server config (Phase 1)
+  mcp_servers.json       MCP server config (builtin / stdio / http)
   requirements.txt
 ```
 

@@ -1,27 +1,25 @@
 # Fraise — Roadmap
 
-> Voice for anything that speaks _MCP_.
+> Voice for anything that speaks _MCP_ — over your data, which never leaves your machine.
 
-You talk. Fraise routes your intent to the right MCP server and speaks the result back.
-Adding a capability = adding a server to a config file. Nothing else changes.
+You talk. Fraise routes your intent to the right MCP server, has a back-and-forth if it needs more, and speaks the result back. Adding a capability means adding a server to a config file.
 
-**Status key:** ✅ done · 🚧 in progress · ⏳ planned
-
----
-
-## What makes it hard to copy
-
-| Moat | Why it matters |
-|------|---------------|
-| **Private data flywheel** | Memory + RAG MCPs learn you over time. A new competitor starts from zero. |
-| **Voice-native output** | Genuinely speakable responses — not JSON read aloud. |
-| **Elicitation as dialogue** | Servers ask you questions mid-call, by voice. No text client does this. |
-| **Ambient use cases** | Hands-free, no context switch. Text clients require you to stop and type. |
-| **Developer platform** | Build an MCP server → get a voice interface for free. |
+**Status:** ✅ done · 🚧 in progress · ⏳ planned
 
 ---
 
-## Phase 0 — Working scaffold ✅
+## Architecture
+
+Two layers, and capability lives in only one:
+
+1. **The voice host** — the transport. Mic → STT → LLM → TTS, the orb, and how MCP concepts are rendered as speech. Generic: it never knows what a calendar *is*.
+2. **MCP servers** — every capability. Private servers we write; public servers plug in via config.
+
+The voice host only learns to speak MCP better — it never implements a specific task. That belongs in a server.
+
+---
+
+## Phase 0 — Scaffold ✅
 
 - [x] Deepgram Voice Agent loop (STT → LLM → TTS, one WebSocket)
 - [x] ElevenLabs WebGL orb mapped to agent state (idle / listening / thinking / speaking)
@@ -30,105 +28,60 @@ Adding a capability = adding a server to a config file. Nothing else changes.
 - [x] LLM-driven tool calling via Deepgram function calling
 - [x] AudioWorklet mic pipeline → gapless TTS playback
 
----
+## Phase 1 — MCP host core ✅ (one item left)
 
-## Phase 1 — MCP Host core 🚧
+Connect any number of MCP servers from a config file. Route every call to the right one.
 
-Turn Fraise from a single-server app into a real MCP host.
-Connect any number of servers from a config file. Route every call to the right one.
-
-- [ ] `mcp_servers.json` — list servers by name, type (`builtin` / `stdio` / `http`), URL or command, credentials via env vars
-- [ ] `MCPManager` — connects all servers on startup, aggregates tools, routes calls, degrades gracefully if one is down
-- [ ] Tool namespacing — collisions get server prefix (`slack_search` vs `jira_search`)
-- [ ] Voice agent reads from `MCPManager` instead of the hardcoded calculator
-- [ ] Multi-tool chaining — keep calling tools until the task is done, with a step cap
-
-> **This is the unlock.** Every phase after it is just adding an entry to the config.
+- [x] `mcp_servers.json` — servers by name, type (`builtin` / `stdio` / `http`), URL/command, env-var credentials
+- [x] `MCPManager` — connects on startup, aggregates tools, routes calls, degrades if one is down
+- [x] Tool namespacing — collisions get a server prefix (`slack_search` vs `jira_search`)
+- [x] Voice agent reads from `MCPManager`, not the hardcoded calculator
+- [ ] 🚧 **Multi-tool chaining** — keep calling tools until the task is done, with a step cap. Needed for any multi-step task ("move my 2pm" = list → find slot → move).
 
 ---
 
-## Phase 2 — Public MCP servers ⏳
+## Phase 2 — Calendar ⏳
 
-Their data lives on their servers. Use their MCPs. Each is one line in `mcp_servers.json`.
+A private MCP server over your own calendar. Data and tokens stay on the backend.
 
-| Server | What you can say |
-|--------|-----------------|
-| **Slack** | "Message #general" · "What did the team say in #design today?" |
-| **Jira** | "Open a bug ticket" · "What's in my sprint?" |
-| **GitHub** | "Create an issue" · "What PRs need my review?" |
-| **Linear** | "Add a task" · "What's in my queue?" |
-| **Notion** | "Add a note to my ideas page" |
-| **Browserbase** | "Search the web for X" |
+- [ ] **Calendar MCP** (`builtin`) — wraps Google Calendar / CalDAV. Tools: `list_events`, `find_free_slot`, `move_event`, `create_event`.
+- [ ] **Speakable output** (host) — strip IDs and ISO timestamps; summarize lists; speak dates and numbers naturally.
+- [ ] **Elicitation → voice** (host) — implement MCP's elicitation spec as a spoken exchange. A tool asks for missing input, Fraise speaks the question, you answer, the tool resumes.
+- [ ] **Destructive-action confirmation** (host) — read the MCP `destructiveHint` annotation aloud before running.
 
 ---
 
-## Phase 3 — Private MCP servers ⏳
+## Phase 3 — Memory & files ⏳
 
-For private data, we build our own servers. Data stays local. Nothing phones home.
-
-- [ ] **Calendar MCP** — wraps Google Calendar API (or CalDAV). Tools: `list_events`, `create_event`, `find_free_slot`. We call their API; we own the layer.
-- [ ] **Google Meet MCP** — `create_meeting()` returns a Meet link. Builds on Calendar auth.
-- [ ] **Memory MCP** — local SQLite. Stores conversations, preferences, things you've asked Fraise to remember. Powers "remember I prefer morning meetings."
-- [ ] **File + RAG MCP** — files stored locally, embedded with sqlite-vec. Tools: `upload`, `summarize`, `ask`. Zero cloud storage.
-- [ ] **Meetings MCP** — Fraise session transcripts, indexed and searchable by voice.
-
-> The longer you use Fraise, the smarter these get about you. A competitor starts from zero.
+- [ ] **Memory MCP** (server) — local SQLite for preferences and things you ask it to remember. Feeds the calendar: "remember I prefer afternoon meetings" biases `find_free_slot`.
+- [ ] **File + RAG MCP** (server) — files local, embedded with sqlite-vec. Tools: `upload`, `summarize`, `ask`. Voice Q&A over your own documents.
+- [ ] **Progress narration** (host) — long-running calls speak MCP progress events.
 
 ---
 
-## Phase 4 — Voice-native output ⏳
+## Phase 4 — Polish ⏳
 
-MCP tools return JSON. Text clients render tables. Voice has to *speak* it well.
-
-- [ ] **Speakable output layer** — summarize lists, drop IDs and raw fields, speak dates and numbers naturally. "You have 3 meetings tomorrow. First is with design at 10am." Not `meeting_id: abc123, start_time: 2024-01-15T10:00:00Z`.
-- [ ] **Elicitation as dialogue** — MCP's elicitation spec lets servers ask for more info mid-call. In Fraise this becomes a voice exchange: "What time works?" You answer. Tool continues. First voice client to implement this.
-- [ ] **Destructive action confirmation** — tools with `destructiveHint: true` trigger a voice check before running. "That will delete 47 Jira tickets. Say yes to confirm."
-- [ ] **Progress narration** — long tool calls speak MCP progress events. "Searching your calendar… found 3 matches."
-
----
-
-## Phase 5 — Tool scale ⏳
-
-10 servers × 10 tools = 100 definitions. LLM context bloats; routing gets noisy.
-
-- [ ] **Meta-tool router** — send one `route(intent)` tool to the LLM instead of 100 definitions. It picks the server. LLM then only sees that server's tools for the actual call.
-- [ ] **Intent pre-filter** — lightweight classifier to narrow which servers are relevant before hitting the LLM.
-- [ ] **Tool health checks** — ping each server on a schedule; drop its tools if unreachable; restore when it comes back.
+- [ ] **"What can you do?"** (host) — Fraise speaks available tools grouped by server.
+- [ ] **Barge-in / interruptibility** (host) — talk over Fraise to redirect mid-sentence.
+- [ ] **Greet once per session** (host) — skip greeting on reconnect/reload.
+- [ ] **Dark / light toggle** — the orb already adapts to a `dark` class; wire the switch.
+- [ ] **Deploy** — backend + built frontend at a live URL.
 
 ---
 
-## Phase 6 — Developer platform ⏳
+## Public MCP servers
 
-If Fraise is the standard way to voice-enable any MCP server, developers build for it.
-Every MCP server in existence becomes a potential Fraise plugin.
-
-- [ ] **`fraise.json` manifest** — a spec an MCP server ships to declare how its output should be spoken (templates, summaries, confirmation prompts).
-- [ ] **`fraise add <url>`** — one command to connect a new MCP server and make its tools voice-callable.
-- [ ] **Plugin registry** — community directory of MCP servers tested with Fraise.
-- [ ] **Embedded SDK** — JS/Python package so any app can embed the Fraise voice loop against their own MCP server.
-
----
-
-## Phase 7 — UX & trust ⏳
-
-Polish that turns a demo into something people use every day.
-
-- [ ] **Greet once per session** — skip the greeting on reconnect/reload (session cookie or localStorage)
-- [ ] **"What can you do?"** — Fraise speaks available tools grouped by server. Discovery without docs.
-- [ ] **Transcript correction** — tap a misheard word, fix it, re-run. Needs Memory MCP.
-- [ ] **Dark / light mode** — the orb already adapts to a `dark` class on `<html>`; just wire a toggle.
-- [ ] **Multi-language** — Deepgram nova-3 supports it; expose a language setting.
-- [ ] **Mobile / PWA** — mic on iOS, responsive layout, offline indicator.
+Public servers (Slack, GitHub, Jira, Notion, …) are supported with no new code — the host already speaks `http` and `stdio`, so connecting one is a single entry in `mcp_servers.json`. We add them as the need arises rather than up front.
 
 ---
 
 ## Adding a capability
 
-**Public server (Phase 2)** — add one entry to `mcp_servers.json`. Restart. Done.
-
-**Private server (Phase 3+):**
-1. Write `backend/app/mcp_<name>.py` with `@mcp.tool` functions and pydantic types.
+**Private server:**
+1. Write `backend/app/mcp_<name>.py` — `@mcp.tool` functions with pydantic types.
 2. Add it to `mcp_servers.json` as `"type": "builtin"`.
-3. Voice-callable on next start. Output layer (Phase 4) picks it up automatically.
+3. Voice-callable on next start. The speakable-output layer picks it up automatically.
+
+**External server:** add one `http` / `stdio` entry to `mcp_servers.json`. Restart.
 
 The voice transport never changes. That is the point.
