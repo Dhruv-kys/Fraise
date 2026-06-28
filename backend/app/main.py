@@ -7,6 +7,7 @@
   * The built-in FastMCP server is also mounted at `/mcp` for external clients.
 """
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -24,7 +25,12 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 logger = logging.getLogger(__name__)
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-CORS_ORIGINS = ["http://localhost:5173"]
+# Comma-separated list in prod, e.g. "https://fraise-mcp.netlify.app".
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+    if o.strip()
+]
 
 
 @asynccontextmanager

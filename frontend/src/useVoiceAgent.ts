@@ -10,7 +10,9 @@ export interface Message {
 type Status = "connecting" | "online" | "error";
 export type OrbState = "idle" | "listening" | "thinking" | "speaking";
 
-const WS_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
+const WS_URL =
+  import.meta.env.VITE_BACKEND_WS_URL ??
+  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
 const INPUT_RATE = 16_000; // mic → Deepgram (must match backend audio.input)
 const OUTPUT_RATE = 24_000; // Deepgram → speaker (must match backend audio.output)
 const PLAYBACK_LEAD = 0.18; // seconds of jitter cushion before playback starts
