@@ -3,9 +3,11 @@ dist/
 .env
 *.log
 .DS_Store
+*.tsbuildinfo
 
 # Python
 __pycache__/
 .venv/
 *.pyc
 CLAUDE.md
+deploy
