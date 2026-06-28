@@ -1,6 +1,6 @@
 # Fraise — Roadmap
 
-> Voice for anything that speaks _MCP_ — over your data, which never leaves your machine.
+> Voice for anything that speaks _MCP_ — over your data, stored locally and never sold or used for training.
 
 You talk. Fraise routes your intent to the right MCP server, has a back-and-forth if it needs more, and speaks the result back. Adding a capability means adding a server to a config file.
 
@@ -42,7 +42,7 @@ Connect any number of MCP servers from a config file. Route every call to the ri
 
 ## Phase 2 — Calendar ⏳
 
-A private MCP server over your own calendar. Data and tokens stay on the backend.
+A private MCP server over your own calendar. Tokens and event data are stored on the backend, never sold or used for training. (Voice + reasoning still transit Deepgram/OpenAI under no-retention API policies until a fully-local mode lands.)
 
 - [ ] **Calendar MCP** (`builtin`) — wraps Google Calendar / CalDAV. Tools: `list_events`, `find_free_slot`, `move_event`, `create_event`.
 - [ ] **Speakable output** (host) — strip IDs and ISO timestamps; summarize lists; speak dates and numbers naturally.
