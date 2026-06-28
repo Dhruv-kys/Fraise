@@ -4,6 +4,8 @@
   <img src="assets/fraise.png" alt="Fraise" width="240" />
   <br />
   <strong><em>talk to me</em></strong>
+  <br /><br />
+  <a href="https://fraise-mcp.netlify.app"><strong>🔊 Try it live → fraise-mcp.netlify.app</strong></a>
 </p>
 
 **Voice for anything that speaks _MCP_.**
