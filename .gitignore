@@ -11,3 +11,7 @@ __pycache__/
 *.pyc
 CLAUDE.md
 deploy
+
+# Local data stores (memory, RAG)
+backend/app/data/
+*.db
