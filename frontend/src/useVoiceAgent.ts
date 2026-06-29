@@ -10,9 +10,15 @@ export interface Message {
 type Status = "connecting" | "online" | "error";
 export type OrbState = "idle" | "listening" | "thinking" | "speaking";
 
+// Prod backend (nginx + TLS on the VM). Used when no env override is set and
+// we're not on localhost, so the deployed site works without a build-time var.
+const PROD_WS_URL = "wss://54-153-130-218.sslip.io/ws";
+const isLocalHost = ["localhost", "127.0.0.1"].includes(location.hostname);
 const WS_URL =
   import.meta.env.VITE_BACKEND_WS_URL ??
-  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
+  (isLocalHost
+    ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`
+    : PROD_WS_URL);
 const INPUT_RATE = 16_000; // mic → Deepgram (must match backend audio.input)
 const OUTPUT_RATE = 24_000; // Deepgram → speaker (must match backend audio.output)
 const PLAYBACK_LEAD = 0.18; // seconds of jitter cushion before playback starts
