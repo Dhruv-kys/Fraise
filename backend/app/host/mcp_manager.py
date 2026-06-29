@@ -26,6 +26,21 @@ logger = logging.getLogger(__name__)
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "mcp_servers.json"
 _UNSAFE = re.compile(r"[^a-zA-Z0-9_-]")
 
+# Tool params the host fills from the connection — never exposed to the LLM.
+_INJECTED_PARAMS = ("session_id",)
+
+
+def _hide_injected(schema: dict) -> dict:
+    """Return a copy of an input schema with host-injected params removed."""
+    props = schema.get("properties")
+    if not props or not any(p in props for p in _INJECTED_PARAMS):
+        return schema
+    out = dict(schema)
+    out["properties"] = {k: v for k, v in props.items() if k not in _INJECTED_PARAMS}
+    if "required" in out:
+        out["required"] = [r for r in out["required"] if r not in _INJECTED_PARAMS]
+    return out
+
 
 class MCPManager:
     def __init__(self) -> None:
@@ -100,24 +115,38 @@ class MCPManager:
                 self._route[public] = (sname, t.name)
 
     def functions(self) -> list[dict]:
-        """All tools as Deepgram-compatible function declarations."""
+        """All tools as Deepgram-compatible function declarations.
+
+        Parameters named `session_id` are host-injected (see `call`) and stripped
+        here so the LLM never sees or supplies them.
+        """
         out = []
         for public, (sname, tname) in self._route.items():
             tool = next(t for t in self._servers[sname]["tools"] if t.name == tname)
             out.append({
                 "name": public,
                 "description": tool.description or "",
-                "parameters": tool.inputSchema,
+                "parameters": _hide_injected(tool.inputSchema),
             })
         return out
 
-    async def call(self, public_name: str, arguments: dict[str, Any]) -> str:
-        """Run a tool by its exposed name and return a string result."""
+    async def call(
+        self, public_name: str, arguments: dict[str, Any], session_id: str | None = None
+    ) -> str:
+        """Run a tool by its exposed name and return a string result.
+
+        If the tool declares a `session_id` parameter, the host fills it from the
+        live connection — the LLM can't see or spoof it.
+        """
         if public_name not in self._route:
             raise KeyError(f"unknown tool: {public_name!r}")
 
         sname, tname = self._route[public_name]
         server = self._servers[sname]
+
+        tool = next(t for t in server["tools"] if t.name == tname)
+        if "session_id" in (tool.inputSchema.get("properties") or {}):
+            arguments = {**arguments, "session_id": session_id or ""}
 
         if server["builtin"]:
             _, structured = await server["handle"].call_tool(tname, arguments)

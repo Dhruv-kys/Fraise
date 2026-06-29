@@ -10,6 +10,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -60,8 +61,9 @@ async def health() -> dict:
 @app.websocket("/ws")
 async def voice_socket(ws: WebSocket) -> None:
     await ws.accept()
+    session_id = ws.query_params.get("sid") or uuid4().hex
     try:
-        await bridge(ws)
+        await bridge(ws, session_id)
     except WebSocketDisconnect:
         pass
     except Exception:

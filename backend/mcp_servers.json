@@ -10,6 +10,11 @@
       "module": "app.servers.calendar",
       "attr": "mcp",
       "disabled": true
+    },
+    "memory": {
+      "type": "builtin",
+      "module": "app.servers.memory",
+      "attr": "mcp"
     }
   }
 }

@@ -38,9 +38,12 @@ PROMPT = (
     "free slots, scheduling — tell them calendar isn't connected here, so you can't "
     "see or change their schedule. Be light about it and offer to help another way. "
     "Do not attempt to access or invent calendar data.\n\n"
-    "Abilities not built yet: remembering past conversations, file uploads, and "
-    "document summarization. Be upfront and good-natured about those — they're on "
-    "the roadmap.\n\n"
+    "Memory: when the user tells you to remember, note, or keep track of something, "
+    "call the remember tool. When a question might depend on something they told you "
+    "before — a preference, a name, a detail — call recall first, then answer. Use "
+    "forget when they ask you to drop something.\n\n"
+    "Abilities not built yet: file uploads and document summarization. Be upfront and "
+    "good-natured about those — they're on the roadmap.\n\n"
     "Sound great out loud. Keep replies short — usually one or two sentences — "
     "warm, clear, and conversational. No lists, no markdown, no emoji; say "
     "numbers, dates, and symbols the way a person would speak them. Never invent "
@@ -79,11 +82,11 @@ async def _build_settings() -> dict:
     }
 
 
-async def _handle_function_call(dg, browser: WebSocket, message: dict) -> None:
+async def _handle_function_call(dg, browser: WebSocket, message: dict, session_id: str) -> None:
     for fn in message.get("functions", []):
         try:
             args = json.loads(fn.get("arguments") or "{}")
-            content = await manager.call(fn["name"], args)
+            content = await manager.call(fn["name"], args, session_id)
         except Exception as exc:
             logger.exception("tool %r failed", fn.get("name"))
             content = json.dumps({"error": str(exc)})
@@ -98,7 +101,7 @@ async def _handle_function_call(dg, browser: WebSocket, message: dict) -> None:
                     break
             if _CALENDAR_TOKEN.exists():
                 try:
-                    content = await manager.call(fn["name"], args)
+                    content = await manager.call(fn["name"], args, session_id)
                 except Exception as exc:
                     content = json.dumps({"error": str(exc)})
             else:
@@ -112,7 +115,7 @@ async def _handle_function_call(dg, browser: WebSocket, message: dict) -> None:
         }))
 
 
-async def bridge(browser: WebSocket) -> None:
+async def bridge(browser: WebSocket, session_id: str = "") -> None:
     api_key = os.environ.get("DEEPGRAM_API_KEY")
     if not api_key:
         await browser.send_json({"type": "error", "message": "DEEPGRAM_API_KEY is not set"})
@@ -160,7 +163,7 @@ async def bridge(browser: WebSocket) -> None:
                             }))
                     else:
                         step_count += 1
-                        await _handle_function_call(dg, browser, event)
+                        await _handle_function_call(dg, browser, event, session_id)
 
                 await browser.send_text(message)
 
