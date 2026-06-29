@@ -23,7 +23,7 @@ from mcp.client.streamable_http import streamablehttp_client
 
 logger = logging.getLogger(__name__)
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "mcp_servers.json"
+CONFIG_PATH = Path(__file__).resolve().parents[2] / "mcp_servers.json"
 _UNSAFE = re.compile(r"[^a-zA-Z0-9_-]")
 
 
