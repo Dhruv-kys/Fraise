@@ -63,9 +63,13 @@ frontend/
 backend/
   app/
     main.py              FastAPI app — /ws, /health, /mcp, serves frontend
-    voice_agent.py       Deepgram bridge + MCP function call handler
-    mcp_manager.py       connects to MCP servers, aggregates + routes tools
-    mcp_server.py        built-in FastMCP tools (@mcp.tool)
+    host/
+      voice_agent.py     Deepgram bridge + MCP function call handler
+      mcp_manager.py     connects to MCP servers, aggregates + routes tools
+    servers/
+      calculator.py      built-in FastMCP calculator (@mcp.tool)
+      calendar.py        Google Calendar MCP (list / free slots / create / move)
+      calendar_auth.py   Google OAuth flow (/auth/calendar)
   mcp_servers.json       MCP server config (builtin / stdio / http)
   requirements.txt
 ```
@@ -88,6 +92,11 @@ Create a `.env` at the repo root:
 DEEPGRAM_API_KEY=your_key_here
 ```
 
+Speech-to-text uses Deepgram's **Flux** model (`flux-general-en`) for real
+end-of-turn detection — a mid-sentence pause no longer splits your turn into
+multiple transcripts. Tunable via `DEEPGRAM_EOT_THRESHOLD` (0.5–0.9, default
+0.7) and `DEEPGRAM_EOT_TIMEOUT_MS` (default 5000).
+
 Start the server:
 
 ```bash
@@ -101,6 +110,22 @@ Endpoints:
 | `/health` | liveness → `{"ok": true}` |
 | `/ws` | voice WebSocket |
 | `/mcp/` | MCP server (streamable HTTP) |
+| `/auth/calendar` | starts Google Calendar OAuth |
+
+### Google Calendar (optional)
+
+The Calendar MCP works against your **personal** Google Calendar. To enable it:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+   enable the **Google Calendar API** and create an **OAuth 2.0 Client ID**
+   (type: Web application).
+2. Add the redirect URI `http://localhost:8000/auth/calendar/callback`.
+3. Download the JSON and save it as `backend/google_credentials.json`
+   (or set `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in `.env`).
+
+First time you ask about your calendar, Fraise surfaces a **Connect Calendar**
+banner — click it, pick your account, and it auto-retries the request. The
+token is cached in `backend/calendar_token.json` and refreshed automatically.
 
 ### Frontend
 
