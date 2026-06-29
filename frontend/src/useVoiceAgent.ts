@@ -19,6 +19,23 @@ const WS_URL =
   (isLocalHost
     ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`
     : PROD_WS_URL);
+// Stable per-browser id so memory persists across reloads. No login — same
+// browser is treated as the same user.
+function sessionId(): string {
+  let id = localStorage.getItem("fraise_sid");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("fraise_sid", id);
+  }
+  return id;
+}
+
+function wsUrlWithSession(): string {
+  const url = new URL(WS_URL, location.href);
+  url.searchParams.set("sid", sessionId());
+  return url.toString();
+}
+
 const INPUT_RATE = 16_000; // mic → Deepgram (must match backend audio.input)
 const OUTPUT_RATE = 24_000; // Deepgram → speaker (must match backend audio.output)
 const PLAYBACK_LEAD = 0.18; // seconds of jitter cushion before playback starts
@@ -177,7 +194,7 @@ export function useVoiceAgent() {
       playCtxRef.current = playCtx;
       playHeadRef.current = playCtx.currentTime;
 
-      const ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(wsUrlWithSession());
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
       ws.onopen = () => setStatus("online");
