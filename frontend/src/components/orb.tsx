@@ -189,15 +189,25 @@ function Scene({
       )
     } else {
       const t = u.uTime.value * 2
+      const liveIn = inputVolumeRef?.current ?? getInputVolume?.() ?? -1
+      const liveOut = outputVolumeRef?.current ?? getOutputVolume?.() ?? -1
       if (agentRef.current === null) {
         targetIn = 0
         targetOut = 0.3
       } else if (agentRef.current === "listening") {
-        targetIn = clamp01(0.55 + Math.sin(t * 3.2) * 0.35)
+        // Pulse with the real mic level; fall back to synthetic motion if absent.
+        targetIn = liveIn >= 0
+          ? clamp01(0.3 + liveIn * 1.5 + Math.sin(t * 3.2) * 0.05)
+          : clamp01(0.55 + Math.sin(t * 3.2) * 0.35)
         targetOut = 0.45
       } else if (agentRef.current === "talking") {
-        targetIn = clamp01(0.65 + Math.sin(t * 4.8) * 0.22)
-        targetOut = clamp01(0.75 + Math.sin(t * 3.6) * 0.22)
+        // Drive the orb off the agent's actual output amplitude.
+        targetOut = liveOut >= 0
+          ? clamp01(0.4 + liveOut * 1.6 + Math.sin(t * 3.6) * 0.05)
+          : clamp01(0.75 + Math.sin(t * 3.6) * 0.22)
+        targetIn = liveOut >= 0
+          ? clamp01(0.35 + liveOut * 1.1)
+          : clamp01(0.65 + Math.sin(t * 4.8) * 0.22)
       } else {
         const base = 0.38 + 0.07 * Math.sin(t * 0.7)
         const wander = 0.05 * Math.sin(t * 2.1) * Math.sin(t * 0.37 + 1.2)

@@ -26,7 +26,7 @@ const DOCK_HINT: Record<OrbState, string> = {
 };
 
 export default function App() {
-  const { messages, status, orbState, levelRef, speechSupported, toggle, authNeeded, clearAuth } = useVoiceAgent();
+  const { messages, status, orbState, levelRef, outLevelRef, speechSupported, toggle, authNeeded, clearAuth } = useVoiceAgent();
 
   // Live waveform: drive vertical scale from mic amplitude while listening.
   const waveRef = useRef<HTMLDivElement>(null);
@@ -157,7 +157,7 @@ export default function App() {
           )}
 
           <section className="assistant-stage">
-            <Orb state={orbState} onClick={toggle} />
+            <Orb state={orbState} onClick={toggle} inputLevelRef={levelRef} outputLevelRef={outLevelRef} />
 
             <div className="caption-wrap">
               <p className={`caption ${captionClass}`}>

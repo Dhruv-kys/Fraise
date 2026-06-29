@@ -17,9 +17,11 @@ const AGENT: Record<OrbState, AgentState> = {
 interface OrbProps {
   state: OrbState;
   onClick: () => void;
+  inputLevelRef?: React.RefObject<number>;
+  outputLevelRef?: React.RefObject<number>;
 }
 
-export default function Orb({ state, onClick }: OrbProps) {
+export default function Orb({ state, onClick, inputLevelRef, outputLevelRef }: OrbProps) {
   return (
     <div className={`orb-stage phase-${state}`}>
       <div className="orb-shadow" />
@@ -31,6 +33,8 @@ export default function Orb({ state, onClick }: OrbProps) {
             colors={["#F0568B", "#FFC9DD"]}
             seed={1337}
             agentState={AGENT[state]}
+            inputVolumeRef={inputLevelRef}
+            outputVolumeRef={outputLevelRef}
           />
         </Suspense>
       </button>

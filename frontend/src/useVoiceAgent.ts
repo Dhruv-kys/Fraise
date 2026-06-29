@@ -31,9 +31,11 @@ export function useVoiceAgent() {
   const [speaking, setSpeaking] = useState(false);
   const [authNeeded, setAuthNeeded] = useState<string | null>(null); // auth URL or null
 
-  // Live mic amplitude (0..1) for the orb/waveform — kept in a ref to avoid
-  // re-rendering every audio frame.
+  // Live audio amplitude (0..1), kept in refs to avoid re-rendering every frame:
+  // levelRef = mic input (drives orb while listening), outLevelRef = agent
+  // output (drives orb while speaking).
   const levelRef = useRef(0);
+  const outLevelRef = useRef(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -58,6 +60,7 @@ export function useVoiceAgent() {
       }
     }
     sourcesRef.current = [];
+    outLevelRef.current = 0;
     if (playCtxRef.current) playHeadRef.current = playCtxRef.current.currentTime;
   }, []);
 
@@ -67,7 +70,14 @@ export function useVoiceAgent() {
     if (!ctx) return;
     const int16 = new Int16Array(buf);
     const f32 = new Float32Array(int16.length);
-    for (let i = 0; i < int16.length; i++) f32[i] = int16[i] / 0x8000;
+    let sum = 0;
+    for (let i = 0; i < int16.length; i++) {
+      const x = int16[i] / 0x8000;
+      f32[i] = x;
+      sum += x * x;
+    }
+    const rms = Math.sqrt(sum / (int16.length || 1));
+    outLevelRef.current += (Math.min(1, rms * 3.2) - outLevelRef.current) * 0.5;
 
     const audio = ctx.createBuffer(1, f32.length, OUTPUT_RATE);
     audio.copyToChannel(f32, 0);
@@ -117,6 +127,7 @@ export function useVoiceAgent() {
           break;
         case "AgentAudioDone":
           setSpeaking(false);
+          outLevelRef.current = 0;
           break;
         case "auth_redirect":
           setAuthNeeded(data.url as string);
@@ -246,6 +257,7 @@ export function useVoiceAgent() {
     listening: active,
     orbState,
     levelRef,
+    outLevelRef,
     speechSupported,
     toggle,
     authNeeded,
