@@ -108,6 +108,7 @@ class MCPManager:
                 "name": public,
                 "description": tool.description or "",
                 "parameters": tool.inputSchema,
+                "client_side": True,
             })
         return out
 

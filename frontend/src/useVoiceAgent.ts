@@ -29,6 +29,7 @@ export function useVoiceAgent() {
   const [listening, setListening] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [authNeeded, setAuthNeeded] = useState<string | null>(null); // auth URL or null
 
   // Live mic amplitude (0..1) for the orb/waveform — kept in a ref to avoid
   // re-rendering every audio frame.
@@ -116,6 +117,9 @@ export function useVoiceAgent() {
           break;
         case "AgentAudioDone":
           setSpeaking(false);
+          break;
+        case "auth_redirect":
+          setAuthNeeded(data.url as string);
           break;
         case "Error":
         case "error":
@@ -244,5 +248,7 @@ export function useVoiceAgent() {
     levelRef,
     speechSupported,
     toggle,
+    authNeeded,
+    clearAuth: () => setAuthNeeded(null),
   };
 }

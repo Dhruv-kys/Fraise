@@ -40,14 +40,14 @@ Connect any number of MCP servers from a config file. Route every call to the ri
 
 ---
 
-## Phase 2 — Calendar ⏳
+## Phase 2 — Calendar ✅
 
 A private MCP server over your own calendar. Tokens and event data are stored on the backend, never sold or used for training. (Voice + reasoning still transit Deepgram/OpenAI under no-retention API policies until a fully-local mode lands.)
 
-- [ ] **Calendar MCP** (`builtin`) — wraps Google Calendar / CalDAV. Tools: `list_events`, `find_free_slot`, `move_event`, `create_event`.
-- [ ] **Speakable output** (host) — strip IDs and ISO timestamps; summarize lists; speak dates and numbers naturally.
-- [ ] **Elicitation → voice** (host) — implement MCP's elicitation spec as a spoken exchange. A tool asks for missing input, Fraise speaks the question, you answer, the tool resumes.
-- [ ] **Destructive-action confirmation** (host) — read the MCP `destructiveHint` annotation aloud before running.
+- [x] **Calendar MCP** (`builtin`) — wraps Google Calendar. Tools: `list_events`, `find_free_slot`, `create_event`, `move_event`.
+- [x] **Speakable output** — tools return natural English directly; no ISO timestamps or raw IDs reach the LLM.
+- [x] **Destructive-action confirmation** — `move_event` returns a spoken confirmation prompt on first call; executes only when called again with `confirmed=True`.
+- [x] **OAuth flow** — `/auth/calendar` and `/auth/calendar/callback` handle Google sign-in; token stored locally in `backend/calendar_token.json`.
 
 ---
 

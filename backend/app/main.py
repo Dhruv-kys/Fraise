@@ -16,9 +16,10 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.mcp_manager import manager
-from app.mcp_server import mcp
-from app.voice_agent import bridge
+from app.servers.calendar_auth import router as calendar_auth_router
+from app.host.mcp_manager import manager
+from app.servers.calculator import mcp
+from app.host.voice_agent import bridge
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
@@ -67,6 +68,7 @@ async def voice_socket(ws: WebSocket) -> None:
         logger.exception("voice bridge failed")
 
 
+app.include_router(calendar_auth_router)
 app.mount("/mcp", mcp.streamable_http_app())
 
 if FRONTEND_DIST.is_dir():

@@ -10,11 +10,15 @@ import asyncio
 import json
 import logging
 import os
+from pathlib import Path
 
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 
-from app.mcp_manager import manager
+from app.host.mcp_manager import manager
+
+_CALENDAR_TOKEN = Path(__file__).resolve().parents[1] / "calendar_token.json"
+_AUTH_TIMEOUT = 90  # seconds to wait for the user to complete OAuth
 
 logger = logging.getLogger(__name__)
 
@@ -25,21 +29,22 @@ INPUT_RATE = 16_000   # mic → agent
 OUTPUT_RATE = 24_000  # agent → speaker
 
 PROMPT = (
-    "You are Fraise, an intelligent voice assistant. You can chat naturally, do "
-    "math, and call any tools you've been given — chain as many tool calls as "
-    "needed to fully complete a task before you speak. Never stop mid-chain to "
-    "ask if you should continue; just finish the job.\n\n"
-    "Bigger abilities are on the roadmap but not built yet: calendar and Google "
-    "Meet, remembering past conversations, file uploads, and summarizing "
-    "documents. When asked for something that isn't built yet, be upfront and "
-    "good-natured: let them know it's on the roadmap and that Dhruv is building "
-    "it, then offer what you can help with today.\n\n"
+    "You are Fraise, an intelligent voice assistant. You can chat naturally and do "
+    "math. Chain as many tool calls as needed to fully complete a task before you "
+    "speak. Never stop mid-chain to ask if you should continue; just finish the job.\n\n"
+    "Math rule: always call the calculate tool for any arithmetic — never compute "
+    "in your head. This ensures accuracy and lets the result be verified.\n\n"
+    "Calendar: if the user asks anything about their calendar — events, free slots, "
+    "scheduling, moving meetings — tell them calendar support is currently being "
+    "built and will be available soon. Do not attempt to access or invent calendar "
+    "data.\n\n"
+    "Abilities not built yet: calendar, remembering past conversations, file uploads, "
+    "document summarization. Be upfront and good-natured about those — they're "
+    "on the roadmap.\n\n"
     "Sound great out loud. Keep replies short — usually one or two sentences — "
     "warm, clear, and conversational. No lists, no markdown, no emoji; say "
     "numbers, dates, and symbols the way a person would speak them. Never invent "
-    "results.\n\n"
-    "Be encouraging and genuine — match the person's energy and leave them "
-    "feeling a little better than before."
+    "results."
 )
 
 
@@ -51,7 +56,15 @@ async def _build_settings() -> dict:
             "output": {"encoding": "linear16", "sample_rate": OUTPUT_RATE, "container": "none"},
         },
         "agent": {
-            "listen": {"provider": {"type": "deepgram", "model": os.environ.get("DEEPGRAM_LISTEN_MODEL", "nova-3")}},
+            # Flux (v2) does real end-of-turn detection, so a mid-sentence pause no
+            # longer finalizes as its own utterance — one turn becomes one transcript.
+            "listen": {"provider": {
+                "type": "deepgram",
+                "version": "v2",
+                "model": os.environ.get("DEEPGRAM_LISTEN_MODEL", "flux-general-en"),
+                "eot_threshold": float(os.environ.get("DEEPGRAM_EOT_THRESHOLD", "0.7")),
+                "eot_timeout_ms": int(os.environ.get("DEEPGRAM_EOT_TIMEOUT_MS", "5000")),
+            }},
             "think": {
                 "provider": {
                     "type": os.environ.get("DEEPGRAM_THINK_TYPE", "open_ai"),
@@ -66,16 +79,31 @@ async def _build_settings() -> dict:
     }
 
 
-async def _handle_function_call(dg, message: dict) -> None:
+async def _handle_function_call(dg, browser: WebSocket, message: dict) -> None:
     for fn in message.get("functions", []):
-        if not fn.get("client_side", False):
-            continue
         try:
             args = json.loads(fn.get("arguments") or "{}")
             content = await manager.call(fn["name"], args)
         except Exception as exc:
             logger.exception("tool %r failed", fn.get("name"))
             content = json.dumps({"error": str(exc)})
+
+        if "/auth/calendar" in content and not _CALENDAR_TOKEN.exists():
+            await browser.send_text(json.dumps({"type": "auth_redirect", "url": "/auth/calendar"}))
+            logger.info("waiting up to %ds for calendar OAuth to complete", _AUTH_TIMEOUT)
+            deadline = asyncio.get_event_loop().time() + _AUTH_TIMEOUT
+            while asyncio.get_event_loop().time() < deadline:
+                await asyncio.sleep(1.5)
+                if _CALENDAR_TOKEN.exists():
+                    break
+            if _CALENDAR_TOKEN.exists():
+                try:
+                    content = await manager.call(fn["name"], args)
+                except Exception as exc:
+                    content = json.dumps({"error": str(exc)})
+            else:
+                content = "Calendar auth timed out. Please try again."
+
         await dg.send(json.dumps({
             "type": "FunctionCallResponse",
             "id": fn["id"],
@@ -132,7 +160,7 @@ async def bridge(browser: WebSocket) -> None:
                             }))
                     else:
                         step_count += 1
-                        await _handle_function_call(dg, event)
+                        await _handle_function_call(dg, browser, event)
 
                 await browser.send_text(message)
 

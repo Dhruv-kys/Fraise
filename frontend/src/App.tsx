@@ -26,7 +26,7 @@ const DOCK_HINT: Record<OrbState, string> = {
 };
 
 export default function App() {
-  const { messages, status, orbState, levelRef, speechSupported, toggle } = useVoiceAgent();
+  const { messages, status, orbState, levelRef, speechSupported, toggle, authNeeded, clearAuth } = useVoiceAgent();
 
   // Live waveform: drive vertical scale from mic amplitude while listening.
   const waveRef = useRef<HTMLDivElement>(null);
@@ -140,6 +140,21 @@ export default function App() {
               <span className="label">{pill.label}</span>
             </div>
           </header>
+
+          {authNeeded && (
+            <div className="auth-banner">
+              <span>Google Calendar needs to be connected.</span>
+              <button
+                className="auth-banner-btn"
+                onClick={() => {
+                  window.open(authNeeded, "_blank");
+                  clearAuth();
+                }}
+              >
+                Connect Calendar
+              </button>
+            </div>
+          )}
 
           <section className="assistant-stage">
             <Orb state={orbState} onClick={toggle} />

@@ -2,8 +2,14 @@
   "mcpServers": {
     "calculator": {
       "type": "builtin",
-      "module": "app.mcp_server",
+      "module": "app.servers.calculator",
       "attr": "mcp"
+    },
+    "calendar": {
+      "type": "builtin",
+      "module": "app.servers.calendar",
+      "attr": "mcp",
+      "disabled": true
     }
   }
 }
