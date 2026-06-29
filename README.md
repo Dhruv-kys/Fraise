@@ -49,6 +49,30 @@ You speak
 
 ---
 
+## Memory
+
+Fraise can remember things you tell it. Say *"remember I prefer afternoon
+meetings"* and it saves that. Later, ask *"what do you know about my meeting
+preferences?"* and it reads it back. You can also tell it to forget something.
+
+Three things make this work:
+
+- **It's local.** Everything lives in one SQLite file on the backend
+  (`backend/app/data/fraise.db`). Nothing is sent anywhere or used for training.
+  Search uses SQLite's built-in full-text engine (FTS5).
+- **It's per person.** The first time you open Fraise, your browser quietly
+  creates an id and keeps it. That id rides along on the connection, so your
+  memories are yours — a different browser sees a completely separate set.
+  (No login yet; same browser = same you. Reloading the page keeps your memory.)
+- **The AI never sees the id.** The model only knows three actions —
+  `remember`, `recall`, `forget`. Fraise stamps your id onto each call behind the
+  scenes, so the AI can't mix up one person with another or make an id up.
+
+Adding memory took exactly what the roadmap promises: one new server and one
+line in `mcp_servers.json`. The voice pipeline didn't change at all.
+
+---
+
 ## Layout
 
 ```
@@ -70,6 +94,12 @@ backend/
       calculator.py      built-in FastMCP calculator (@mcp.tool)
       calendar.py        Google Calendar MCP (list / free slots / create / move)
       calendar_auth.py   Google OAuth flow (/auth/calendar)
+      memory/            Memory MCP — remember / recall / forget
+        server.py        the @mcp.tool functions (speak plain English)
+        store.py         session-scoped SQL (what the tools call)
+    storage/
+      db.py              SQLite connection + schema migrations (shared)
+    data/                local databases live here (gitignored)
   mcp_servers.json       MCP server config (builtin / stdio / http)
   requirements.txt
 ```

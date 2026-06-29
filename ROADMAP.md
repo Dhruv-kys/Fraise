@@ -51,9 +51,9 @@ A private MCP server over your own calendar. Tokens and event data are stored on
 
 ---
 
-## Phase 3 — Memory & files ⏳
+## Phase 3 — Memory & files 🚧
 
-- [ ] **Memory MCP** (server) — local SQLite for preferences and things you ask it to remember. Feeds the calendar: "remember I prefer afternoon meetings" biases `find_free_slot`.
+- [x] **Memory MCP** (server) — local SQLite + FTS5 for preferences and things you ask it to remember. Per-user via a stable browser session id (`?sid=`), injected by the host and hidden from the LLM. Tools: `remember`, `recall`, `forget`. (Calendar bias deferred — calendar is off.)
 - [ ] **File + RAG MCP** (server) — files local, embedded with sqlite-vec. Tools: `upload`, `summarize`, `ask`. Voice Q&A over your own documents.
 - [ ] **Progress narration** (host) — long-running calls speak MCP progress events.
 
