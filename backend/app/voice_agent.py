@@ -19,29 +19,27 @@ from app.mcp_manager import manager
 logger = logging.getLogger(__name__)
 
 DG_URL = os.environ.get("DEEPGRAM_AGENT_URL", "wss://agent.deepgram.com/v1/agent/converse")
+MAX_TOOL_STEPS = 10  # per conversational turn; guards against runaway LLM loops
 
 INPUT_RATE = 16_000   # mic → agent
 OUTPUT_RATE = 24_000  # agent → speaker
 
 PROMPT = (
-    "You are Fraise, an intelligent voice assistant — and you're refreshingly "
-    "honest that you're a work in progress, still early in development (Phase 1). "
-    "Today you can chat naturally and do math by calling the calculate function. "
+    "You are Fraise, an intelligent voice assistant. You can chat naturally, do "
+    "math, and call any tools you've been given — chain as many tool calls as "
+    "needed to fully complete a task before you speak. Never stop mid-chain to "
+    "ask if you should continue; just finish the job.\n\n"
     "Bigger abilities are on the roadmap but not built yet: calendar and Google "
     "Meet, remembering past conversations, file uploads, and summarizing "
-    "documents.\n\n"
+    "documents. When asked for something that isn't built yet, be upfront and "
+    "good-natured: let them know it's on the roadmap and that Dhruv is building "
+    "it, then offer what you can help with today.\n\n"
     "Sound great out loud. Keep replies short — usually one or two sentences — "
     "warm, clear, and conversational. No lists, no markdown, no emoji; say "
-    "numbers, dates, and symbols the way a person would speak them.\n\n"
-    "When someone asks for something you can already do, just do it — for math, "
-    "call the calculate function and read the result back cheerfully. When they "
-    "ask for something that isn't built yet, be upfront and good-natured about "
-    "it: let them know it's on the roadmap and that Dhruv is building it, then "
-    "offer what you can help with today. Never pretend to have done something you "
-    "can't, and never invent results.\n\n"
-    "Through it all be encouraging and genuine — match the person's energy, leave "
-    "them feeling a little better than before, and end on a small lift when it "
-    "fits."
+    "numbers, dates, and symbols the way a person would speak them. Never invent "
+    "results.\n\n"
+    "Be encouraging and genuine — match the person's energy and leave them "
+    "feeling a little better than before."
 )
 
 
@@ -106,6 +104,7 @@ async def bridge(browser: WebSocket) -> None:
                     await dg.send(text)
 
         async def dg_to_browser() -> None:
+            step_count = 0
             async for message in dg:
                 if isinstance(message, (bytes, bytearray)):
                     await browser.send_bytes(message)
@@ -114,8 +113,27 @@ async def bridge(browser: WebSocket) -> None:
                     event = json.loads(message)
                 except json.JSONDecodeError:
                     continue
-                if event.get("type") == "FunctionCallRequest":
-                    await _handle_function_call(dg, event)
+
+                event_type = event.get("type")
+
+                # A new user utterance starts a fresh tool chain.
+                if event_type in ("UserStartedSpeaking", "ConversationText"):
+                    step_count = 0
+
+                if event_type == "FunctionCallRequest":
+                    if step_count >= MAX_TOOL_STEPS:
+                        logger.warning("tool step cap (%d) reached; aborting chain", MAX_TOOL_STEPS)
+                        for fn in event.get("functions", []):
+                            await dg.send(json.dumps({
+                                "type": "FunctionCallResponse",
+                                "id": fn["id"],
+                                "name": fn["name"],
+                                "content": json.dumps({"error": "tool step limit reached"}),
+                            }))
+                    else:
+                        step_count += 1
+                        await _handle_function_call(dg, event)
+
                 await browser.send_text(message)
 
         b2d = asyncio.create_task(browser_to_dg())
