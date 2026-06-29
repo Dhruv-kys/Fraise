@@ -28,7 +28,7 @@ The voice host only learns to speak MCP better — it never implements a specifi
 - [x] LLM-driven tool calling via Deepgram function calling
 - [x] AudioWorklet mic pipeline → gapless TTS playback
 
-## Phase 1 — MCP host core ✅ (one item left)
+## Phase 1 — MCP host core ✅
 
 Connect any number of MCP servers from a config file. Route every call to the right one.
 
@@ -36,7 +36,7 @@ Connect any number of MCP servers from a config file. Route every call to the ri
 - [x] `MCPManager` — connects on startup, aggregates tools, routes calls, degrades if one is down
 - [x] Tool namespacing — collisions get a server prefix (`slack_search` vs `jira_search`)
 - [x] Voice agent reads from `MCPManager`, not the hardcoded calculator
-- [ ] 🚧 **Multi-tool chaining** — keep calling tools until the task is done, with a step cap. Needed for any multi-step task ("move my 2pm" = list → find slot → move).
+- [x] **Multi-tool chaining** — keeps calling tools until the task is done; step cap of 10 per turn guards against runaway loops.
 
 ---
 
