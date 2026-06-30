@@ -1,117 +1,111 @@
 <p align="center">
-  <img src="assets/fraise.png" alt="Fraise" width="240" />
+  <img src="assets/fraise.png" alt="Fraise" width="200" />
 </p>
 
-<h1 align="center">Fraise 🍓</h1>
+<h1 align="center">Fraise</h1>
 
-<p align="center"><strong>🎙️ Voice for anything that speaks <em>MCP</em>.</strong></p>
+<p align="center">Voice for anything that speaks <em>MCP</em>.</p>
 
 <p align="center">
-  <a href="https://fraise-mcp.netlify.app"><strong>🔊 Try it live → fraise-mcp.netlify.app</strong></a>
+  <a href="https://fraise-mcp.netlify.app">Live demo</a>
+  &nbsp;·&nbsp;
+  <a href="ROADMAP.md">Roadmap</a>
+  &nbsp;·&nbsp;
+  <a href="https://modelcontextprotocol.io">MCP</a>
 </p>
 
-> **You speak → Fraise picks a tool → runs it → speaks back.**
-
 ---
 
-## ⚡ The idea
+Fraise is a voice-first MCP host. You speak, an LLM picks the right tool, Fraise runs it on whichever [MCP](https://modelcontextprotocol.io) server owns it, and the answer is spoken back.
 
-- **Every skill is a plug.** Calculator, memory, documents, calendar, Slack. All [MCP](https://modelcontextprotocol.io) servers, all the same shape.
-- **New skill = one line in a config file.** No rewrite.
-- **The voice layer never changes.** Ever.
+Every capability is an MCP server: a calculator, your memory, your documents, your calendar, a Slack workspace. They all share one shape, so adding a new skill is a single entry in a config file. The voice layer never changes.
 
----
+## Highlights
 
-## 🗣️ Try saying
+- **Pluggable by design.** Tools are discovered from `mcp_servers.json` at startup and routed automatically. Nothing is hardcoded.
+- **Private by default.** Memory and documents live in a local SQLite database and are scoped to your browser session. Nothing leaves the machine.
+- **Local document search.** Retrieval-augmented answers run entirely on-device, with no second model required to write the reply.
+- **Safe actions.** Destructive operations, such as moving a calendar event, ask for spoken confirmation before they run.
 
-> *"Remember I hate morning meetings."*
-> *"What does the handbook say about reimbursements?"*
-> *"What's forty-two times nineteen?"*
+## Capabilities
 
-Three skills are live today:
+| Capability | Status | Description |
+|------------|--------|-------------|
+| Memory | Live | Remembers what you tell it. Local and scoped to your browser. |
+| Documents | Live | Upload a PDF, Markdown, or text file and ask about it. |
+| Calendar | Opt-in | Reads and moves Google Calendar events once you connect an account. |
+| Calculator | Live | Reliable arithmetic, computed by a tool rather than the model. |
 
-- 🧠 **Memory** — remembers what you tell it. Local, tied to your browser, yours alone.
-- 📄 **Documents** — upload a PDF, Markdown, or text file and ask. Read on your machine, answered from the real text.
-- 📅 **Calendar** — reads and moves Google Calendar events. Off until you connect it, and it asks before it changes anything.
+## Architecture
 
----
+- The browser captures microphone audio and streams it over a WebSocket to [Deepgram Voice Agent](https://developers.deepgram.com/docs/voice-agent), which handles speech-to-text, the language model, and text-to-speech in one connection.
+- When the model selects a tool, the `MCPManager` routes the call to the server that owns it and returns the result to the conversation.
+- That router is the core of the project. It reads the server list on startup, aggregates every tool, and resolves name collisions with a server prefix.
 
-## 🔧 How it works
+## Document search
 
-- 🎤 You talk. Audio streams over a WebSocket to [Deepgram Voice Agent](https://developers.deepgram.com/docs/voice-agent) (speech-to-text, the LLM, and text-to-speech in one place).
-- 🧭 The model picks a tool. **Fraise routes the call to whichever MCP server owns it** and feeds the result back.
-- 🪄 That router *is* the project. It reads the server list on startup, grabs every tool, hardcodes none.
+Document questions are answered by retrieval, in four on-device stages:
 
----
+- **Late chunking.** The full document is embedded first and split afterward, so each chunk keeps its surrounding context instead of losing it.
+- **Local embeddings.** `jina-embeddings-v2-small-en` runs through ONNX Runtime. No PyTorch, no external calls.
+- **Hybrid search.** A semantic vector search (`sqlite-vec`) and a keyword search (SQLite FTS5) run together and are fused, so passages both agree on rank highest.
+- **Reranking.** A cross-encoder scores the question against each top candidate and keeps only the best few.
 
-## 🔍 Document search (RAG)
+The winning passages are handed to the voice model already in the conversation, which speaks the answer directly.
 
-Find the few lines that actually answer you. Four steps, all on your machine:
+## API
 
-- **Late chunking** → reads the whole doc *first*, then splits it, so a line like *"it renews every January"* never forgets what *"it"* was.
-- **Local embeddings** → `jina-embeddings-v2-small-en` via ONNX Runtime. No PyTorch, no cloud.
-- **Two searches, blended** → meaning-based (`sqlite-vec`) + keyword (FTS5), merged so passages both liked rise up.
-- **Final rerank** → scores your question against each top passage, keeps only the best few.
+The backend is a single FastAPI process. Base URL in development is `http://localhost:8000`.
 
-🎯 The winners go straight to the voice model, which speaks the answer. **No second model.**
-
----
-
-## 🌐 API
-
-One FastAPI process. Dev base: `http://localhost:8000`.
-
-| Method | Path | What it does |
-|--------|------|--------------|
-| `GET` | `/health` | Liveness check → `{"ok": true}` |
-| `WS` | `/ws?sid=<id>` | Voice session. Mic PCM in, audio + JSON events out. |
-| `POST` | `/upload?sid=<id>` | Add a doc (`.txt` / `.md` / `.pdf`). `400` if no readable text. |
-| `GET` | `/auth/calendar` | Start Google Calendar OAuth. |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Liveness check. Returns `{"ok": true}`. |
+| `WS` | `/ws?sid=<id>` | Voice session. Microphone PCM in; audio and JSON events out. |
+| `POST` | `/upload?sid=<id>` | Add a document (`.txt`, `.md`, `.pdf`). Returns `400` if no readable text. |
+| `GET` | `/auth/calendar` | Begins Google Calendar OAuth. |
 | `GET` | `/auth/calendar/callback` | OAuth redirect target. Stores the token locally. |
-| `*` | `/mcp/` | Fraise's tools as an MCP server (streamable HTTP). |
-| `GET` | `/` | Serves the built frontend. |
+| `*` | `/mcp/` | Fraise's own tools, exposed as an MCP server over streamable HTTP. |
+| `GET` | `/` | Serves the built frontend in production. |
 
-💡 Same `sid` on `/ws` and `/upload` = your upload is searchable in that session.
+Pass the same `sid` to `/ws` and `/upload` so an uploaded document is searchable within the same voice session.
 
----
-
-## 🧱 Components
+## Tech stack
 
 **Frontend**
-- ⚛️ React 19 + TypeScript + Vite 6
-- 🔮 Three.js orb that reacts to state (idle / listening / thinking / speaking)
-- 🎚️ Web Audio AudioWorklet → 16 kHz PCM over WebSocket
+- React 19, TypeScript, Vite 6
+- Three.js for the state-reactive orb
+- Web Audio AudioWorklet streaming 16 kHz PCM over WebSocket
 
 **Backend**
-- 🚀 FastAPI — WebSocket, upload, health, calendar OAuth
-- 🔌 FastMCP + an `MCPManager` that connects every server in `mcp_servers.json` and routes each call
-- 🗣️ Deepgram Voice Agent — Flux (`flux-general-en`) STT, `gpt-4o-mini`, Aura (`aura-2-thalia-en`) TTS
+- FastAPI for the WebSocket, upload, health, and OAuth endpoints
+- FastMCP for built-in tools, with `MCPManager` connecting and routing every server in `mcp_servers.json`
+- Deepgram Voice Agent: Flux (`flux-general-en`) STT, `gpt-4o-mini`, Aura (`aura-2-thalia-en`) TTS
 
-**Storage & search**
-- 🗄️ SQLite (`fraise.db`) for memory *and* documents
-- 🔎 FTS5 keyword search + `sqlite-vec` vector search
-- 🧮 ONNX `jina-embeddings-v2-small-en` embeddings + fastembed reranker
+**Storage and search**
+- SQLite (`fraise.db`) for both memory and documents
+- SQLite FTS5 for keyword search, `sqlite-vec` for vectors
+- ONNX Runtime (`jina-embeddings-v2-small-en`) embeddings with a fastembed reranker
 
----
+## Getting started
 
-## ▶️ Run it
-
-Drop `DEEPGRAM_API_KEY` in a `.env` at the repo root, then:
+Add `DEEPGRAM_API_KEY` to a `.env` file at the repository root, then:
 
 ```bash
-# backend
+# Backend
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
+```
 
-# frontend (another terminal)
+```bash
+# Frontend (in a second terminal)
 cd frontend
 npm install && npm run dev
 ```
 
-👉 Open <http://localhost:5173>, start the backend first, click the orb, and talk.
+Open <http://localhost:5173>. Start the backend first, then click the orb and begin talking.
 
----
+## Roadmap
 
-<p align="center"><sub>Where it's headed → <a href="ROADMAP.md">ROADMAP.md</a></sub></p>
+See [ROADMAP.md](ROADMAP.md) for planned work and the longer-term direction.
