@@ -30,7 +30,8 @@ You speak
                  ├─ Jira MCP     (public)
                  ├─ Calendar MCP (private — built by us)
                  ├─ Memory MCP   (private — local SQLite)
-                 └─ Calculator   (built-in, today)
+                 ├─ Documents MCP(private — local RAG over your files)
+            └─ Calculator   (built-in, today)
   └─ result → LLM → Deepgram TTS → you hear it
 ```
 
@@ -73,6 +74,46 @@ line in `mcp_servers.json`. The voice pipeline didn't change at all.
 
 ---
 
+## Documents
+
+Drop in a text file, Markdown doc, or PDF, then ask about it out loud. *"What
+does the handbook say about reimbursements?"* Fraise finds the passages that
+actually answer the question and reads back a grounded answer. Files go in
+through the **Add a document** box in the sidebar (or a plain `POST /upload`);
+they never travel over the voice channel.
+
+Finding the right passage is three steps:
+
+- **Late chunking.** Most systems split a document into chunks first, then turn
+  each chunk into a vector on its own — so a chunk that says *"it renews every
+  January"* has already forgotten what *"it"* was. Fraise embeds the whole
+  document in one pass and splits it into chunks afterward, so each chunk's
+  vector still carries the context around it. That needs a long-context model
+  that exposes per-token output, so the encoder is `jina-embeddings-v2-small-en`
+  run through ONNX Runtime: local, no PyTorch, loaded once when the server
+  starts.
+- **Two searches, merged.** A meaning-based vector search (catches paraphrases)
+  runs next to a keyword BM25 search (catches the exact stuff — names, codes,
+  IDs). Their two ranked lists are combined with Reciprocal Rank Fusion, which
+  rewards the chunks both searches agreed on. The vectors live in SQLite via
+  `sqlite-vec`; BM25 is SQLite's own FTS5. Same `fraise.db` as memory.
+- **A reranker breaks the tie.** The first two steps are fast but rough. The
+  best ~30 candidates go through a cross-encoder that reads the question and
+  each passage *together* and scores how well they actually match. The top few
+  survive.
+
+Fraise never runs a second model to write the answer. It hands the winning
+passages back to the voice model already in the conversation, and that model
+speaks the reply. Everything except the voice runs on your machine. The encoder
+and reranker download once on first use and are cached after that.
+
+Privacy is the same as memory: documents are stored locally in `fraise.db`,
+scoped to your browser's id, and the AI only ever sees three actions — `ask`,
+`summarize`, and `list_documents`. And like everything here, it was one new
+server plus one line in `mcp_servers.json`.
+
+---
+
 ## Layout
 
 ```
@@ -97,6 +138,13 @@ backend/
       memory/            Memory MCP — remember / recall / forget
         server.py        the @mcp.tool functions (speak plain English)
         store.py         session-scoped SQL (what the tools call)
+      rag/               Documents MCP — ask / summarize / list_documents
+        server.py        the @mcp.tool functions (speak plain English)
+        store.py         late chunking + hybrid search + rerank
+        embeddings.py    ONNX long-context encoder (per-token, for late chunking)
+        reranker.py      cross-encoder reranker (fastembed)
+        extract.py       pull text out of txt / md / pdf
+        chunk.py         chunk-boundary helper
     storage/
       db.py              SQLite connection + schema migrations (shared)
     data/                local databases live here (gitignored)
@@ -139,6 +187,7 @@ Endpoints:
 |------|-----------|
 | `/health` | liveness → `{"ok": true}` |
 | `/ws` | voice WebSocket |
+| `/upload` | add a document to the RAG store (`?sid=` + a file) |
 | `/mcp/` | MCP server (streamable HTTP) |
 | `/auth/calendar` | starts Google Calendar OAuth |
 
@@ -180,4 +229,5 @@ cd frontend && npm run build
 ## Tech
 
 React 19 · TypeScript · Vite 6 · Three.js (orb) · Web Audio API  
-FastAPI · FastMCP · pydantic · Deepgram Voice Agent · Python 3.11+
+FastAPI · FastMCP · pydantic · Deepgram Voice Agent · Python 3.11+  
+SQLite (FTS5) · sqlite-vec · ONNX Runtime (jina-embeddings-v2-small-en) · fastembed reranker
