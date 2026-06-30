@@ -54,7 +54,7 @@ A private MCP server over your own calendar. Tokens and event data are stored on
 ## Phase 3 — Memory & files 🚧
 
 - [x] **Memory MCP** (server) — local SQLite + FTS5 for preferences and things you ask it to remember. Per-user via a stable browser session id (`?sid=`), injected by the host and hidden from the LLM. Tools: `remember`, `recall`, `forget`. (Calendar bias deferred — calendar is off.)
-- [ ] **File + RAG MCP** (server) — files local, embedded with sqlite-vec. Tools: `upload`, `summarize`, `ask`. Voice Q&A over your own documents.
+- [x] **File + RAG MCP** (server) — files local, embedded with sqlite-vec. Upload via `POST /upload` (+ sidebar drag-drop); voice tools `ask`, `summarize`, `list_documents`. Hybrid retrieval (dense + BM25, RRF-fused), **late chunking** with a local ONNX long-context encoder (jina-embeddings-v2-small-en, no torch), and a cross-encoder reranker. Generation reuses the voice LLM — tools return passages, the LLM speaks the answer.
 - [ ] **Progress narration** (host) — long-running calls speak MCP progress events.
 
 ---
