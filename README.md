@@ -10,7 +10,11 @@
 
 **Voice for anything that speaks _MCP_.**
 
-You talk. An LLM picks a tool, Fraise runs it on whichever MCP server owns it, and speaks the result back. Every capability is an MCP server. Adding one is a line in a config file; the voice layer never changes.
+> *"Remember I hate morning meetings."*
+> *"What does the handbook say about reimbursements?"*
+> *"What's forty-two times nineteen?"*
+
+Say it out loud and Fraise answers out loud. Under the hood an LLM picks a tool, Fraise runs it on whichever MCP server owns it, and speaks the result back. Every capability (a calculator, your memory, your documents, your calendar, a Slack workspace) is just an MCP server. Want a new skill? Add a line to a config file. The voice layer never changes, ever.
 
 ---
 
@@ -41,11 +45,11 @@ mic audio (16 kHz PCM) -> /ws WebSocket -> Deepgram Voice Agent
 
 Toggle any server with `"disabled"` in [backend/mcp_servers.json](backend/mcp_servers.json).
 
-**Memory.** Per-browser session id (`?sid=`) injected by the host, never seen by the LLM. Stored locally in `fraise.db`, searched with FTS5. Nothing leaves the machine.
+**Memory** — *"remember I prefer afternoons."* It sticks. Your browser gets a session id (`?sid=`) that the host injects on every call and the LLM never sees, so your notes are yours and nobody else's. Stored locally in `fraise.db`, searched with FTS5. Nothing leaves the machine.
 
-**Documents (RAG).** Upload `.txt` / `.md` / `.pdf` via the sidebar or `POST /upload`. Retrieval is: late chunking (embed the whole doc, then split, so chunk vectors keep context) with a local ONNX encoder `jina-embeddings-v2-small-en`, dense + BM25 search fused by RRF, then a cross-encoder rerank. The voice LLM speaks the answer from the winning passages; no second model runs. Scoped per session id.
+**Documents (RAG)** — *"what does the contract say about renewal?"* Drop a `.txt` / `.md` / `.pdf` in the sidebar (or `POST /upload`) and ask. The clever bit: **late chunking** embeds the whole document first, then splits it, so a chunk that says *"it renews every January"* still remembers what *"it"* was. A local ONNX encoder (`jina-embeddings-v2-small-en`) does the embedding, dense and BM25 search are fused with RRF, and a cross-encoder reranks the finalists. No second model writes the answer; the voice LLM speaks straight from the winning passages. Scoped per session id.
 
-**Calendar.** Ships disabled (needs your own Google OAuth). Returns plain English (no raw IDs/timestamps). `move_event` asks for spoken confirmation before executing. Token cached locally in `calendar_token.json`.
+**Calendar** — *"move my 3pm to tomorrow."* Off by default (it needs your own Google OAuth). Speaks plain English, never raw IDs or timestamps, and anything destructive like `move_event` asks out loud before it touches your schedule. Token cached locally in `calendar_token.json`.
 
 ---
 
@@ -67,24 +71,9 @@ Pass the same `?sid=` to `/ws` and `/upload` so uploads are searchable in the sa
 
 ---
 
-## Configuration
-
-`.env` at the repo root. Only `DEEPGRAM_API_KEY` is required.
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `DEEPGRAM_API_KEY` | required | Deepgram Voice Agent auth |
-| `DEEPGRAM_THINK_MODEL` | `gpt-4o-mini` | LLM that picks tools and writes replies |
-| `DEEPGRAM_LISTEN_MODEL` | `flux-general-en` | STT model (real end-of-turn detection) |
-| `DEEPGRAM_VOICE` | `aura-2-thalia-en` | TTS voice |
-| `DEEPGRAM_EOT_THRESHOLD` | `0.7` | end-of-turn confidence, 0.5–0.9 |
-| `DEEPGRAM_EOT_TIMEOUT_MS` | `5000` | max silence before a turn ends |
-| `CORS_ORIGINS` | `http://localhost:5173` | comma-separated allowed origins |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | none | calendar OAuth (or use `google_credentials.json`) |
-
----
-
 ## Run it
+
+Set `DEEPGRAM_API_KEY` in a `.env` at the repo root, then:
 
 ```bash
 # backend
