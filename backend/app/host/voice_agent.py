@@ -42,8 +42,13 @@ PROMPT = (
     "call the remember tool. When a question might depend on something they told you "
     "before — a preference, a name, a detail — call recall first, then answer. Use "
     "forget when they ask you to drop something.\n\n"
-    "Abilities not built yet: file uploads and document summarization. Be upfront and "
-    "good-natured about those — they're on the roadmap.\n\n"
+    "Documents: the user can upload documents — text, Markdown, or PDF. Whenever a "
+    "question might touch their files, notes, or documents, call the ask tool and base "
+    "your answer only on what it returns; never guess at what a document says. Use "
+    "summarize for an overview of a document and list_documents to tell them what "
+    "they've uploaded. When you're told a document was just uploaded, call summarize "
+    "for it and give a warm one- or two-sentence summary of what it's about, then "
+    "invite them to ask questions.\n\n"
     "Sound great out loud. Keep replies short — usually one or two sentences — "
     "warm, clear, and conversational. No lists, no markdown, no emoji; say "
     "numbers, dates, and symbols the way a person would speak them. Never invent "
@@ -80,6 +85,23 @@ async def _build_settings() -> dict:
             "greeting": "Hey, you made it — I'm Fraise. It's really good to hear you. What can I do for you today?",
         },
     }
+
+
+def _translate(text: str) -> str:
+    """Map a browser 'document_uploaded' signal to a Deepgram user turn that makes
+    Fraise summarize the new document via RAG. Everything else passes through."""
+    try:
+        event = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return text
+    if event.get("type") != "document_uploaded":
+        return text
+    filename = event.get("filename") or "the document"
+    return json.dumps({
+        "type": "InjectUserMessage",
+        "content": f'I just uploaded a document called "{filename}". '
+                   "Give me a short summary of what it's about.",
+    })
 
 
 async def _handle_function_call(dg, browser: WebSocket, message: dict, session_id: str) -> None:
@@ -132,7 +154,7 @@ async def bridge(browser: WebSocket, session_id: str = "") -> None:
                 if (data := msg.get("bytes")) is not None:
                     await dg.send(data)
                 elif (text := msg.get("text")) is not None:
-                    await dg.send(text)
+                    await dg.send(_translate(text))
 
         async def dg_to_browser() -> None:
             step_count = 0
