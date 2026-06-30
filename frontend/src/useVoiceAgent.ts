@@ -36,6 +36,26 @@ function wsUrlWithSession(): string {
   return url.toString();
 }
 
+// Same origin as the voice socket, over http(s) — for the /upload endpoint.
+function httpBase(): string {
+  const url = new URL(WS_URL, location.href);
+  url.protocol = url.protocol === "wss:" ? "https:" : "http:";
+  return url.origin;
+}
+
+export async function uploadDocument(file: File): Promise<{ filename: string; chunks: number }> {
+  const url = new URL("/upload", httpBase());
+  url.searchParams.set("sid", sessionId());
+  const body = new FormData();
+  body.append("file", file);
+  const res = await fetch(url, { method: "POST", body });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `upload failed (${res.status})`);
+  }
+  return res.json();
+}
+
 const INPUT_RATE = 16_000; // mic → Deepgram (must match backend audio.input)
 const OUTPUT_RATE = 24_000; // Deepgram → speaker (must match backend audio.output)
 const PLAYBACK_LEAD = 0.18; // seconds of jitter cushion before playback starts

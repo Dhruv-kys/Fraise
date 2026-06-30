@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { useVoiceAgent, type OrbState } from "./useVoiceAgent";
+import { useEffect, useRef, useState } from "react";
+import { useVoiceAgent, uploadDocument, type OrbState } from "./useVoiceAgent";
 import Orb from "./Orb";
 import "./App.css";
 
@@ -27,6 +27,22 @@ const DOCK_HINT: Record<OrbState, string> = {
 
 export default function App() {
   const { messages, status, orbState, levelRef, outLevelRef, speechSupported, toggle, authNeeded, clearAuth } = useVoiceAgent();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [docStatus, setDocStatus] = useState<string>("");
+
+  async function handleFiles(files: FileList | null) {
+    if (!files?.length) return;
+    const file = files[0];
+    setDocStatus(`Adding ${file.name}…`);
+    try {
+      const { filename, chunks } = await uploadDocument(file);
+      setDocStatus(`Added ${filename} (${chunks} chunks)`);
+    } catch (e) {
+      setDocStatus(e instanceof Error ? e.message : "Upload failed");
+    }
+    setTimeout(() => setDocStatus(""), 4000);
+  }
 
   // Live waveform: drive vertical scale from mic amplitude while listening.
   const waveRef = useRef<HTMLDivElement>(null);
@@ -96,6 +112,26 @@ export default function App() {
             <span className="plus">+</span>
             New conversation
           </button>
+
+          <div
+            className="doc-drop"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleFiles(e.dataTransfer.files);
+            }}
+          >
+            <span className="plus">＋</span>
+            {docStatus || "Add a document"}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.md,.pdf"
+            hidden
+            onChange={(e) => handleFiles(e.target.files)}
+          />
 
           <div className="section-label">Recent</div>
 
