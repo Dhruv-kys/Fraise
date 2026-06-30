@@ -17,7 +17,14 @@ from huggingface_hub import hf_hub_download
 from transformers import AutoTokenizer
 
 _REPO = "jinaai/jina-embeddings-v2-small-en"
-_MAX_TOKENS = 8192
+# The encoder uses full O(n²) attention, so one pass over the model's whole 8192
+# context spikes memory enough to OOM a small VM. We encode the document in
+# bounded segments instead: memory stays flat, late chunking still shares context
+# within each segment, and we can index past 8192 tokens. MAX_DOC_TOKENS caps
+# pathologically long uploads.
+_SEGMENT_TOKENS = 512
+_MAX_DOC_TOKENS = 30000
+_MAX_QUERY_TOKENS = 512
 
 _lock = threading.Lock()
 _session: ort.InferenceSession | None = None
@@ -53,29 +60,41 @@ def _run(input_ids: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
 
 
 def encode_tokens(text: str) -> tuple[np.ndarray, list[tuple[int, int]]]:
-    """Encode a full document, returning (token_vectors, char_offsets).
+    """Encode a document into per-token vectors plus each token's char offsets.
 
-    Special tokens (offset (0, 0)) are dropped so spans map cleanly to substrings.
+    Tokenized once (no special tokens, so every position maps to a substring),
+    then run through the encoder in `_SEGMENT_TOKENS` slices — each wrapped in
+    CLS/SEP so the model sees a well-formed sequence — and the slice outputs are
+    concatenated back into one per-token array aligned with the offsets.
     """
     _load()
     enc = _tokenizer(
         text,
         return_offsets_mapping=True,
         truncation=True,
-        max_length=_MAX_TOKENS,
+        max_length=_MAX_DOC_TOKENS,
+        add_special_tokens=False,
         return_tensors="np",
     )
-    hidden = _run(enc["input_ids"], enc["attention_mask"])[0]  # (seq, dim)
+    ids = enc["input_ids"][0]
     offsets = enc["offset_mapping"][0]
-    keep = [i for i, (a, b) in enumerate(offsets) if b > a]
-    vectors = hidden[keep]
-    spans = [(int(offsets[i][0]), int(offsets[i][1])) for i in keep]
+    cls, sep = _tokenizer.cls_token_id, _tokenizer.sep_token_id
+
+    parts = []
+    for start in range(0, len(ids), _SEGMENT_TOKENS):
+        seg = ids[start:start + _SEGMENT_TOKENS]
+        wrapped = np.array([[cls, *seg, sep]], dtype=ids.dtype)
+        hidden = _run(wrapped, np.ones_like(wrapped))[0]
+        parts.append(hidden[1:-1])  # drop the CLS/SEP positions
+    vectors = np.concatenate(parts, axis=0) if parts else np.zeros((0, 512), np.float32)
+
+    spans = [(int(a), int(b)) for a, b in offsets]
     return vectors, spans
 
 
 def encode_query(text: str) -> np.ndarray:
     _load()
-    enc = _tokenizer(text, truncation=True, max_length=_MAX_TOKENS, return_tensors="np")
+    enc = _tokenizer(text, truncation=True, max_length=_MAX_QUERY_TOKENS, return_tensors="np")
     hidden = _run(enc["input_ids"], enc["attention_mask"])[0]
     mask = enc["attention_mask"][0].astype(np.float32)
     return _normalize(_mean_pool(hidden, mask))
