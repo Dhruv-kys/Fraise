@@ -15,6 +15,11 @@
       "type": "builtin",
       "module": "app.servers.memory",
       "attr": "mcp"
+    },
+    "rag": {
+      "type": "builtin",
+      "module": "app.servers.rag",
+      "attr": "mcp"
     }
   }
 }

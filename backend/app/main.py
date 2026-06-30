@@ -6,20 +6,23 @@
     listed there. Adding a server to that file makes its tools voice-callable.
   * The built-in FastMCP server is also mounted at `/mcp` for external clients.
 """
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
+import anyio
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.servers.calendar_auth import router as calendar_auth_router
 from app.host.mcp_manager import manager
 from app.servers.calculator import mcp
+from app.servers.rag import embeddings, extract, reranker, store as rag_store
 from app.host.voice_agent import bridge
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
@@ -39,8 +42,20 @@ CORS_ORIGINS = [
 async def lifespan(_: FastAPI):
     async with mcp.session_manager.run():
         await manager.connect_all()
+        # Load the RAG models off the event loop so the first query is fast and
+        # startup isn't blocked on the download/warm pass.
+        warm_task = asyncio.create_task(anyio.to_thread.run_sync(_warm_rag))
         yield
+        warm_task.cancel()
     await manager.aclose()
+
+
+def _warm_rag() -> None:
+    try:
+        embeddings.warm()
+        reranker.warm()
+    except Exception:
+        logger.exception("RAG warm-up failed — first query will be slow")
 
 
 app = FastAPI(title="fraise", lifespan=lifespan)
@@ -56,6 +71,20 @@ app.add_middleware(
 @app.get("/health")
 async def health() -> dict:
     return {"ok": True}
+
+
+@app.post("/upload")
+async def upload(sid: str = Query(...), file: UploadFile = ...) -> dict:
+    raw = await file.read()
+    try:
+        text = extract.extract_text(file.filename or "", raw)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not text:
+        raise HTTPException(status_code=400, detail="no readable text in that file")
+    return await anyio.to_thread.run_sync(
+        rag_store.add_document, sid, file.filename, text
+    )
 
 
 @app.websocket("/ws")
