@@ -26,22 +26,28 @@ const DOCK_HINT: Record<OrbState, string> = {
 };
 
 export default function App() {
-  const { messages, status, orbState, levelRef, outLevelRef, speechSupported, toggle, authNeeded, clearAuth } = useVoiceAgent();
+  const { messages, status, orbState, levelRef, outLevelRef, speechSupported, toggle, notifyUpload, authNeeded, clearAuth } = useVoiceAgent();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [docStatus, setDocStatus] = useState<string>("");
+  const [docs, setDocs] = useState<{ name: string; chunks: number }[]>([]);
+  const [uploading, setUploading] = useState<string>("");
+  const [docError, setDocError] = useState<string>("");
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return;
     const file = files[0];
-    setDocStatus(`Adding ${file.name}…`);
+    setUploading(file.name);
+    setDocError("");
     try {
       const { filename, chunks } = await uploadDocument(file);
-      setDocStatus(`Added ${filename} (${chunks} chunks)`);
+      setDocs((prev) => [{ name: filename, chunks }, ...prev.filter((d) => d.name !== filename)]);
+      notifyUpload(filename);
     } catch (e) {
-      setDocStatus(e instanceof Error ? e.message : "Upload failed");
+      setDocError(e instanceof Error ? e.message : "Upload failed");
+      setTimeout(() => setDocError(""), 4000);
+    } finally {
+      setUploading("");
     }
-    setTimeout(() => setDocStatus(""), 4000);
   }
 
   // Live waveform: drive vertical scale from mic amplitude while listening.
@@ -123,7 +129,7 @@ export default function App() {
             }}
           >
             <span className="plus">＋</span>
-            {docStatus || "Add a document"}
+            {uploading ? `Adding ${uploading}…` : docError || "Add a document"}
           </div>
           <input
             ref={fileInputRef}
@@ -201,6 +207,24 @@ export default function App() {
                 {waveOn && <span className="caret" />}
               </p>
             </div>
+
+            {(docs.length > 0 || uploading) && (
+              <div className="doc-chips">
+                {uploading && (
+                  <span className="doc-chip pending">
+                    <span className="doc-icon">📄</span>
+                    {uploading}…
+                  </span>
+                )}
+                {docs.map((d) => (
+                  <span key={d.name} className="doc-chip">
+                    <span className="doc-icon">📄</span>
+                    {d.name}
+                    <span className="doc-meta">{d.chunks} chunks</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </section>
 
           <footer className="dock">

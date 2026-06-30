@@ -279,6 +279,15 @@ export function useVoiceAgent() {
     else void start();
   }, [active, start, stop]);
 
+  // Tell the live agent a document was just uploaded, so it speaks about it.
+  // No-op if the voice session isn't connected — the doc is still indexed.
+  const notifyUpload = useCallback((filename: string) => {
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "document_uploaded", filename }));
+    }
+  }, []);
+
   useEffect(() => () => stop(), [stop]);
 
   const orbState: OrbState = speaking
@@ -303,6 +312,7 @@ export function useVoiceAgent() {
     outLevelRef,
     speechSupported,
     toggle,
+    notifyUpload,
     authNeeded,
     clearAuth: () => setAuthNeeded(null),
   };

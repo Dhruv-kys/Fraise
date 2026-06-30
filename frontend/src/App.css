@@ -109,6 +109,22 @@
 }
 .doc-drop:hover { background: rgba(255, 255, 255, .72); border-color: rgba(226, 58, 94, .45); }
 
+.doc-chips {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+  margin-top: 18px; max-width: 440px;
+}
+.doc-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(255, 255, 255, .72);
+  border: 1px solid rgba(120, 40, 55, .12);
+  box-shadow: 0 1px 2px rgba(120, 30, 55, .05);
+  font-size: 12.5px; font-weight: 600; color: #3E2228;
+}
+.doc-chip .doc-icon { font-size: 13px; line-height: 1; }
+.doc-chip .doc-meta { color: #B07F89; font-weight: 500; }
+.doc-chip.pending { color: #6B4750; opacity: .8; }
+
 .section-label {
   font-size: 10px; font-weight: 700; letter-spacing: .16em;
   text-transform: uppercase; color: #C0939B; padding: 18px 8px 7px;

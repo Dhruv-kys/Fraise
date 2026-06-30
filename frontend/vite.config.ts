@@ -9,6 +9,7 @@ export default defineConfig({
     proxy: {
       "/ws": { target: "ws://localhost:8000", ws: true },
       "/health": "http://localhost:8000",
+      "/upload": "http://localhost:8000",
     },
   },
 });
