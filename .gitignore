@@ -15,3 +15,6 @@ deploy
 # Local data stores (memory, RAG)
 backend/app/data/
 *.db
+
+# Local Netlify folder
+.netlify
