@@ -6,10 +6,11 @@ python-dotenv>=1.0
 websockets>=12
 google-auth-oauthlib>=1.2
 google-api-python-client>=2.100
-sqlite-vec>=0.1.6
-onnxruntime>=1.17
-transformers>=4.40
+# RAG stack — pinned to the versions verified locally for a reproducible deploy.
+sqlite-vec==0.1.9
+onnxruntime==1.27.0
+transformers==5.12.1
 huggingface_hub>=0.23
-fastembed>=0.4
+fastembed==0.8.0
 pypdf>=5.0
 numpy>=1.26
