@@ -45,11 +45,29 @@ mic audio (16 kHz PCM) -> /ws WebSocket -> Deepgram Voice Agent
 
 Toggle any server with `"disabled"` in [backend/mcp_servers.json](backend/mcp_servers.json).
 
-**Memory** — *"remember I prefer afternoons."* It sticks. Your browser gets a session id (`?sid=`) that the host injects on every call and the LLM never sees, so your notes are yours and nobody else's. Stored locally in `fraise.db`, searched with FTS5. Nothing leaves the machine.
+### Memory — *"remember I prefer afternoons."*
 
-**Documents (RAG)** — *"what does the contract say about renewal?"* Drop a `.txt` / `.md` / `.pdf` in the sidebar (or `POST /upload`) and ask. The clever bit: **late chunking** embeds the whole document first, then splits it, so a chunk that says *"it renews every January"* still remembers what *"it"* was. A local ONNX encoder (`jina-embeddings-v2-small-en`) does the embedding, dense and BM25 search are fused with RRF, and a cross-encoder reranks the finalists. No second model writes the answer; the voice LLM speaks straight from the winning passages. Scoped per session id.
+- **What it does.** Saves things you tell it and reads them back later. Three tools: `remember`, `recall`, `forget`.
+- **Per person, no login.** Your browser gets a session id (`?sid=`) on first visit. The host stamps it onto every call so your notes stay separate from everyone else's. Same browser means same you.
+- **The LLM never sees the id.** The model only chooses the action; the host injects the id afterward, so it cannot read, leak, or invent one.
+- **Fully local.** Stored in `fraise.db` and searched with SQLite's built-in full-text engine (FTS5). Nothing leaves the machine.
 
-**Calendar** — *"move my 3pm to tomorrow."* Off by default (it needs your own Google OAuth). Speaks plain English, never raw IDs or timestamps, and anything destructive like `move_event` asks out loud before it touches your schedule. Token cached locally in `calendar_token.json`.
+### Documents (RAG) — *"what does the contract say about renewal?"*
+
+Drop a `.txt` / `.md` / `.pdf` in the sidebar (or `POST /upload`) and ask about it out loud. Finding the right passage runs in four steps:
+
+- **Late chunking.** Normal RAG splits a document into chunks *first*, then embeds each chunk alone, so a chunk reading *"it renews every January"* has already forgotten what *"it"* was. Fraise embeds the **whole document in one pass**, then splits it, so every chunk's vector still carries the surrounding context.
+- **A local long-context encoder.** Late chunking needs per-token output from a model that can read the whole doc at once. That model is `jina-embeddings-v2-small-en`, run through ONNX Runtime on your machine (no PyTorch, loaded once at startup).
+- **Hybrid search (dense + BM25).** Two searches run side by side: a **dense** vector search that matches meaning (catches paraphrases) and a **BM25** keyword search that matches exact text (catches names, codes, IDs). Their two ranked lists are merged with **Reciprocal Rank Fusion**, which rewards chunks that both searches agreed on. Vectors live in SQLite via `sqlite-vec`; BM25 is FTS5; same `fraise.db`.
+- **A cross-encoder reranker.** The first three steps are fast but rough. The top candidates go through a **cross-encoder** (fastembed) that reads the question and each passage *together* and scores how well they actually match. Only the best few survive.
+- **No second model writes the reply.** The winning passages go straight back to the voice LLM already in the conversation, and it speaks the answer. Everything except the voice transit runs locally, and the encoder + reranker download once then stay cached. Scoped per session id.
+
+### Calendar — *"move my 3pm to tomorrow."*
+
+- **Off by default.** It needs your own Google OAuth credentials, so it ships disabled. Four tools: `list_events`, `find_free_slot`, `create_event`, `move_event`.
+- **Speaks human.** Tools return plain English; no raw event IDs or ISO timestamps ever reach the LLM.
+- **Confirms before it touches anything.** Destructive actions like `move_event` ask out loud first and only run when called again with confirmation.
+- **Local tokens.** OAuth runs at `/auth/calendar`; the token is cached in `calendar_token.json` and refreshed automatically.
 
 ---
 
