@@ -1,4 +1,5 @@
 html, body { margin: 0; padding: 0; height: 100%; background: #FFF4F0; }
+html.dark, html.dark body { background: #150D12; }
 
 * { box-sizing: border-box; }
 
@@ -8,6 +9,9 @@ body {
   font-family: "Hanken Grotesk", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   color: #3E2228;
   -webkit-font-smoothing: antialiased;
+  transition: background .5s ease, color .5s ease;
 }
+html.dark body { color: #F6E7EC; }
 
 ::selection { background: #FFD0D9; }
+html.dark ::selection { background: #7C2B47; }

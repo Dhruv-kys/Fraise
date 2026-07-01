@@ -49,6 +49,12 @@
 .phase-listening .orb-bloom-a,
 .phase-speaking .orb-bloom-a { opacity: 1; }
 
+.dark .orb-bloom-a {
+  background: radial-gradient(circle, #7C3350 0%, #5E3242 42%, transparent 70%);
+  opacity: .55;
+}
+.dark .orb-shadow { background: radial-gradient(closest-side, rgba(0, 0, 0, .45), transparent); }
+
 .orb {
   position: relative;
   width: 300px;

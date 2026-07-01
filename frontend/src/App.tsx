@@ -25,8 +25,45 @@ const DOCK_HINT: Record<OrbState, string> = {
   speaking: "Speaking…",
 };
 
+type Theme = "light" | "dark";
+
+// Theme lives on <html class="dark"> — the WebGL orb watches that class to
+// invert its palette, so the toggle just flips the class and persists it.
+function useTheme(): [Theme, () => void] {
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem("fraise-theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("fraise-theme", theme);
+  }, [theme]);
+  return [theme, () => setTheme((t) => (t === "dark" ? "light" : "dark"))];
+}
+
+const SunIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <circle cx="12" cy="12" r="4.2" />
+    <path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" />
+  </svg>
+);
+const MoonIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor">
+    <path d="M20 14.2A8 8 0 0 1 9.8 4a.6.6 0 0 0-.82-.74A9.2 9.2 0 1 0 20.7 15a.6.6 0 0 0-.7-.8z" />
+  </svg>
+);
+const MenuIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </svg>
+);
+
 export default function App() {
   const { messages, status, orbState, levelRef, outLevelRef, speechSupported, toggle, notifyUpload, authNeeded, clearAuth } = useVoiceAgent();
+
+  const [theme, toggleTheme] = useTheme();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [docs, setDocs] = useState<{ name: string; chunks: number }[]>([]);
@@ -105,7 +142,8 @@ export default function App() {
     <div className="stage">
       <div className="window" data-screen-label="Fraise — voice assistant">
         {/* ---------- sidebar ---------- */}
-        <aside className="sidebar">
+        {menuOpen && <button className="scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
+        <aside className={`sidebar${menuOpen ? " open" : ""}`}>
           <div className="brand">
             <div className="brand-mark" />
             <div>
@@ -114,7 +152,7 @@ export default function App() {
             </div>
           </div>
 
-          <button className="new-conv" onClick={toggle}>
+          <button className="new-conv" onClick={() => { toggle(); setMenuOpen(false); }}>
             <span className="plus">+</span>
             New conversation
           </button>
@@ -163,23 +201,45 @@ export default function App() {
               <div className="account-name">You</div>
               <div className="account-sub">Personal workspace</div>
             </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="#CDA9B0">
+            <svg width="16" height="16" viewBox="0 0 24 24">
               <circle cx="5" cy="12" r="2" />
               <circle cx="12" cy="12" r="2" />
               <circle cx="19" cy="12" r="2" />
             </svg>
           </div>
+
+          <div className="credit">made by <b>Dhruv</b></div>
         </aside>
 
         {/* ---------- main ---------- */}
         <main className="main">
           <header className="main-header">
-            <div className="status-pill">
-              <span
-                className="dot"
-                style={{ background: pill.color, boxShadow: `0 0 9px ${pill.color}` }}
-              />
-              <span className="label">{pill.label}</span>
+            <div className="header-left">
+              <button
+                className="icon-btn menu"
+                aria-label="Open menu"
+                onClick={() => setMenuOpen(true)}
+              >
+                <MenuIcon />
+              </button>
+              <div className="status-pill">
+                <span
+                  className="dot"
+                  style={{ background: pill.color, boxShadow: `0 0 9px ${pill.color}` }}
+                />
+                <span className="label">{pill.label}</span>
+              </div>
+            </div>
+
+            <div className="header-right">
+              <button
+                className="icon-btn"
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                aria-pressed={theme === "dark"}
+                onClick={toggleTheme}
+              >
+                {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+              </button>
             </div>
           </header>
 
