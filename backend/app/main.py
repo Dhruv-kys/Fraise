@@ -7,6 +7,7 @@
   * The built-in FastMCP server is also mounted at `/mcp` for external clients.
 """
 import asyncio
+import contextlib
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -46,7 +47,10 @@ async def lifespan(_: FastAPI):
         # startup isn't blocked on the download/warm pass.
         warm_task = asyncio.create_task(anyio.to_thread.run_sync(_warm_rag))
         yield
+        # Can't interrupt the worker thread itself; this just avoids an orphaned task.
         warm_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await warm_task
     await manager.aclose()
 
 
@@ -97,6 +101,8 @@ async def voice_socket(ws: WebSocket) -> None:
         pass
     except Exception:
         logger.exception("voice bridge failed")
+        with contextlib.suppress(Exception):
+            await ws.send_json({"type": "error", "message": "Voice connection failed. Please try again."})
 
 
 app.include_router(calendar_auth_router)

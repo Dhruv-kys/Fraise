@@ -6,6 +6,7 @@ no ISO timestamps — just natural language the LLM can speak directly.
 Authentication: run the OAuth flow once via GET /auth/calendar. The token
 is stored in backend/calendar_token.json and refreshed automatically.
 """
+import json
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -20,6 +21,20 @@ mcp = FastMCP("calendar", streamable_http_path="/")
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 TOKEN_PATH = Path(__file__).resolve().parents[1] / "calendar_token.json"
+AUTH_URL = "/auth/calendar"
+
+
+class CalendarAuthRequired(RuntimeError):
+    """Raised when the user needs to (re)connect Google Calendar."""
+
+
+def _auth_needed_response() -> str:
+    # The host forwards `_action` to the browser (an OAuth redirect) and re-runs
+    # the tool once auth completes. `message` is spoken if the action times out.
+    return json.dumps({
+        "_action": {"type": "auth_redirect", "url": AUTH_URL},
+        "message": "Google Calendar isn't connected yet.",
+    })
 
 TZ_NAME = os.getenv("CALENDAR_TIMEZONE", "America/New_York")
 WORK_START = int(os.getenv("CALENDAR_WORK_START", "9"))   # hour, 24h
@@ -36,19 +51,14 @@ def _tz() -> ZoneInfo:
 
 def _service():
     if not TOKEN_PATH.exists():
-        raise RuntimeError(
-            "Google Calendar is not connected. "
-            "Please visit /auth/calendar to set it up."
-        )
+        raise CalendarAuthRequired("Google Calendar isn't connected yet.")
     creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
     if not creds.valid:
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
             TOKEN_PATH.write_text(creds.to_json())
         else:
-            raise RuntimeError(
-                "Calendar credentials expired. Please reconnect at /auth/calendar."
-            )
+            raise CalendarAuthRequired("Calendar credentials expired.")
     return build("calendar", "v3", credentials=creds, cache_discovery=False)
 
 
@@ -131,8 +141,8 @@ def list_events(date: str = "") -> str:
     """
     try:
         svc = _service()
-    except RuntimeError as e:
-        return str(e)
+    except CalendarAuthRequired:
+        return _auth_needed_response()
 
     d = _parse_date(date)
     tz = _tz()
@@ -178,8 +188,8 @@ def find_free_slot(date: str, duration_minutes: int = 60) -> str:
     """
     try:
         svc = _service()
-    except RuntimeError as e:
-        return str(e)
+    except CalendarAuthRequired:
+        return _auth_needed_response()
 
     d = _parse_date(date)
     tz = _tz()
@@ -238,8 +248,8 @@ def create_event(
     """
     try:
         svc = _service()
-    except RuntimeError as e:
-        return str(e)
+    except CalendarAuthRequired:
+        return _auth_needed_response()
 
     d = _parse_date(date)
     tz = _tz()
@@ -281,8 +291,8 @@ def move_event(
     """
     try:
         svc = _service()
-    except RuntimeError as e:
-        return str(e)
+    except CalendarAuthRequired:
+        return _auth_needed_response()
 
     d = _parse_date(current_date)
     ev = _find_event_by_title(svc, event_title, d)

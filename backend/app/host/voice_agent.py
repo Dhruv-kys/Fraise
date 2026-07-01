@@ -10,15 +10,18 @@ import asyncio
 import json
 import logging
 import os
-from pathlib import Path
+import time
 
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.host.mcp_manager import manager
 
-_CALENDAR_TOKEN = Path(__file__).resolve().parents[1] / "calendar_token.json"
-_AUTH_TIMEOUT = 90  # seconds to wait for the user to complete OAuth
+# A tool may return an {"_action": {...}} envelope to ask the host to perform an
+# out-of-band step (e.g. an OAuth redirect) and re-run the tool once it's done.
+# The host stays capability-agnostic: it forwards the action to the browser and
+# polls the same tool until it stops asking. _ACTION_TIMEOUT bounds that wait.
+_ACTION_TIMEOUT = 90  # seconds
 
 logger = logging.getLogger(__name__)
 
@@ -104,30 +107,42 @@ def _translate(text: str) -> str:
     })
 
 
+async def _run_tool(fn: dict, session_id: str) -> str:
+    try:
+        args = json.loads(fn.get("arguments") or "{}")
+        return await manager.call(fn["name"], args, session_id)
+    except Exception as exc:
+        logger.exception("tool %r failed", fn.get("name"))
+        return json.dumps({"error": str(exc)})
+
+
+def _extract_action(content: str) -> dict | None:
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return data.get("_action") if isinstance(data, dict) else None
+
+
+async def _resolve_action(fn: dict, session_id: str, browser: WebSocket, action: dict) -> str:
+    await browser.send_text(json.dumps(action))
+    logger.info("tool %r requested action %r; waiting up to %ds",
+                fn.get("name"), action.get("type"), _ACTION_TIMEOUT)
+    deadline = time.monotonic() + _ACTION_TIMEOUT
+    while time.monotonic() < deadline:
+        await asyncio.sleep(1.5)
+        content = await _run_tool(fn, session_id)
+        if _extract_action(content) is None:
+            return content
+    return json.dumps({"error": "The action timed out. Please try again."})
+
+
 async def _handle_function_call(dg, browser: WebSocket, message: dict, session_id: str) -> None:
     for fn in message.get("functions", []):
-        try:
-            args = json.loads(fn.get("arguments") or "{}")
-            content = await manager.call(fn["name"], args, session_id)
-        except Exception as exc:
-            logger.exception("tool %r failed", fn.get("name"))
-            content = json.dumps({"error": str(exc)})
-
-        if "/auth/calendar" in content and not _CALENDAR_TOKEN.exists():
-            await browser.send_text(json.dumps({"type": "auth_redirect", "url": "/auth/calendar"}))
-            logger.info("waiting up to %ds for calendar OAuth to complete", _AUTH_TIMEOUT)
-            deadline = asyncio.get_event_loop().time() + _AUTH_TIMEOUT
-            while asyncio.get_event_loop().time() < deadline:
-                await asyncio.sleep(1.5)
-                if _CALENDAR_TOKEN.exists():
-                    break
-            if _CALENDAR_TOKEN.exists():
-                try:
-                    content = await manager.call(fn["name"], args, session_id)
-                except Exception as exc:
-                    content = json.dumps({"error": str(exc)})
-            else:
-                content = "Calendar auth timed out. Please try again."
+        content = await _run_tool(fn, session_id)
+        action = _extract_action(content)
+        if action:
+            content = await _resolve_action(fn, session_id, browser, action)
 
         await dg.send(json.dumps({
             "type": "FunctionCallResponse",

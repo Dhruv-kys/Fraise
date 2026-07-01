@@ -65,36 +65,45 @@ class MCPManager:
             len(self._servers), len(self._route),
         )
 
+    def _register(self, name: str, handle: Any, tools: list, builtin: bool) -> None:
+        tools = list(tools)
+        self._servers[name] = {
+            "handle": handle,
+            "tools": tools,
+            "by_name": {t.name: t for t in tools},
+            "builtin": builtin,
+        }
+
     async def _connect(self, name: str, spec: dict) -> None:
         kind = spec.get("type", "stdio")
 
         if kind == "builtin":
             module = importlib.import_module(spec["module"])
             handle = getattr(module, spec.get("attr", "mcp"))
-            tools = await handle.list_tools()
-            self._servers[name] = {"handle": handle, "tools": list(tools), "builtin": True}
+            self._register(name, handle, await handle.list_tools(), builtin=True)
+        else:
+            # Scope the connection to a local stack so a failed handshake unwinds its
+            # subprocess/socket immediately; ownership moves to the long-lived stack
+            # only once the server is fully connected.
+            async with AsyncExitStack() as scoped:
+                if kind == "http":
+                    read, write, _ = await scoped.enter_async_context(
+                        streamablehttp_client(spec["url"], headers=spec.get("headers"))
+                    )
+                else:  # stdio
+                    params = StdioServerParameters(
+                        command=spec["command"],
+                        args=spec.get("args", []),
+                        env=spec.get("env"),
+                        cwd=spec.get("cwd"),
+                    )
+                    read, write = await scoped.enter_async_context(stdio_client(params))
 
-        elif kind == "http":
-            read, write, _ = await self._stack.enter_async_context(
-                streamablehttp_client(spec["url"], headers=spec.get("headers"))
-            )
-            session = await self._stack.enter_async_context(ClientSession(read, write))
-            await session.initialize()
-            tools = (await session.list_tools()).tools
-            self._servers[name] = {"handle": session, "tools": list(tools), "builtin": False}
-
-        else:  # stdio
-            params = StdioServerParameters(
-                command=spec["command"],
-                args=spec.get("args", []),
-                env=spec.get("env"),
-                cwd=spec.get("cwd"),
-            )
-            read, write = await self._stack.enter_async_context(stdio_client(params))
-            session = await self._stack.enter_async_context(ClientSession(read, write))
-            await session.initialize()
-            tools = (await session.list_tools()).tools
-            self._servers[name] = {"handle": session, "tools": list(tools), "builtin": False}
+                session = await scoped.enter_async_context(ClientSession(read, write))
+                await session.initialize()
+                tools = (await session.list_tools()).tools
+                self._register(name, session, tools, builtin=False)
+                self._stack.push_async_callback(scoped.pop_all().aclose)
 
         count = len(self._servers[name]["tools"])
         logger.info("connected %r (%s) — %d tool(s)", name, kind, count)
@@ -122,7 +131,7 @@ class MCPManager:
         """
         out = []
         for public, (sname, tname) in self._route.items():
-            tool = next(t for t in self._servers[sname]["tools"] if t.name == tname)
+            tool = self._servers[sname]["by_name"][tname]
             out.append({
                 "name": public,
                 "description": tool.description or "",
@@ -144,7 +153,7 @@ class MCPManager:
         sname, tname = self._route[public_name]
         server = self._servers[sname]
 
-        tool = next(t for t in server["tools"] if t.name == tname)
+        tool = server["by_name"][tname]
         if "session_id" in (tool.inputSchema.get("properties") or {}):
             arguments = {**arguments, "session_id": session_id or ""}
 

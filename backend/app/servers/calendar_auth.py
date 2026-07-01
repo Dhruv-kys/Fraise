@@ -21,7 +21,7 @@ SCOPES = ["https://www.googleapis.com/auth/calendar"]
 CREDS_PATH = Path(__file__).resolve().parents[2] / "google_credentials.json"
 TOKEN_PATH  = Path(__file__).resolve().parents[1] / "calendar_token.json"
 
-_state_store: dict[str, str] = {}  # state -> nonce; single-user, in-memory is fine
+_pending_states: set[str] = set()  # outstanding OAuth state tokens; single-user, in-memory is fine
 
 REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/calendar/callback"
@@ -68,15 +68,15 @@ async def start_auth() -> RedirectResponse:
         prompt="select_account consent",
         state=state,
     )
-    _state_store[state] = state
+    _pending_states.add(state)
     return RedirectResponse(auth_url)
 
 
 @router.get("/callback")
 async def callback(code: str, state: str = "") -> HTMLResponse:
-    if state not in _state_store:
+    if state not in _pending_states:
         raise HTTPException(status_code=400, detail="Invalid OAuth state.")
-    del _state_store[state]
+    _pending_states.discard(state)
 
     flow = _build_flow()
     flow.fetch_token(code=code)

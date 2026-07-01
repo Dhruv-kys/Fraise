@@ -7,6 +7,7 @@ binary uploads can't travel over the voice channel.
 
 `session_id` is injected by the host (MCPManager) and hidden from the LLM.
 """
+import anyio
 from mcp.server.fastmcp import FastMCP
 
 from . import store
@@ -23,7 +24,7 @@ async def ask(question: str, session_id: str = "") -> str:
     """
     if not session_id:
         return ""
-    passages = store.search(session_id, question)
+    passages = await anyio.to_thread.run_sync(store.search, session_id, question)
     if not passages:
         return "I couldn't find anything about that in your documents."
     return "Here's what your documents say: " + " … ".join(passages)
@@ -37,7 +38,7 @@ async def summarize(filename: str = "", session_id: str = "") -> str:
     """
     if not session_id:
         return ""
-    text = store.get_document_text(session_id, filename)
+    text = await anyio.to_thread.run_sync(store.get_document_text, session_id, filename)
     if not text:
         return "I don't have that document to summarize."
     return "Here's the document — summarize it for the user: " + text
@@ -48,7 +49,7 @@ async def list_documents(session_id: str = "") -> str:
     """List the documents the user has uploaded."""
     if not session_id:
         return ""
-    names = store.list_documents(session_id)
+    names = await anyio.to_thread.run_sync(store.list_documents, session_id)
     if not names:
         return "You haven't uploaded any documents yet."
     return "You've uploaded: " + ", ".join(names) + "."

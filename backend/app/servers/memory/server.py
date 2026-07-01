@@ -6,6 +6,7 @@ return plain-English strings designed to be read aloud.
 `session_id` is injected by the host (MCPManager) from the live connection and
 hidden from the LLM — the model never sees or supplies it.
 """
+import anyio
 from mcp.server.fastmcp import FastMCP
 
 from . import store
@@ -22,7 +23,7 @@ async def remember(content: str, session_id: str = "") -> str:
     """
     if not session_id:
         return "I couldn't tell which session this is, so I can't save that right now."
-    store.remember(session_id, content)
+    await anyio.to_thread.run_sync(store.remember, session_id, content)
     return "Got it — I'll remember that."
 
 
@@ -35,7 +36,7 @@ async def recall(query: str = "", session_id: str = "") -> str:
     """
     if not session_id:
         return ""
-    memories = store.recall(session_id, query)
+    memories = await anyio.to_thread.run_sync(store.recall, session_id, query)
     if not memories:
         return "I don't have anything saved about that yet."
     return "Here's what I remember: " + "; ".join(memories) + "."
@@ -49,7 +50,7 @@ async def forget(query: str, session_id: str = "") -> str:
     """
     if not session_id:
         return "I couldn't tell which session this is, so I can't change anything."
-    count = store.forget(session_id, query)
+    count = await anyio.to_thread.run_sync(store.forget, session_id, query)
     if not count:
         return "I didn't find anything matching that to forget."
     return f"Done — I forgot {count} thing{'s' if count != 1 else ''}."
