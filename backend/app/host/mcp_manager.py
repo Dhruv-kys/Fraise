@@ -145,7 +145,8 @@ class MCPManager:
         out: dict[str, list[dict]] = {}
         for public, (sname, tname) in self._route.items():
             tool = self._servers[sname]["by_name"][tname]
-            description = (tool.description or "").strip().splitlines()[0] if tool.description else ""
+            stripped = (tool.description or "").strip()
+            description = stripped.splitlines()[0] if stripped else ""
             out.setdefault(sname, []).append({"name": public, "description": description})
         return out
 
@@ -168,8 +169,10 @@ class MCPManager:
             arguments = {**arguments, "session_id": session_id or ""}
 
         if server["builtin"]:
-            _, structured = await server["handle"].call_tool(tname, arguments)
-            return json.dumps(structured) if structured else ""
+            content, structured = await server["handle"].call_tool(tname, arguments)
+            if structured:
+                return json.dumps(structured)
+            return "".join(getattr(b, "text", "") for b in (content or [])).strip()
 
         result = await server["handle"].call_tool(tname, arguments)
         if getattr(result, "structuredContent", None):
