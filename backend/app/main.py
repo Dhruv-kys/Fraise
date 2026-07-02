@@ -31,7 +31,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 logger = logging.getLogger(__name__)
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-# Comma-separated list in prod, e.g. "https://fraise-mcp.netlify.app".
+# Comma-separated list in prod, e.g. "https://fraise.vercel.app".
 CORS_ORIGINS = [
     o.strip()
     for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
