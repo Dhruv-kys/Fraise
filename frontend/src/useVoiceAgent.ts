@@ -33,6 +33,8 @@ function sessionId(): string {
 function wsUrlWithSession(): string {
   const url = new URL(WS_URL, location.href);
   url.searchParams.set("sid", sessionId());
+  const name = localStorage.getItem("fraise-name");
+  if (name) url.searchParams.set("name", name);
   return url.toString();
 }
 

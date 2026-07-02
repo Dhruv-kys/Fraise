@@ -1,5 +1,7 @@
-html, body { margin: 0; padding: 0; height: 100%; background: #FFF4F0; }
-html.dark, html.dark body { background: #150D12; }
+html, body { margin: 0; padding: 0; height: 100%; background: #FAF7F2; }
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+html.dark, html.dark body { background: #271A1C; }
 
 * { box-sizing: border-box; }
 
@@ -7,11 +9,11 @@ html.dark, html.dark body { background: #150D12; }
 
 body {
   font-family: "Hanken Grotesk", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #3E2228;
+  color: #2E1B20;
   -webkit-font-smoothing: antialiased;
   transition: background .5s ease, color .5s ease;
 }
-html.dark body { color: #F6E7EC; }
+html.dark body { color: #F5EEE9; }
 
-::selection { background: #FFD0D9; }
-html.dark ::selection { background: #7C2B47; }
+::selection { background: #EBCAD2; }
+html.dark ::selection { background: #5F2A3A; }

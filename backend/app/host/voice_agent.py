@@ -59,7 +59,33 @@ PROMPT = (
 )
 
 
-async def _build_settings() -> dict:
+DEFAULT_GREETING = (
+    "Hey, you made it — I'm Fraise. It's really good to hear you. "
+    "What can I do for you today?"
+)
+
+
+def _clean_name(raw: str) -> str:
+    """Keep the name safe to drop into a prompt: printable chars, single line,
+    capped length. Guards against prompt-injection via the query string."""
+    name = "".join(ch for ch in raw if ch.isprintable() and ch not in "{}").strip()
+    return name[:40]
+
+
+async def _build_settings(user_name: str = "") -> dict:
+    name = _clean_name(user_name)
+    prompt = PROMPT
+    greeting = DEFAULT_GREETING
+    if name:
+        prompt = (
+            f"The user's name is {name}. Address them by their first name naturally "
+            "and warmly — greet them by name and use it occasionally, but don't "
+            "overuse it or start every sentence with it.\n\n"
+        ) + PROMPT
+        greeting = (
+            f"Hey {name}, you made it — I'm Fraise. It's really good to hear you. "
+            "What can I do for you today?"
+        )
     return {
         "type": "Settings",
         "audio": {
@@ -81,11 +107,11 @@ async def _build_settings() -> dict:
                     "type": os.environ.get("DEEPGRAM_THINK_TYPE", "open_ai"),
                     "model": os.environ.get("DEEPGRAM_THINK_MODEL", "gpt-4o-mini"),
                 },
-                "prompt": PROMPT,
+                "prompt": prompt,
                 "functions": manager.functions(),
             },
             "speak": {"provider": {"type": "deepgram", "model": os.environ.get("DEEPGRAM_VOICE", "aura-2-thalia-en")}},
-            "greeting": "Hey, you made it — I'm Fraise. It's really good to hear you. What can I do for you today?",
+            "greeting": greeting,
         },
     }
 
@@ -152,14 +178,14 @@ async def _handle_function_call(dg, browser: WebSocket, message: dict, session_i
         }))
 
 
-async def bridge(browser: WebSocket, session_id: str = "") -> None:
+async def bridge(browser: WebSocket, session_id: str = "", user_name: str = "") -> None:
     api_key = os.environ.get("DEEPGRAM_API_KEY")
     if not api_key:
         await browser.send_json({"type": "error", "message": "DEEPGRAM_API_KEY is not set"})
         return
 
     async with websockets.connect(DG_URL, additional_headers={"Authorization": f"Token {api_key}"}) as dg:
-        await dg.send(json.dumps(await _build_settings()))
+        await dg.send(json.dumps(await _build_settings(user_name)))
 
         async def browser_to_dg() -> None:
             while True:

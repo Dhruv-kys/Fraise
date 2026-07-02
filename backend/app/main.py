@@ -95,8 +95,9 @@ async def upload(sid: str = Query(...), file: UploadFile = ...) -> dict:
 async def voice_socket(ws: WebSocket) -> None:
     await ws.accept()
     session_id = ws.query_params.get("sid") or uuid4().hex
+    user_name = ws.query_params.get("name") or ""
     try:
-        await bridge(ws, session_id)
+        await bridge(ws, session_id, user_name)
     except WebSocketDisconnect:
         pass
     except Exception:
