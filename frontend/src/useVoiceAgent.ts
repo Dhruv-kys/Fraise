@@ -39,8 +39,6 @@ function wsUrlWithSession(): string {
   if (name) url.searchParams.set("name", name);
   if (sessionStorage.getItem("fraise-greeted")) {
     url.searchParams.set("greet", "0");
-  } else {
-    sessionStorage.setItem("fraise-greeted", "1");
   }
   return url.toString();
 }
@@ -234,7 +232,12 @@ export function useVoiceAgent() {
       const ws = new WebSocket(wsUrlWithSession());
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
-      ws.onopen = () => setStatus("online");
+      ws.onopen = () => {
+        setStatus("online");
+        // Persist here, not in wsUrlWithSession — a failed first attempt must
+        // still greet on retry, so the flag only sticks once we're really connected.
+        sessionStorage.setItem("fraise-greeted", "1");
+      };
       ws.onerror = () => setStatus("error");
       ws.onclose = () => {
         if (wsRef.current === ws) stop();
