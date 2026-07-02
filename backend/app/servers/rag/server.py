@@ -7,6 +7,8 @@ binary uploads can't travel over the voice channel.
 
 `session_id` is injected by the host (MCPManager) and hidden from the LLM.
 """
+from pathlib import Path
+
 import anyio
 from mcp.server.fastmcp import FastMCP
 
@@ -52,4 +54,6 @@ async def list_documents(session_id: str = "") -> str:
     names = await anyio.to_thread.run_sync(store.list_documents, session_id)
     if not names:
         return "You haven't uploaded any documents yet."
-    return "You've uploaded: " + ", ".join(names) + "."
+    # Speak without the extension — TTS reads ".txt" as "dot t x t" otherwise.
+    spoken = [Path(n).stem for n in names]
+    return "You've uploaded: " + ", ".join(spoken) + "."

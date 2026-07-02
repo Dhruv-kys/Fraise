@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
@@ -153,10 +154,13 @@ def _translate(text: str) -> str:
         return text
     if event.get("type") != "document_uploaded":
         return text
-    filename = event.get("filename") or "the document"
+    raw_filename = event.get("filename") or ""
+    # Drop the extension — this text becomes a conversation turn the LLM can see
+    # and echo back, and TTS reads ".txt" as "dot t x t" if it does.
+    name = Path(raw_filename).stem if raw_filename else "the document"
     return json.dumps({
         "type": "InjectUserMessage",
-        "content": f'I just uploaded a document called "{filename}". '
+        "content": f'I just uploaded a document called "{name}". '
                    "Give me a short summary of what it's about.",
     })
 

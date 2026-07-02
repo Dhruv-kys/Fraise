@@ -8,6 +8,7 @@ Reciprocal Rank Fusion, then a cross-encoder rerank.
 import re
 from contextlib import closing
 from datetime import datetime, timezone
+from pathlib import Path
 
 import sqlite_vec
 
@@ -18,9 +19,15 @@ _RRF_K = 60  # rank-fusion damping; standard default from the RRF paper
 
 
 def _match_query(text: str) -> str:
-    """Quote each word as an FTS5 phrase so user text can't be read as operators."""
+    """Quote each word as an FTS5 phrase so user text can't be read as operators.
+
+    OR-joined: bare space-separated terms mean AND in FTS5, which would require
+    every word in a natural-language question (including "what", "is", "the")
+    to appear verbatim in a chunk — zeroing out lexical matches for almost any
+    real question. OR lets BM25 rank by how many terms hit instead.
+    """
     terms = re.findall(r"\w+", text)
-    return " ".join(f'"{t}"' for t in terms)
+    return " OR ".join(f'"{t}"' for t in terms)
 
 
 def add_document(session_id: str, filename: str, text: str) -> dict:
@@ -101,15 +108,23 @@ def list_documents(session_id: str) -> list[str]:
 
 def get_document_text(session_id: str, filename: str = "", budget: int = 6000) -> str:
     with closing(connect()) as conn:
-        if filename:
-            row = conn.execute(
-                "SELECT text FROM documents "
-                "WHERE session_id = ? AND filename = ? ORDER BY id DESC LIMIT 1",
-                (session_id, filename),
-            ).fetchone()
-        else:
+        if not filename:
             row = conn.execute(
                 "SELECT text FROM documents WHERE session_id = ? ORDER BY id DESC LIMIT 1",
                 (session_id,),
             ).fetchone()
-    return row["text"][:budget] if row else ""
+            return row["text"][:budget] if row else ""
+
+        rows = conn.execute(
+            "SELECT filename, text FROM documents WHERE session_id = ? ORDER BY id DESC",
+            (session_id,),
+        ).fetchall()
+    # The LLM only ever heard the extension-less name we speak (see
+    # list_documents), so match on stem — an exact match on the stored
+    # filename would silently miss whenever it echoes that name back.
+    target = Path(filename).stem.lower()
+    match = next(
+        (r for r in rows if r["filename"] == filename or Path(r["filename"]).stem.lower() == target),
+        None,
+    )
+    return match["text"][:budget] if match else ""

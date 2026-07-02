@@ -68,25 +68,29 @@ def encode_tokens(text: str) -> tuple[np.ndarray, list[tuple[int, int]]]:
     concatenated back into one per-token array aligned with the offsets.
     """
     _load()
-    enc = _tokenizer(
-        text,
-        return_offsets_mapping=True,
-        truncation=True,
-        max_length=_MAX_DOC_TOKENS,
-        add_special_tokens=False,
-        return_tensors="np",
-    )
-    ids = enc["input_ids"][0]
-    offsets = enc["offset_mapping"][0]
-    cls, sep = _tokenizer.cls_token_id, _tokenizer.sep_token_id
+    # The Rust tokenizer mutates its own truncation/padding config on every call,
+    # so two threads calling it at once (e.g. startup warm-up racing a real
+    # upload) crash with "RuntimeError: Already borrowed". Serialize on _lock.
+    with _lock:
+        enc = _tokenizer(
+            text,
+            return_offsets_mapping=True,
+            truncation=True,
+            max_length=_MAX_DOC_TOKENS,
+            add_special_tokens=False,
+            return_tensors="np",
+        )
+        ids = enc["input_ids"][0]
+        offsets = enc["offset_mapping"][0]
+        cls, sep = _tokenizer.cls_token_id, _tokenizer.sep_token_id
 
-    parts = []
-    for start in range(0, len(ids), _SEGMENT_TOKENS):
-        seg = ids[start:start + _SEGMENT_TOKENS]
-        wrapped = np.array([[cls, *seg, sep]], dtype=ids.dtype)
-        hidden = _run(wrapped, np.ones_like(wrapped))[0]
-        parts.append(hidden[1:-1])  # drop the CLS/SEP positions
-    vectors = np.concatenate(parts, axis=0) if parts else np.zeros((0, 512), np.float32)
+        parts = []
+        for start in range(0, len(ids), _SEGMENT_TOKENS):
+            seg = ids[start:start + _SEGMENT_TOKENS]
+            wrapped = np.array([[cls, *seg, sep]], dtype=ids.dtype)
+            hidden = _run(wrapped, np.ones_like(wrapped))[0]
+            parts.append(hidden[1:-1])  # drop the CLS/SEP positions
+        vectors = np.concatenate(parts, axis=0) if parts else np.zeros((0, 512), np.float32)
 
     spans = [(int(a), int(b)) for a, b in offsets]
     return vectors, spans
@@ -94,8 +98,9 @@ def encode_tokens(text: str) -> tuple[np.ndarray, list[tuple[int, int]]]:
 
 def encode_query(text: str) -> np.ndarray:
     _load()
-    enc = _tokenizer(text, truncation=True, max_length=_MAX_QUERY_TOKENS, return_tensors="np")
-    hidden = _run(enc["input_ids"], enc["attention_mask"])[0]
+    with _lock:
+        enc = _tokenizer(text, truncation=True, max_length=_MAX_QUERY_TOKENS, return_tensors="np")
+        hidden = _run(enc["input_ids"], enc["attention_mask"])[0]
     mask = enc["attention_mask"][0].astype(np.float32)
     return _normalize(_mean_pool(hidden, mask))
 
