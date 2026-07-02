@@ -30,11 +30,18 @@ function sessionId(): string {
   return id;
 }
 
+// Greet only the tab's first connection — sessionStorage survives a reload but
+// clears when the tab closes, matching "skip greeting on reconnect/reload."
 function wsUrlWithSession(): string {
   const url = new URL(WS_URL, location.href);
   url.searchParams.set("sid", sessionId());
   const name = localStorage.getItem("fraise-name");
   if (name) url.searchParams.set("name", name);
+  if (sessionStorage.getItem("fraise-greeted")) {
+    url.searchParams.set("greet", "0");
+  } else {
+    sessionStorage.setItem("fraise-greeted", "1");
+  }
   return url.toString();
 }
 
@@ -89,6 +96,11 @@ export function useVoiceAgent() {
   const workletRef = useRef<AudioWorkletNode | null>(null);
   const playHeadRef = useRef(0); // next scheduled playback time
   const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  // Set on barge-in, cleared when the agent's next turn actually starts. Guards
+  // against trailing audio chunks Deepgram had already generated before it
+  // registered the interruption — those still arrive after UserStartedSpeaking
+  // and would otherwise keep playing over the user.
+  const mutedRef = useRef(false);
 
   const push = useCallback((role: Role, text: string) => {
     if (!text?.trim()) return;
@@ -151,6 +163,7 @@ export function useVoiceAgent() {
           setStatus("online");
           break;
         case "UserStartedSpeaking": // barge-in: cut the agent off
+          mutedRef.current = true; // drop any trailing chunks already in flight
           stopPlayback();
           setSpeaking(false);
           setThinking(false);
@@ -166,6 +179,7 @@ export function useVoiceAgent() {
           setListening(false);
           break;
         case "AgentStartedSpeaking":
+          mutedRef.current = false; // a real new turn — safe to play again
           setSpeaking(true);
           setThinking(false);
           setListening(false);
@@ -199,6 +213,7 @@ export function useVoiceAgent() {
     playCtxRef.current?.close().catch(() => {});
     playCtxRef.current = null;
     levelRef.current = 0;
+    mutedRef.current = false;
     setActive(false);
     setListening(false);
     setThinking(false);
@@ -231,7 +246,7 @@ export function useVoiceAgent() {
           } catch {
             /* ignore non-JSON */
           }
-        } else {
+        } else if (!mutedRef.current) {
           playChunk(ev.data as ArrayBuffer);
         }
       };

@@ -72,7 +72,19 @@ def _clean_name(raw: str) -> str:
     return name[:40]
 
 
-async def _build_settings(user_name: str = "") -> dict:
+def _describe_capabilities() -> str:
+    """Build a per-server capability summary from whatever's actually connected,
+    so a new MCP server is describable in 'what can you do' without editing this
+    file — only mcp_servers.json changes, matching the host's own design rule."""
+    lines = []
+    for sname, tools in manager.functions_by_server().items():
+        bullets = "; ".join(t["description"] for t in tools if t["description"])
+        if bullets:
+            lines.append(f"- {sname}: {bullets}")
+    return "\n".join(lines)
+
+
+async def _build_settings(user_name: str = "", greet: bool = True) -> dict:
     name = _clean_name(user_name)
     prompt = PROMPT
     greeting = DEFAULT_GREETING
@@ -86,33 +98,49 @@ async def _build_settings(user_name: str = "") -> dict:
             f"Hey {name}, you made it — I'm Fraise. It's really good to hear you. "
             "What can I do for you today?"
         )
+
+    capabilities = _describe_capabilities()
+    if capabilities:
+        prompt = prompt + (
+            "\n\nWhat you can do: if asked what you can do, your skills, or your "
+            "features, describe these warmly in your own words as natural sentences "
+            "grouped by theme — never recite raw tool names or read this list "
+            "verbatim.\n" + capabilities
+        )
+
+    agent: dict = {
+        # Flux (v2) does real end-of-turn detection, so a mid-sentence pause no
+        # longer finalizes as its own utterance — one turn becomes one transcript.
+        "listen": {"provider": {
+            "type": "deepgram",
+            "version": "v2",
+            "model": os.environ.get("DEEPGRAM_LISTEN_MODEL", "flux-general-en"),
+            "eot_threshold": float(os.environ.get("DEEPGRAM_EOT_THRESHOLD", "0.7")),
+            "eot_timeout_ms": int(os.environ.get("DEEPGRAM_EOT_TIMEOUT_MS", "5000")),
+        }},
+        "think": {
+            "provider": {
+                "type": os.environ.get("DEEPGRAM_THINK_TYPE", "open_ai"),
+                "model": os.environ.get("DEEPGRAM_THINK_MODEL", "gpt-4o-mini"),
+            },
+            "prompt": prompt,
+            "functions": manager.functions(),
+        },
+        "speak": {"provider": {"type": "deepgram", "model": os.environ.get("DEEPGRAM_VOICE", "aura-2-thalia-en")}},
+    }
+    # Only the first connection in a browser tab speaks the greeting; reconnects
+    # (reload, a dropped socket auto-recovering) omit it so Fraise doesn't
+    # re-introduce herself mid-conversation. See useVoiceAgent's `greet` param.
+    if greet:
+        agent["greeting"] = greeting
+
     return {
         "type": "Settings",
         "audio": {
             "input": {"encoding": "linear16", "sample_rate": INPUT_RATE},
             "output": {"encoding": "linear16", "sample_rate": OUTPUT_RATE, "container": "none"},
         },
-        "agent": {
-            # Flux (v2) does real end-of-turn detection, so a mid-sentence pause no
-            # longer finalizes as its own utterance — one turn becomes one transcript.
-            "listen": {"provider": {
-                "type": "deepgram",
-                "version": "v2",
-                "model": os.environ.get("DEEPGRAM_LISTEN_MODEL", "flux-general-en"),
-                "eot_threshold": float(os.environ.get("DEEPGRAM_EOT_THRESHOLD", "0.7")),
-                "eot_timeout_ms": int(os.environ.get("DEEPGRAM_EOT_TIMEOUT_MS", "5000")),
-            }},
-            "think": {
-                "provider": {
-                    "type": os.environ.get("DEEPGRAM_THINK_TYPE", "open_ai"),
-                    "model": os.environ.get("DEEPGRAM_THINK_MODEL", "gpt-4o-mini"),
-                },
-                "prompt": prompt,
-                "functions": manager.functions(),
-            },
-            "speak": {"provider": {"type": "deepgram", "model": os.environ.get("DEEPGRAM_VOICE", "aura-2-thalia-en")}},
-            "greeting": greeting,
-        },
+        "agent": agent,
     }
 
 
@@ -178,14 +206,14 @@ async def _handle_function_call(dg, browser: WebSocket, message: dict, session_i
         }))
 
 
-async def bridge(browser: WebSocket, session_id: str = "", user_name: str = "") -> None:
+async def bridge(browser: WebSocket, session_id: str = "", user_name: str = "", greet: bool = True) -> None:
     api_key = os.environ.get("DEEPGRAM_API_KEY")
     if not api_key:
         await browser.send_json({"type": "error", "message": "DEEPGRAM_API_KEY is not set"})
         return
 
     async with websockets.connect(DG_URL, additional_headers={"Authorization": f"Token {api_key}"}) as dg:
-        await dg.send(json.dumps(await _build_settings(user_name)))
+        await dg.send(json.dumps(await _build_settings(user_name, greet)))
 
         async def browser_to_dg() -> None:
             while True:

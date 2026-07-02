@@ -96,8 +96,9 @@ async def voice_socket(ws: WebSocket) -> None:
     await ws.accept()
     session_id = ws.query_params.get("sid") or uuid4().hex
     user_name = ws.query_params.get("name") or ""
+    greet = ws.query_params.get("greet") != "0"
     try:
-        await bridge(ws, session_id, user_name)
+        await bridge(ws, session_id, user_name, greet)
     except WebSocketDisconnect:
         pass
     except Exception:

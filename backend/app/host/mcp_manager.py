@@ -139,6 +139,16 @@ class MCPManager:
             })
         return out
 
+    def functions_by_server(self) -> dict[str, list[dict]]:
+        """Function declarations grouped by the server that owns them, for
+        building a spoken capability summary — see `functions()` for the flat form."""
+        out: dict[str, list[dict]] = {}
+        for public, (sname, tname) in self._route.items():
+            tool = self._servers[sname]["by_name"][tname]
+            description = (tool.description or "").strip().splitlines()[0] if tool.description else ""
+            out.setdefault(sname, []).append({"name": public, "description": description})
+        return out
+
     async def call(
         self, public_name: str, arguments: dict[str, Any], session_id: str | None = None
     ) -> str:

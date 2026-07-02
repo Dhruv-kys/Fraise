@@ -59,13 +59,14 @@ A private MCP server over your own calendar. Tokens and event data are stored on
 
 ---
 
-## Phase 4 — Polish ⏳
+## Phase 4 — Polish ✅
 
-- [ ] **"What can you do?"** (host) — Fraise speaks available tools grouped by server.
-- [ ] **Barge-in / interruptibility** (host) — talk over Fraise to redirect mid-sentence.
-- [ ] **Greet once per session** (host) — skip greeting on reconnect/reload.
-- [ ] **Dark / light toggle** — the orb already adapts to a `dark` class; wire the switch.
-- [ ] **Deploy** — backend + built frontend at a live URL.
+- [x] **"What can you do?"** (host) — a per-server capability summary is built at connect time from `MCPManager.functions_by_server()` and folded into the prompt, so Fraise can describe herself in her own words without the host hardcoding descriptions per server — a new server stays describable with zero host-code changes.
+- [x] **Barge-in / interruptibility** (host) — a `UserStartedSpeaking` event cuts the agent's audio immediately, and a mute gate now also drops any trailing chunks Deepgram had already generated before it registered the interruption, so talking over Fraise no longer lets her keep speaking over you.
+- [x] **Greet once per session** (host) — the frontend marks a `sessionStorage` flag on first connect and sends `?greet=0` on any reconnect within the same tab (reload or an auto-recovered dropped socket); the backend omits the `greeting` field from Deepgram's Settings when asked, so Fraise doesn't re-introduce herself mid-conversation.
+- [x] **Dark / light toggle** — theme switch in the header, persisted in `localStorage`. Editorial-wine rebrand: deep burgundy accent, ivory light / warm espresso dark, paired by hue (dark = light mode at night, not an unrelated palette). Fully flat — solid colors only, no gradients or shadows except the orb itself.
+- [x] **First-run personalization** — a one-time modal asks your name (stored client-side); the UI greeting and the voice agent's system prompt (`voice_agent.py`) both use it, so Fraise addresses you by name in text and speech.
+- [x] **Deploy** — frontend on Vercel (`fraise.vercel.app`), backend on a VM behind nginx + systemd (`deploy/nginx-fraise.conf`, `deploy/fraise.service`). Former Netlify URL now 301-redirects to Vercel via a static `_redirects` rule.
 
 ---
 
