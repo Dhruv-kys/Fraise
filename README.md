@@ -7,7 +7,7 @@
 <p align="center">Voice for anything that speaks <em>MCP</em>.</p>
 
 <p align="center">
-  <a href="https://fraise-mcp.netlify.app">Live demo</a>
+  <a href="https://fraise.vercel.app">Live demo</a>
   &nbsp;·&nbsp;
   <a href="ROADMAP.md">Roadmap</a>
   &nbsp;·&nbsp;
