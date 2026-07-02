@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useVoiceAgent, uploadDocument, type OrbState } from "./useVoiceAgent";
 import Orb from "./Orb";
 import "./App.css";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Status pill — connection state wins, otherwise the orb's phase.
 function statusPill(
@@ -421,6 +422,7 @@ export default function App() {
           </form>
         </div>
       )}
+      <SpeedInsights />
     </div>
   );
 }
