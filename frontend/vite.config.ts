@@ -4,6 +4,9 @@ import react from "@vitejs/plugin-react";
 // In dev, proxy the WebSocket + API calls to the FastAPI backend (port 8000).
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 1000,
+  },
   server: {
     port: 5173,
     proxy: {
