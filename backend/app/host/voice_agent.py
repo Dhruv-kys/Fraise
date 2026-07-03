@@ -195,19 +195,39 @@ async def _resolve_action(fn: dict, session_id: str, browser: WebSocket, action:
     return json.dumps({"error": "The action timed out. Please try again."})
 
 
-async def _handle_function_call(dg, browser: WebSocket, message: dict, session_id: str) -> None:
-    for fn in message.get("functions", []):
+async def _run_one_function_call(dg, browser: WebSocket, fn: dict, session_id: str) -> None:
+    fn_id = fn.get("id")
+    fn_name = fn.get("name", "")
+    try:
         content = await _run_tool(fn, session_id)
         action = _extract_action(content)
         if action:
             content = await _resolve_action(fn, session_id, browser, action)
+    except Exception as exc:
+        # _run_tool already guards the tool call itself; this covers everything
+        # else (e.g. _resolve_action hitting a browser socket that just closed).
+        # Without this, Deepgram never gets a FunctionCallResponse for this id
+        # and the whole turn — sometimes the whole session — goes silent.
+        logger.exception("function call %r crashed outside the tool's own error handling", fn_name)
+        content = json.dumps({"error": str(exc)})
 
-        await dg.send(json.dumps({
-            "type": "FunctionCallResponse",
-            "id": fn["id"],
-            "name": fn["name"],
-            "content": content,
-        }))
+    if fn_id is None:
+        logger.warning("function call %r had no id; can't send a response", fn_name)
+        return
+    await dg.send(json.dumps({
+        "type": "FunctionCallResponse",
+        "id": fn_id,
+        "name": fn_name,
+        "content": content,
+    }))
+
+
+async def _handle_function_call(dg, browser: WebSocket, message: dict, session_id: str) -> None:
+    # A single FunctionCallRequest can carry several independent tool calls (the
+    # LLM asking for more than one at once) — run them concurrently so total
+    # turn latency is the slowest call, not the sum of all of them.
+    functions = message.get("functions", [])
+    await asyncio.gather(*(_run_one_function_call(dg, browser, fn, session_id) for fn in functions))
 
 
 async def bridge(browser: WebSocket, session_id: str = "", user_name: str = "", greet: bool = True) -> None:
@@ -268,6 +288,14 @@ async def bridge(browser: WebSocket, session_id: str = "", user_name: str = "", 
             done, pending = await asyncio.wait({b2d, d2b}, return_when=asyncio.FIRST_COMPLETED)
             for task in pending:
                 task.cancel()
+            # asyncio.wait swallows exceptions from finished tasks — without this,
+            # a crash in either direction went completely silent: the socket stayed
+            # open but nothing was ever sent to the browser again. Re-raising lets
+            # main.py's handler report a real error instead of dead air.
+            for task in done:
+                exc = task.exception()
+                if exc is not None:
+                    raise exc
         except WebSocketDisconnect:
             b2d.cancel()
             d2b.cancel()

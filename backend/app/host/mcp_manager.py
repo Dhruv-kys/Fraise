@@ -49,6 +49,11 @@ class MCPManager:
         self._servers: dict[str, dict] = {}
         # exposed function name -> (server_name, real tool name)
         self._route: dict[str, tuple[str, str]] = {}
+        # Deepgram function declarations, built once in _build_routes since
+        # _route is static for the process lifetime — no need to redo this
+        # work on every new /ws connection.
+        self._functions_cache: list[dict] | None = None
+        self._functions_by_server_cache: dict[str, list[dict]] | None = None
 
     async def connect_all(self) -> None:
         config = json.loads(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
@@ -123,32 +128,38 @@ class MCPManager:
                 public = _UNSAFE.sub("_", public)[:64]
                 self._route[public] = (sname, t.name)
 
+        self._functions_cache = None
+        self._functions_by_server_cache = None
+
     def functions(self) -> list[dict]:
         """All tools as Deepgram-compatible function declarations.
 
         Parameters named `session_id` are host-injected (see `call`) and stripped
         here so the LLM never sees or supplies them.
         """
-        out = []
-        for public, (sname, tname) in self._route.items():
-            tool = self._servers[sname]["by_name"][tname]
-            out.append({
-                "name": public,
-                "description": tool.description or "",
-                "parameters": _hide_injected(tool.inputSchema),
-            })
-        return out
+        if self._functions_cache is None:
+            self._functions_cache = [
+                {
+                    "name": public,
+                    "description": self._servers[sname]["by_name"][tname].description or "",
+                    "parameters": _hide_injected(self._servers[sname]["by_name"][tname].inputSchema),
+                }
+                for public, (sname, tname) in self._route.items()
+            ]
+        return self._functions_cache
 
     def functions_by_server(self) -> dict[str, list[dict]]:
         """Function declarations grouped by the server that owns them, for
         building a spoken capability summary — see `functions()` for the flat form."""
-        out: dict[str, list[dict]] = {}
-        for public, (sname, tname) in self._route.items():
-            tool = self._servers[sname]["by_name"][tname]
-            stripped = (tool.description or "").strip()
-            description = stripped.splitlines()[0] if stripped else ""
-            out.setdefault(sname, []).append({"name": public, "description": description})
-        return out
+        if self._functions_by_server_cache is None:
+            out: dict[str, list[dict]] = {}
+            for public, (sname, tname) in self._route.items():
+                tool = self._servers[sname]["by_name"][tname]
+                stripped = (tool.description or "").strip()
+                description = stripped.splitlines()[0] if stripped else ""
+                out.setdefault(sname, []).append({"name": public, "description": description})
+            self._functions_by_server_cache = out
+        return self._functions_by_server_cache
 
     async def call(
         self, public_name: str, arguments: dict[str, Any], session_id: str | None = None
@@ -183,6 +194,8 @@ class MCPManager:
         await self._stack.aclose()
         self._servers.clear()
         self._route.clear()
+        self._functions_cache = None
+        self._functions_by_server_cache = None
 
 
 manager = MCPManager()
