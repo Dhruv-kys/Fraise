@@ -24,6 +24,11 @@ from app.host.mcp_manager import manager
 # polls the same tool until it stops asking. _ACTION_TIMEOUT bounds that wait.
 _ACTION_TIMEOUT = 90  # seconds
 
+# Bounds a single tool call so one wedged server (a hung http/stdio session, a
+# stuck thread) can't stall the dg_to_browser loop and silence the whole session.
+# Kept under the frontend's 20s watchdog so the LLM can still speak the error.
+_TOOL_TIMEOUT = 15  # seconds
+
 logger = logging.getLogger(__name__)
 
 DG_URL = os.environ.get("DEEPGRAM_AGENT_URL", "wss://agent.deepgram.com/v1/agent/converse")
@@ -168,7 +173,13 @@ def _translate(text: str) -> str:
 async def _run_tool(fn: dict, session_id: str) -> str:
     try:
         args = json.loads(fn.get("arguments") or "{}")
-        return await manager.call(fn["name"], args, session_id)
+        return await asyncio.wait_for(manager.call(fn["name"], args, session_id), _TOOL_TIMEOUT)
+    except asyncio.TimeoutError:
+        # wait_for cancels the inner task, freeing the dg_to_browser loop for a real
+        # asyncio hang (stuck socket read). A thread wedged in anyio.to_thread.run_sync
+        # on a non-cooperative blocking call leaks, but the session still recovers.
+        logger.warning("tool %r timed out after %ds", fn.get("name"), _TOOL_TIMEOUT)
+        return json.dumps({"error": "That took too long, so I stopped. Please try again."})
     except Exception as exc:
         logger.exception("tool %r failed", fn.get("name"))
         return json.dumps({"error": str(exc)})
