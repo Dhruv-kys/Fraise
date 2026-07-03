@@ -94,6 +94,10 @@ export function useVoiceAgent() {
   const workletRef = useRef<AudioWorkletNode | null>(null);
   const playHeadRef = useRef(0); // next scheduled playback time
   const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  // Safety net: if "thinking" never resolves (a failed think/function step that
+  // doesn't crash the bridge but also never produces a reply), don't leave the
+  // orb spinning forever — bail back to idle and tell the user.
+  const thinkingTimeoutRef = useRef<number | null>(null);
   // Set on barge-in, cleared when the agent's next turn actually starts. Guards
   // against trailing audio chunks Deepgram had already generated before it
   // registered the interruption — those still arrive after UserStartedSpeaking
@@ -152,6 +156,25 @@ export function useVoiceAgent() {
     };
   }, []);
 
+  const clearThinkingWatchdog = useCallback(() => {
+    if (thinkingTimeoutRef.current !== null) {
+      window.clearTimeout(thinkingTimeoutRef.current);
+      thinkingTimeoutRef.current = null;
+    }
+  }, []);
+
+  // A turn that never resolves (e.g. Deepgram's think/function step fails
+  // without ever closing the socket) would otherwise leave the orb spinning
+  // forever with no feedback. This guarantees it always comes back to idle.
+  const armThinkingWatchdog = useCallback(() => {
+    clearThinkingWatchdog();
+    thinkingTimeoutRef.current = window.setTimeout(() => {
+      thinkingTimeoutRef.current = null;
+      setThinking(false);
+      push("system", "That took too long — try again?");
+    }, 20_000);
+  }, [clearThinkingWatchdog, push]);
+
   // Map Deepgram Voice Agent events to UI state.
   const handleEvent = useCallback(
     (data: any) => {
@@ -161,6 +184,7 @@ export function useVoiceAgent() {
           setStatus("online");
           break;
         case "UserStartedSpeaking": // barge-in: cut the agent off
+          clearThinkingWatchdog();
           mutedRef.current = true; // drop any trailing chunks already in flight
           stopPlayback();
           setSpeaking(false);
@@ -173,10 +197,12 @@ export function useVoiceAgent() {
           break;
         case "AgentThinking":
         case "FunctionCallRequest":
+          armThinkingWatchdog();
           setThinking(true);
           setListening(false);
           break;
         case "AgentStartedSpeaking":
+          clearThinkingWatchdog();
           mutedRef.current = false; // a real new turn — safe to play again
           setSpeaking(true);
           setThinking(false);
@@ -191,14 +217,23 @@ export function useVoiceAgent() {
           break;
         case "Error":
         case "error":
+          // A fatal Deepgram error (or a bridge failure) can arrive while the
+          // orb is still showing "thinking" — without resetting state here it
+          // looks like the agent is still working when the turn has actually
+          // died, which is exactly the "shows working, never replies" symptom.
+          clearThinkingWatchdog();
+          setThinking(false);
+          setSpeaking(false);
+          setListening(false);
           push("system", data.message || data.description || "Agent error");
           break;
       }
     },
-    [push, stopPlayback],
+    [push, stopPlayback, armThinkingWatchdog, clearThinkingWatchdog],
   );
 
   const stop = useCallback(() => {
+    clearThinkingWatchdog();
     wsRef.current?.close();
     wsRef.current = null;
     workletRef.current?.disconnect();
@@ -216,7 +251,7 @@ export function useVoiceAgent() {
     setListening(false);
     setThinking(false);
     setSpeaking(false);
-  }, [stopPlayback]);
+  }, [stopPlayback, clearThinkingWatchdog]);
 
   const start = useCallback(async () => {
     try {
