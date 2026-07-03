@@ -192,8 +192,23 @@ export function useVoiceAgent() {
           setListening(true);
           break;
         case "ConversationText":
-          if (data.role === "user") push("user", data.content);
-          else if (data.role === "assistant") push("agent", data.content);
+          if (data.role === "user") {
+            push("user", data.content);
+          } else if (data.role === "assistant") {
+            push("agent", data.content);
+            // Some Deepgram Voice Agent configs never emit AgentStartedSpeaking
+            // (observed: Flux v2 listen + this think/speak setup). This text
+            // always arrives right before that turn's audio, and — because
+            // socket order is preserved — can't belong to a stale, barged-in
+            // turn once UserStartedSpeaking has already been seen. Without this,
+            // mutedRef never clears and every reply's audio gets silently
+            // dropped after the first barge-in.
+            clearThinkingWatchdog();
+            mutedRef.current = false;
+            setSpeaking(true);
+            setThinking(false);
+            setListening(false);
+          }
           break;
         case "AgentThinking":
         case "FunctionCallRequest":
