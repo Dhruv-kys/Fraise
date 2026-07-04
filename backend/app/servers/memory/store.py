@@ -47,6 +47,25 @@ def recall(session_id: str, query: str = "", limit: int = 10) -> list[str]:
     return [r["content"] for r in rows]
 
 
+def log_turn(session_id: str, role: str, content: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with closing(connect()) as conn, conn:
+        conn.execute(
+            "INSERT INTO conversation_turns (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+            (session_id, role, content, now),
+        )
+
+
+def recent_turns(session_id: str, limit: int = 12) -> list[tuple[str, str]]:
+    with closing(connect()) as conn:
+        rows = conn.execute(
+            "SELECT role, content FROM conversation_turns "
+            "WHERE session_id = ? ORDER BY id DESC LIMIT ?",
+            (session_id, limit),
+        ).fetchall()
+    return [(r["role"], r["content"]) for r in reversed(rows)]
+
+
 def forget(session_id: str, query: str) -> int:
     match = _match_query(query)
     if not match:

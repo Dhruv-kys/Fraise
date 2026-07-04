@@ -11,12 +11,15 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
+import anyio
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.host.mcp_manager import manager
+from app.servers.memory import store as memory_store
 
 # A tool may return an {"_action": {...}} envelope to ask the host to perform an
 # out-of-band step (e.g. an OAuth redirect) and re-run the tool once it's done.
@@ -61,6 +64,9 @@ PROMPT = (
     "Web search: when a question needs current information, or anything you don't "
     "already know for certain, use the search tools and answer only from what they "
     "return. Never invent a search result or a fact you're not sure of.\n\n"
+    "Weather: when asked about current weather or conditions somewhere, call "
+    "get_weather with the place name. If they haven't said where, ask before "
+    "calling it — never guess a location or invent conditions.\n\n"
     "Files: the user has a local folder Fraise can read and write. When they ask "
     "about files — listing, reading, creating, or editing one — use the filesystem "
     "tools rather than guessing at what's there.\n\n"
@@ -96,7 +102,20 @@ def _describe_capabilities() -> str:
     return "\n".join(lines)
 
 
-async def _build_settings(user_name: str = "", greet: bool = True) -> dict:
+async def _recent_context(session_id: str) -> str:
+    """Recent turns from this session_id, across reconnects and even prior
+    visits (session_id persists in the browser's localStorage) — the only
+    memory of the conversation itself, distinct from things explicitly told
+    to `remember`. Returns "" for a brand-new session with no history yet."""
+    if not session_id:
+        return ""
+    turns = await anyio.to_thread.run_sync(memory_store.recent_turns, session_id)
+    if not turns:
+        return ""
+    return "\n".join(f"{'User' if role == 'user' else 'Fraise'}: {content}" for role, content in turns)
+
+
+async def _build_settings(session_id: str = "", user_name: str = "", greet: bool = True) -> dict:
     name = _clean_name(user_name)
     prompt = PROMPT
     greeting = DEFAULT_GREETING
@@ -111,6 +130,14 @@ async def _build_settings(user_name: str = "", greet: bool = True) -> dict:
             "What can I do for you today?"
         )
 
+    now = datetime.now(timezone.utc)
+    prompt = prompt + (
+        f"\n\nToday's date is {now:%A, %B %-d, %Y}, current time {now:%H:%M} UTC. "
+        "Use this for anything involving dates, deadlines, or 'today'/'tomorrow' — "
+        "never rely on your training data for the current date. Convert to the "
+        "user's local time only if you know their timezone; otherwise say UTC."
+    )
+
     capabilities = _describe_capabilities()
     if capabilities:
         prompt = prompt + (
@@ -118,6 +145,15 @@ async def _build_settings(user_name: str = "", greet: bool = True) -> dict:
             "features, describe these warmly in your own words as natural sentences "
             "grouped by theme — never recite raw tool names or read this list "
             "verbatim.\n" + capabilities
+        )
+
+    context = await _recent_context(session_id)
+    if context:
+        prompt = prompt + (
+            "\n\nRecent conversation history with this user, carried over from "
+            "before this connection — use it for continuity (don't ask something "
+            "they already told you), but only bring it up out loud if it's "
+            "relevant or they ask what you talked about:\n" + context
         )
 
     agent: dict = {
@@ -254,7 +290,7 @@ async def bridge(browser: WebSocket, session_id: str = "", user_name: str = "", 
         return
 
     async with websockets.connect(DG_URL, additional_headers={"Authorization": f"Token {api_key}"}) as dg:
-        await dg.send(json.dumps(await _build_settings(user_name, greet)))
+        await dg.send(json.dumps(await _build_settings(session_id, user_name, greet)))
 
         async def browser_to_dg() -> None:
             while True:
@@ -282,6 +318,11 @@ async def bridge(browser: WebSocket, session_id: str = "", user_name: str = "", 
                 # A new user utterance starts a fresh tool chain.
                 if event_type in ("UserStartedSpeaking", "ConversationText"):
                     step_count = 0
+
+                if event_type == "ConversationText":
+                    role, content = event.get("role"), event.get("content")
+                    if role in ("user", "assistant") and content:
+                        await anyio.to_thread.run_sync(memory_store.log_turn, session_id, role, content)
 
                 if event_type == "FunctionCallRequest":
                     if step_count >= MAX_TOOL_STEPS:

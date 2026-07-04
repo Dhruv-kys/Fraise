@@ -46,6 +46,18 @@ _MIGRATIONS = [
         embedding float[512]
     );
     """,
+    # 3 — conversation transcript, so a new connection (reload, reconnect, a
+    # returning session days later) can be handed recent context instead of
+    # starting cold. Plain table, not FTS: this needs recency order, not search.
+    """
+    CREATE TABLE conversation_turns (
+        id INTEGER PRIMARY KEY,
+        session_id TEXT,
+        role TEXT,
+        content TEXT,
+        created_at TEXT
+    );
+    """,
 ]
 
 

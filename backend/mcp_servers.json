@@ -21,10 +21,15 @@
       "module": "app.servers.rag",
       "attr": "mcp"
     },
+    "weather": {
+      "type": "builtin",
+      "module": "app.servers.weather",
+      "attr": "mcp"
+    },
     "filesystem": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/dhruvdiwakirti/Fraise-files"]
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/ubuntu/Fraise-files"]
     },
     "web-search": {
       "type": "stdio",
