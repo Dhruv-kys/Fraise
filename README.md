@@ -1,121 +1,170 @@
-<p align="center">
-  <img src="assets/fraise.png" alt="Fraise" width="200" />
-</p>
+# Fraise 🍓
 
-<h1 align="center">Fraise</h1>
+**A voice-first AI assistant you talk to out loud, and it actually does things.** Ask it a question, tell it to add a calendar event, or drop in a PDF and ask about it. Fraise routes every request through the Model Context Protocol (MCP), so its skills are pluggable servers, not hard-coded features. Everything document-related runs on-device.
 
-<p align="center">Voice for anything that speaks <em>MCP</em>.</p>
-
-<p align="center">
-  <a href="https://fraise.vercel.app">Live demo</a>
-  &nbsp;·&nbsp;
-  <a href="ROADMAP.md">Roadmap</a>
-  &nbsp;·&nbsp;
-  <a href="https://modelcontextprotocol.io">MCP</a>
-</p>
+**Live :** [fraise.vercel.app](https://fraise.vercel.app)
 
 ---
 
-Fraise is a voice-first MCP host. You speak, an LLM picks the right tool, Fraise runs it on whichever [MCP](https://modelcontextprotocol.io) server owns it, and the answer is spoken back.
+## What it is
 
-Every capability is an MCP server: a calculator, your memory, your documents, your calendar, a Slack workspace. They all share one shape, so adding a new skill is a single entry in a config file. The voice layer never changes.
+Fraise is a full-stack voice agent. You speak, it listens in real time, decides whether it can answer directly or needs a tool, calls the right tool, and speaks the answer back. The interesting part is the architecture:
 
-## Highlights
+- **Voice runs over a single WebSocket** to Deepgram's Voice Agent, so speech-to-text, the language model, and text-to-speech share one low-latency stream instead of three round-trips.
+- **Skills are MCP servers.** A router discovers every tool at startup from one JSON config. Adding a new capability is one config entry, no changes to the agent.
+- **Document Q&A is fully on-device.** No PyTorch, no embedding API, nothing about your files leaves the machine.
 
-- **Pluggable by design.** Tools are discovered from `mcp_servers.json` at startup and routed automatically. Nothing is hardcoded — a new skill is a config entry, not host code.
-- **Private by default.** Memory and documents live in a local SQLite database, scoped to your browser session. Nothing leaves the machine. Voice and reasoning transit Deepgram/OpenAI under no-retention API policies until a fully-local mode lands.
-- **Local document search.** Retrieval-augmented answers run entirely on-device, with no second model required to write the reply.
-- **Safe actions.** Destructive operations, such as moving a calendar event, ask for spoken confirmation before they run.
-- **Picks up where you left off.** Every turn is logged locally; reconnecting (a reload, a dropped socket, even a return visit days later) folds recent conversation back into context instead of starting cold. The model is also told the actual current date and time, so "today" and "tomorrow" don't get answered from stale training data.
-
-## Capabilities
-
-| Capability | Status | Description |
-|------------|--------|-------------|
-| Memory | Live | Remembers what you tell it, and recent conversation itself, both local and scoped to your browser. |
-| Documents | Live | Upload a PDF, Markdown, or text file and ask about it. |
-| Calendar | Opt-in | Reads and moves Google Calendar events once you connect an account. |
-| Calculator | Live | Reliable arithmetic, computed by a tool rather than the model. |
-| Weather | Live | Current conditions for any place, via Open-Meteo — no API key required. |
-| Web search | Live | Answers questions outside its own knowledge, via Tavily. Needs a `TAVILY_API_KEY`. |
-| Local files | Live | Read, write, and search files in a folder you point it at. |
-| Public MCP servers (Slack, GitHub, Zapier, …) | Planned | No new host code needed — `http`/`stdio` transport already works, connecting one is a config entry. See [roadmap](ROADMAP.md). |
+---
 
 ## Architecture
 
-- The browser captures microphone audio and streams it over a WebSocket to [Deepgram Voice Agent](https://developers.deepgram.com/docs/voice-agent), which handles speech-to-text, the language model, and text-to-speech in one connection.
-- When the model selects a tool, the `MCPManager` routes the call to the server that owns it and returns the result to the conversation.
-- That router is the core of the project. It reads the server list on startup, aggregates every tool, and resolves name collisions with a server prefix.
+```mermaid
+flowchart LR
+    Mic["Microphone<br/>(PCM audio)"] -->|WebSocket| Backend
+    Backend -->|audio stream| Voice["Deepgram Voice Agent<br/>STT + LLM + TTS"]
+    Voice -->|tool call| Router["MCPManager<br/>(tool router)"]
+    Router --> Cal["Calendar<br/>MCP server"]
+    Router --> Mem["Memory<br/>MCP server"]
+    Router --> RAG["RAG<br/>MCP server"]
+    Router --> Calc["Calculator<br/>MCP server"]
+    RAG --> Store[("SQLite<br/>vectors + FTS5")]
+    Mem --> Store
+    Voice -->|spoken answer| Mic
+```
 
-## Document search
+**Request lifecycle:** microphone PCM streams over the WebSocket to the FastAPI backend, which relays it to the Deepgram Voice Agent. When the model decides it needs a tool, the call goes to the `MCPManager` router, which dispatches to the correct MCP server (calendar, memory, RAG, or calculator). The result flows back into the live conversation and Fraise speaks the answer, all in one continuous stream.
 
-Document questions are answered by retrieval, in four on-device stages:
+---
 
-- **Late chunking.** The full document is embedded first and split afterward, so each chunk keeps its surrounding context instead of losing it.
-- **Local embeddings.** `jina-embeddings-v2-small-en` runs through ONNX Runtime. No PyTorch, no external calls.
-- **Hybrid search.** A semantic vector search (`sqlite-vec`) and a keyword search (SQLite FTS5) run together and are fused, so passages both agree on rank highest.
-- **Reranking.** A cross-encoder scores the question against each top candidate and keeps only the best few.
+## How document search works (the on-device RAG pipeline)
 
-The winning passages are handed to the voice model already in the conversation, which speaks the answer directly.
+When you upload a `.txt`, `.md`, or `.pdf`, questions about it are answered by a four-stage retrieval pipeline that runs entirely on your machine:
+
+| Stage | What happens | Why it matters |
+| --- | --- | --- |
+| **1. Late chunking** | The whole document is embedded first, then split into chunks. | Each chunk keeps the context of the text around it instead of being embedded in isolation. |
+| **2. Local embeddings** | `jina-embeddings-v2-small-en` runs through ONNX Runtime. | No PyTorch and no external API. Fast, private, and dependency-light. |
+| **3. Hybrid search** | Semantic vector search (`sqlite-vec`) and keyword search (SQLite FTS5 / BM25) run together and are fused. | Passages that both meaning *and* exact terms agree on rank highest, catching what either method alone would miss. |
+| **4. Reranking** | A cross-encoder scores the question against each top candidate and keeps only the best few. | The model only ever sees the most relevant passages, which improves answer quality and keeps the prompt small. |
+
+The winning passages are handed to the voice model already mid-conversation, so it speaks the answer directly.
+
+---
+
+## Features
+
+- **Real-time voice** over a single WebSocket (low-latency STT to LLM to TTS).
+- **Pluggable skills via MCP** — capabilities are servers discovered from config, not baked-in code.
+- **On-device document Q&A** — upload a PDF/txt/md and ask about it; nothing leaves your machine.
+- **Calendar actions** with Google OAuth (create and read events by voice).
+- **Persistent memory** so the assistant remembers things across a session.
+- **Reactive 3D orb** (React Three Fiber) that responds to the conversation.
+- **Spoken confirmation for destructive actions** so the agent can't do something irreversible on a mishearing.
+
+---
+
+## Tech stack
+
+**Frontend:** React 19, TypeScript, Vite, React Three Fiber (Three.js), an AudioWorklet (`pcm-worklet.js`) for raw microphone PCM.
+
+**Backend:** Python, FastAPI, WebSockets, the MCP Python SDK.
+
+**Voice:** Deepgram Voice Agent (STT + LLM + TTS over one connection).
+
+**Retrieval:** ONNX Runtime, `jina-embeddings-v2-small-en`, `sqlite-vec`, SQLite FTS5, a cross-encoder reranker.
+
+**Storage:** SQLite (documents, vectors, and memory).
+
+---
+
+## Project layout
+
+```
+backend/
+  app/
+    main.py                 # FastAPI app, WebSocket + upload routes
+    host/
+      voice_agent.py        # Deepgram Voice Agent session
+      mcp_manager.py        # discovers + routes MCP tools
+    servers/
+      calculator.py         # MCP server: arithmetic
+      calendar.py           # MCP server: Google Calendar
+      memory/               # MCP server: persistent memory
+      rag/                  # MCP server: chunk, embeddings, rerank, store
+    storage/db.py           # SQLite access
+  mcp_servers.json          # one entry per skill; edit this to add tools
+frontend/
+  src/
+    useVoiceAgent.ts        # WebSocket + audio streaming hook
+    Orb.tsx                 # reactive 3D orb
+    App.tsx
+    public/pcm-worklet.js   # microphone PCM capture
+```
+
+---
 
 ## API
 
 The backend is a single FastAPI process. Base URL in development is `http://localhost:8000`.
 
 | Method | Path | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | `GET` | `/health` | Liveness check. Returns `{"ok": true}`. |
 | `WS` | `/ws?sid=<id>` | Voice session. Microphone PCM in; audio and JSON events out. |
 | `POST` | `/upload?sid=<id>` | Add a document (`.txt`, `.md`, `.pdf`). Returns `400` if no readable text. |
-| `GET` | `/auth/calendar` | Begins Google Calendar OAuth. |
-| `GET` | `/auth/calendar/callback` | OAuth redirect target. Stores the token locally. |
-| `*` | `/mcp/` | Fraise's own tools, exposed as an MCP server over streamable HTTP. |
-| `GET` | `/` | Serves the built frontend in production. |
+| `GET` | `/auth/calendar` | Begins the Google Calendar OAuth flow. |
 
-Pass the same `sid` to `/ws` and `/upload` so an uploaded document is searchable within the same voice session.
-
-## Tech stack
-
-**Frontend**
-- React 19, TypeScript, Vite 6
-- Three.js for the state-reactive orb
-- Web Audio AudioWorklet streaming 16 kHz PCM over WebSocket
-
-**Backend**
-- FastAPI for the WebSocket, upload, health, and OAuth endpoints
-- FastMCP for built-in tools, with `MCPManager` connecting and routing every server in `mcp_servers.json`
-- Deepgram Voice Agent: Flux (`flux-general-en`) STT, `gpt-4o-mini`, Aura (`aura-2-thalia-en`) TTS
-
-**Storage and search**
-- SQLite (`fraise.db`) for both memory and documents
-- SQLite FTS5 for keyword search, `sqlite-vec` for vectors
-- ONNX Runtime (`jina-embeddings-v2-small-en`) embeddings with a fastembed reranker
+---
 
 ## Getting started
 
-Add `DEEPGRAM_API_KEY` to a `.env` file at the repository root (add `TAVILY_API_KEY` too if you want web search), then:
+### Prerequisites
+
+- Python 3.11+
+- Node 18+
+- A Deepgram API key
+- (Optional) Google OAuth credentials for the calendar server
+
+### Backend
 
 ```bash
-# Backend
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+cp .env.example .env        # add DEEPGRAM_API_KEY (and Google creds if using calendar)
+python -m app.main          # serves on http://localhost:8000
 ```
+
+### Frontend
 
 ```bash
-# Frontend (in a second terminal)
 cd frontend
-npm install && npm run dev
+npm install
+npm run dev                 # serves on http://localhost:5173
 ```
 
-Open <http://localhost:5173>. Start the backend first, then click the orb and begin talking.
+Open the frontend, allow microphone access, and start talking.
+
+---
+
+## Adding a new skill
+
+Every skill is an MCP server. To add one:
+
+1. Write a small MCP server (see `backend/app/servers/calculator.py` for the minimal shape).
+2. Add one entry to `backend/mcp_servers.json` pointing at it.
+3. Restart. The `MCPManager` discovers the new tools at startup and the voice agent can use them immediately, with no changes to the agent code.
+
+Name collisions across servers are resolved automatically with server-name prefixes.
+
+---
 
 ## Roadmap
 
-Live: MCP host core, calendar, memory, and document search. Next up — see [ROADMAP.md](ROADMAP.md) for detail:
+See [ROADMAP.md](ROADMAP.md).
 
-- **Router at scale** — hierarchical tool routing so the LLM isn't handed every tool from every server on every turn.
-- **Protocol depth** — adopt MCP elicitation and progress notifications instead of hand-rolled equivalents.
-- **Public ecosystem** — Slack, GitHub, Zapier, and a template so third parties can write Fraise-compatible servers.
-- **Server composition & trust** — sandboxing, hot-reload, and an inspector view for a growing, partly third-party server list.
+---
+
+## Why I built it
+
+I wanted a voice assistant where adding a skill didn't mean rewriting the assistant, and where asking questions about my own documents didn't mean shipping them to someone else's server. MCP solved the first problem; an on-device retrieval pipeline solved the second. Fraise is the result.
