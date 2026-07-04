@@ -20,6 +20,17 @@
       "type": "builtin",
       "module": "app.servers.rag",
       "attr": "mcp"
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/dhruvdiwakirti/Fraise-files"]
+    },
+    "web-search": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "tavily-mcp"],
+      "env": { "TAVILY_API_KEY": "${TAVILY_API_KEY}" }
     }
   }
 }

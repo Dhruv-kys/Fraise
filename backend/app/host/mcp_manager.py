@@ -12,6 +12,7 @@ mcp_servers.json, no code changes here.
 import importlib
 import json
 import logging
+import os
 import re
 from contextlib import AsyncExitStack
 from pathlib import Path
@@ -25,9 +26,33 @@ logger = logging.getLogger(__name__)
 
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "mcp_servers.json"
 _UNSAFE = re.compile(r"[^a-zA-Z0-9_-]")
+_VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 # Tool params the host fills from the connection — never exposed to the LLM.
 _INJECTED_PARAMS = ("session_id",)
+
+
+def _expand_env(value: Any) -> Any:
+    """Resolve ${VAR} references against the process environment.
+
+    mcp_servers.json is committed to git, so credentials are written as
+    ${BRAVE_API_KEY} etc. and resolved here from .env at connect time —
+    the secret itself never touches the tracked config file.
+    """
+    if isinstance(value, str):
+        def repl(m: re.Match) -> str:
+            var = m.group(1)
+            resolved = os.environ.get(var)
+            if resolved is None:
+                logger.warning("mcp_servers.json references unset env var %r", var)
+                return ""
+            return resolved
+        return _VAR.sub(repl, value)
+    if isinstance(value, dict):
+        return {k: _expand_env(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_expand_env(v) for v in value]
+    return value
 
 
 def _hide_injected(schema: dict) -> dict:
@@ -80,6 +105,7 @@ class MCPManager:
         }
 
     async def _connect(self, name: str, spec: dict) -> None:
+        spec = _expand_env(spec)
         kind = spec.get("type", "stdio")
 
         if kind == "builtin":
