@@ -22,8 +22,8 @@ Every capability is an MCP server: a calculator, your memory, your documents, yo
 
 ## Highlights
 
-- **Pluggable by design.** Tools are discovered from `mcp_servers.json` at startup and routed automatically. Nothing is hardcoded.
-- **Private by default.** Memory and documents live in a local SQLite database and are scoped to your browser session. Nothing leaves the machine.
+- **Pluggable by design.** Tools are discovered from `mcp_servers.json` at startup and routed automatically. Nothing is hardcoded — a new skill is a config entry, not host code.
+- **Private by default.** Memory and documents live in a local SQLite database, scoped to your browser session. Nothing leaves the machine. Voice and reasoning transit Deepgram/OpenAI under no-retention API policies until a fully-local mode lands.
 - **Local document search.** Retrieval-augmented answers run entirely on-device, with no second model required to write the reply.
 - **Safe actions.** Destructive operations, such as moving a calendar event, ask for spoken confirmation before they run.
 
@@ -35,6 +35,7 @@ Every capability is an MCP server: a calculator, your memory, your documents, yo
 | Documents | Live | Upload a PDF, Markdown, or text file and ask about it. |
 | Calendar | Opt-in | Reads and moves Google Calendar events once you connect an account. |
 | Calculator | Live | Reliable arithmetic, computed by a tool rather than the model. |
+| Public MCP servers (Slack, GitHub, Zapier, …) | Planned | No new host code needed — `http`/`stdio` transport already works, connecting one is a config entry. See [roadmap](ROADMAP.md). |
 
 ## Architecture
 
@@ -108,4 +109,9 @@ Open <http://localhost:5173>. Start the backend first, then click the orb and be
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for planned work and the longer-term direction.
+Live: MCP host core, calendar, memory, and document search. Next up — see [ROADMAP.md](ROADMAP.md) for detail:
+
+- **Router at scale** — hierarchical tool routing so the LLM isn't handed every tool from every server on every turn.
+- **Protocol depth** — adopt MCP elicitation and progress notifications instead of hand-rolled equivalents.
+- **Public ecosystem** — Slack, GitHub, Zapier, and a template so third parties can write Fraise-compatible servers.
+- **Server composition & trust** — sandboxing, hot-reload, and an inspector view for a growing, partly third-party server list.
