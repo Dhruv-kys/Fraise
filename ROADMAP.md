@@ -55,6 +55,8 @@ A private MCP server over your own calendar. Tokens and event data are stored on
 
 - [x] **Memory MCP** (server) — local SQLite + FTS5 for preferences and things you ask it to remember. Per-user via a stable browser session id (`?sid=`), injected by the host and hidden from the LLM. Tools: `remember`, `recall`, `forget`. (Calendar bias deferred — calendar is off.)
 - [x] **File + RAG MCP** (server) — files local, embedded with sqlite-vec. Upload via `POST /upload` (+ sidebar drag-drop); voice tools `ask`, `summarize`, `list_documents`. Hybrid retrieval (dense + BM25, RRF-fused), **late chunking** with a local ONNX long-context encoder (jina-embeddings-v2-small-en, no torch), and a cross-encoder reranker. Generation reuses the voice LLM — tools return passages, the LLM speaks the answer.
+- [x] **Conversation continuity** (host + storage) — every user/assistant turn is logged to a `conversation_turns` table (migration 3), keyed on the same session id as memory. On connect, recent turns are folded into the prompt, so a reload, a dropped socket, or a return visit days later doesn't start cold — distinct from the explicit `remember`/`recall` tools, which are for things the user asks Fraise to keep, not the conversation itself.
+- [x] **Date/time awareness** (host) — the prompt is given the actual current date and UTC time on every connect, so "today"/"tomorrow"/deadline questions don't get answered from stale training data.
 - [ ] **Progress narration** (host) — long-running calls speak MCP progress events.
 
 ---
@@ -72,7 +74,14 @@ A private MCP server over your own calendar. Tokens and event data are stored on
 
 ## Public MCP servers
 
-Public servers (Slack, GitHub, Jira, Notion, …) are supported with no new code — the host already speaks `http` and `stdio`, so connecting one is a single entry in `mcp_servers.json`. We add them as the need arises rather than up front.
+Supported with no new code — the host already speaks `http` and `stdio`, so connecting one is a single entry in `mcp_servers.json`. Live so far:
+
+- [x] **Weather** (builtin) — Open-Meteo geocode + current conditions, zero-config (no API key), one plain-English sentence out.
+- [x] **Filesystem** (`stdio`, `@modelcontextprotocol/server-filesystem`) — scoped to one dedicated folder, not the whole machine, since this is voice + LLM-driven access.
+- [x] **Web search** (`stdio`, `tavily-mcp`) — needs `TAVILY_API_KEY`. Brave Search was tried first; its official package is deprecated ("no longer supported" on npm), hence Tavily.
+- [x] **`${VAR}` credential interpolation** (`mcp_manager.py`) — `mcp_servers.json` is git-tracked, so secrets are written as `${TAVILY_API_KEY}` and resolved from `.env` at connect time, never committed in literal.
+
+Slack, GitHub, Jira, Notion, Zapier, … remain planned — added as the need arises rather than up front.
 
 ---
 

@@ -26,15 +26,19 @@ Every capability is an MCP server: a calculator, your memory, your documents, yo
 - **Private by default.** Memory and documents live in a local SQLite database, scoped to your browser session. Nothing leaves the machine. Voice and reasoning transit Deepgram/OpenAI under no-retention API policies until a fully-local mode lands.
 - **Local document search.** Retrieval-augmented answers run entirely on-device, with no second model required to write the reply.
 - **Safe actions.** Destructive operations, such as moving a calendar event, ask for spoken confirmation before they run.
+- **Picks up where you left off.** Every turn is logged locally; reconnecting (a reload, a dropped socket, even a return visit days later) folds recent conversation back into context instead of starting cold. The model is also told the actual current date and time, so "today" and "tomorrow" don't get answered from stale training data.
 
 ## Capabilities
 
 | Capability | Status | Description |
 |------------|--------|-------------|
-| Memory | Live | Remembers what you tell it. Local and scoped to your browser. |
+| Memory | Live | Remembers what you tell it, and recent conversation itself, both local and scoped to your browser. |
 | Documents | Live | Upload a PDF, Markdown, or text file and ask about it. |
 | Calendar | Opt-in | Reads and moves Google Calendar events once you connect an account. |
 | Calculator | Live | Reliable arithmetic, computed by a tool rather than the model. |
+| Weather | Live | Current conditions for any place, via Open-Meteo — no API key required. |
+| Web search | Live | Answers questions outside its own knowledge, via Tavily. Needs a `TAVILY_API_KEY`. |
+| Local files | Live | Read, write, and search files in a folder you point it at. |
 | Public MCP servers (Slack, GitHub, Zapier, …) | Planned | No new host code needed — `http`/`stdio` transport already works, connecting one is a config entry. See [roadmap](ROADMAP.md). |
 
 ## Architecture
@@ -89,7 +93,7 @@ Pass the same `sid` to `/ws` and `/upload` so an uploaded document is searchable
 
 ## Getting started
 
-Add `DEEPGRAM_API_KEY` to a `.env` file at the repository root, then:
+Add `DEEPGRAM_API_KEY` to a `.env` file at the repository root (add `TAVILY_API_KEY` too if you want web search), then:
 
 ```bash
 # Backend
