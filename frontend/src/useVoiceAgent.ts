@@ -304,9 +304,13 @@ export function useVoiceAgent() {
         }
       };
 
-      // Capture pipeline.
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
       });
       streamRef.current = stream;
 
