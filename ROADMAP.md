@@ -72,6 +72,72 @@ A private MCP server over your own calendar. Tokens and event data are stored on
 
 ---
 
+## Phase 5 — Tool scale & routing ⏳
+
+A flat function list is fine at ten tools; at a hundred it overflows the model's context and dilutes selection accuracy. This phase keeps routing sharp as the server count grows — without touching the "a capability is one config entry" invariant.
+
+- [ ] **Hierarchical tool selection** — two-stage routing: pick the domain/server first, then the tool, so the LLM never faces the whole flat namespace at once.
+- [ ] **Semantic tool retrieval** — embed tool descriptions at connect time and surface only the top-_k_ relevant tools for a given utterance, instead of sending every declaration every turn.
+- [ ] **Lazy schema exposure** — hand the model a server's full tool schemas only once its domain is in play, keeping the base prompt small.
+- [ ] **Routing eval harness** — a fixed set of `utterance → expected tool` cases so adding a server can't silently regress selection.
+
+---
+
+## Phase 6 — Elicitation as dialogue ⏳
+
+MCP's elicitation spec lets a server pause a call to ask the host for missing information. Rendered as natural spoken back-and-forth, this is Fraise's most conversational moat — the assistant asks a follow-up out loud and resumes the tool once you answer.
+
+- [ ] **Elicitation → spoken question** — a server requesting a parameter makes Fraise ask for it aloud, then resumes the same call with the answer.
+- [ ] **Multi-turn slot filling** — hold partial tool arguments across turns ("book a meeting" → "with who?" → "when?") instead of forcing everything into one utterance.
+- [ ] **Generalized confirmation** — lift the calendar's confirm-before-destructive pattern into a host capability any server can opt into via metadata, not per-server code.
+- [ ] **Progress narration** (carried from Phase 3) — long-running calls speak MCP progress events so silence never reads as a hang.
+
+---
+
+## Phase 7 — Ambient & proactive ⏳
+
+Today Fraise only speaks when spoken to. Ambient use is a distinct moat: an assistant that initiates.
+
+- [ ] **Wake word / always-listening** — hands-free activation without holding the orb.
+- [ ] **Proactive nudges** — Fraise initiates from events ("your 3pm is in ten minutes") rather than only reacting.
+- [ ] **Reminders & scheduling server** — a timer/cron MCP server for "remind me in an hour."
+- [ ] **Telephony bridge** — a Twilio/SIP inbound path so Fraise is reachable by phone call, not just the browser.
+- [ ] **Background session & push** — keep a session warm and deliver notifications when the tab is closed.
+
+---
+
+## Phase 8 — Developer platform ⏳
+
+Turn "edit a JSON file" into a real ecosystem — the long-term wedge.
+
+- [ ] **Server registry** — browse and one-click enable community MCP servers instead of hand-editing `mcp_servers.json`.
+- [ ] **`create-fraise-server` scaffold** — an SDK + template that bakes in the speakable-output contract so a new server sounds right by default.
+- [ ] **Settings UI** — connect, authenticate, and toggle servers from the app.
+- [ ] **Generic OAuth broker** — one reusable auth flow any server can lean on, instead of calendar's bespoke `/auth/calendar` routes.
+- [ ] **Observability** — per-tool call logs, latency, and error rates surfaced in-app.
+
+---
+
+## Phase 9 — Fully-local & privacy mode ⏳
+
+Deliver on the privacy stance end to end: with local models on, nothing leaves the machine.
+
+- [ ] **Local STT** — on-device speech recognition (whisper.cpp or equivalent) behind the same transport.
+- [ ] **Local LLM** — a local model (llama.cpp / Ollama) driving tool calls through the existing function-calling interface.
+- [ ] **Local TTS** — on-device voice (Piper / Kokoro) so the speech loop needs no cloud.
+- [ ] **Offline degradation** — network-dependent servers fail gracefully while on-device ones (memory, RAG, filesystem, calculator) keep working.
+- [ ] **Encryption at rest** — encrypt the SQLite store holding memory and documents.
+
+---
+
+## Phase 10 — Accounts & multi-device ⏳
+
+- [ ] **Real accounts** — replace the anonymous browser session id with sign-in and sync memory/documents across devices.
+- [ ] **Mobile** — a PWA/React Native client so Fraise travels off the desktop.
+- [ ] **Shared spaces** — opt-in team memory and documents, with per-user isolation preserved by default.
+
+---
+
 ## Public MCP servers
 
 Supported with no new code — the host already speaks `http` and `stdio`, so connecting one is a single entry in `mcp_servers.json`. Live so far:
@@ -81,7 +147,13 @@ Supported with no new code — the host already speaks `http` and `stdio`, so co
 - [x] **Web search** (`stdio`, `tavily-mcp`) — needs `TAVILY_API_KEY`. Brave Search was tried first; its official package is deprecated ("no longer supported" on npm), hence Tavily.
 - [x] **`${VAR}` credential interpolation** (`mcp_manager.py`) — `mcp_servers.json` is git-tracked, so secrets are written as `${TAVILY_API_KEY}` and resolved from `.env` at connect time, never committed in literal.
 
-Slack, GitHub, Jira, Notion, Zapier, … remain planned — added as the need arises rather than up front.
+Planned integrations, added as the need arises rather than up front:
+
+- [ ] **Slack** — read/post messages, summarize channels by voice.
+- [ ] **GitHub / Jira / Linear** — issues, PRs, and status by voice.
+- [ ] **Notion / Google Docs** — read and append to notes.
+- [ ] **Gmail** — triage and dictate replies.
+- [ ] **Zapier / Make** — reach thousands of long-tail apps through one MCP bridge.
 
 ---
 
