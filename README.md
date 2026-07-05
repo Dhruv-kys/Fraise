@@ -38,16 +38,53 @@ flowchart LR
 
 ## How document search works (the on-device RAG pipeline)
 
-When you upload a `.txt`, `.md`, or `.pdf`, questions about it are answered by a four-stage retrieval pipeline that runs entirely on your machine:
+When you upload a `.txt`, `.md`, or `.pdf`, questions about it are answered by a retrieval pipeline that runs entirely on your machine — no PyTorch, no embedding API, nothing about your files leaves the box. There are two halves: **ingestion** (upload → searchable chunks) and **query** (question → spoken answer). Everything is scoped to your browser session id, so one user's documents are never visible to another's.
+
+### Ingestion — turning an upload into searchable chunks
+
+The key trick is **late chunking**: the whole document is embedded *first*, then split. Because every token is encoded while it can still see the text around it, each chunk's vector carries the context of the passage it came from instead of being embedded in isolation.
+
+```mermaid
+flowchart TD
+    Up["POST /upload<br/>.txt / .md / .pdf"] --> Ext["Extract text"]
+    Ext --> Enc["ONNX encoder — jina-embeddings-v2-small-en<br/>encode the WHOLE doc first, in 512-token segments"]
+    Enc --> Tok["Per-token vectors + character offsets"]
+    Tok --> Win["Late chunking — 320-token windows, 48-token overlap"]
+    Win --> Pool["Mean-pool each window's token vectors<br/>→ one normalized 512-dim chunk vector"]
+    Win --> Slice["Slice chunk text by the window's char span"]
+    Pool --> V[("vec_chunks<br/>sqlite-vec — dense vectors")]
+    Slice --> F[("chunks<br/>SQLite FTS5 — keyword index")]
+```
+
+Each chunk lands in the store twice: its **vector** in `vec_chunks` (for semantic search) and its **text** in the `chunks` FTS5 table (for keyword search). Both rows are tagged with the session id.
+
+### Query — turning a question into a spoken answer
+
+Retrieval is **hybrid**: dense and keyword search run in parallel, get fused by rank, and a cross-encoder makes the final precision call. Only the top few passages reach the language model.
+
+```mermaid
+flowchart TD
+    Q["Question (from the ask tool)"] --> QE["encode_query → one 512-dim vector"]
+    QE --> D["Dense KNN over vec_chunks<br/>top 30 by cosine similarity"]
+    Q --> L["Keyword BM25 over chunks FTS5<br/>top 30 (terms OR-joined)"]
+    D --> RRF["Reciprocal Rank Fusion (k = 60)"]
+    L --> RRF
+    RRF --> C["~30 fused candidates"]
+    C --> RR["Cross-encoder rerank<br/>jina-reranker-v1-tiny-en"]
+    RR --> Top["Top 5 passages"]
+    Top --> LLM["Handed to the live voice LLM,<br/>which speaks the grounded answer"]
+```
+
+Why each stage earns its place:
 
 | Stage | What happens | Why it matters |
 | --- | --- | --- |
 | **1. Late chunking** | The whole document is embedded first, then split into chunks. | Each chunk keeps the context of the text around it instead of being embedded in isolation. |
 | **2. Local embeddings** | `jina-embeddings-v2-small-en` runs through ONNX Runtime. | No PyTorch and no external API. Fast, private, and dependency-light. |
-| **3. Hybrid search** | Semantic vector search (`sqlite-vec`) and keyword search (SQLite FTS5 / BM25) run together and are fused. | Passages that both meaning *and* exact terms agree on rank highest, catching what either method alone would miss. |
-| **4. Reranking** | A cross-encoder scores the question against each top candidate and keeps only the best few. | The model only ever sees the most relevant passages, which improves answer quality and keeps the prompt small. |
+| **3. Hybrid search** | Semantic vector search (`sqlite-vec`) and keyword search (SQLite FTS5 / BM25) run together and are fused with Reciprocal Rank Fusion. | Passages that both meaning *and* exact terms agree on rank highest, catching what either method alone would miss. |
+| **4. Reranking** | A cross-encoder scores the question against each top candidate and keeps only the best five. | A bi-encoder scores query and passage separately; a cross-encoder reads the pair *together* and is far more precise, but too slow to run over a whole corpus — so it only rescores the shortlist hybrid search already surfaced. |
 
-The winning passages are handed to the voice model already mid-conversation, so it speaks the answer directly.
+The winning passages are handed to the voice model already mid-conversation (the RAG tools do retrieval *only* — there's no second generation model), so Fraise speaks the answer directly.
 
 ---
 
