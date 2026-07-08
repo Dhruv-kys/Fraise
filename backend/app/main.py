@@ -97,8 +97,14 @@ async def voice_socket(ws: WebSocket) -> None:
     session_id = ws.query_params.get("sid") or uuid4().hex
     user_name = ws.query_params.get("name") or ""
     greet = ws.query_params.get("greet") != "0"
+    # Per-assistant persona config (Phase 11): the active assistant's display
+    # name, its custom instructions, and the names of the user's other assistants
+    # (for voice-native switching). All live in the browser; the sid is the scope.
+    assistant_name = ws.query_params.get("persona") or ""
+    instructions = ws.query_params.get("instructions") or ""
+    personas = ws.query_params.get("personas") or ""
     try:
-        await bridge(ws, session_id, user_name, greet)
+        await bridge(ws, session_id, user_name, greet, assistant_name, instructions, personas)
     except WebSocketDisconnect:
         pass
     except Exception:

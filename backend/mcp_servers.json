@@ -26,6 +26,11 @@
       "module": "app.servers.weather",
       "attr": "mcp"
     },
+    "personas": {
+      "type": "builtin",
+      "module": "app.servers.personas",
+      "attr": "mcp"
+    },
     "filesystem": {
       "type": "stdio",
       "command": "npx",

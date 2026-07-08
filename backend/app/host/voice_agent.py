@@ -80,17 +80,19 @@ PROMPT = (
 )
 
 
-DEFAULT_GREETING = (
-    "Hey, you made it — I'm Fraise. It's really good to hear you. "
-    "What can I do for you today?"
-)
-
-
 def _clean_name(raw: str) -> str:
     """Keep the name safe to drop into a prompt: printable chars, single line,
     capped length. Guards against prompt-injection via the query string."""
     name = "".join(ch for ch in raw if ch.isprintable() and ch not in "{}").strip()
     return name[:40]
+
+
+def _clean_instructions(raw: str) -> str:
+    """Per-assistant custom instructions folded into the system prompt. Unlike a
+    name this may span lines, so newlines are kept; control chars are dropped and
+    length is capped since this is user-authored persona config, not trusted input."""
+    text = "".join(ch for ch in raw if ch.isprintable() or ch == "\n").strip()
+    return text[:1500]
 
 
 def _describe_capabilities() -> str:
@@ -118,20 +120,46 @@ async def _recent_context(session_id: str) -> str:
     return "\n".join(f"{'User' if role == 'user' else 'Fraise'}: {content}" for role, content in turns)
 
 
-async def _build_settings(session_id: str = "", user_name: str = "", greet: bool = True) -> dict:
+async def _build_settings(
+    session_id: str = "",
+    user_name: str = "",
+    greet: bool = True,
+    assistant_name: str = "",
+    instructions: str = "",
+    personas: str = "",
+) -> dict:
     name = _clean_name(user_name)
+    persona = _clean_name(assistant_name)
+    # A persona is a rename only when it isn't the default "Fraise".
+    speaker = persona if persona and persona.lower() != "fraise" else "Fraise"
+
     prompt = PROMPT
-    greeting = DEFAULT_GREETING
     if name:
         prompt = (
             f"The user's name is {name}. Address them by their first name naturally "
             "and warmly — greet them by name and use it occasionally, but don't "
             "overuse it or start every sentence with it.\n\n"
-        ) + PROMPT
-        greeting = (
-            f"Hey {name}, you made it — I'm Fraise. It's really good to hear you. "
-            "What can I do for you today?"
-        )
+        ) + prompt
+
+    # Persona identity + custom instructions lead the prompt so they set the tone
+    # for everything after — the same folding pattern as user_name above.
+    custom = _clean_instructions(instructions)
+    if custom:
+        prompt = (
+            "Custom instructions for this assistant — follow them throughout the "
+            f"conversation:\n{custom}\n\n"
+        ) + prompt
+    if speaker != "Fraise":
+        prompt = (
+            f"Your name is {speaker}. Introduce yourself and refer to yourself as "
+            f"{speaker}, not Fraise. You still run on Fraise, but to this user you "
+            f"are {speaker}.\n\n"
+        ) + prompt
+
+    greeting = (
+        f"Hey{f' {name}' if name else ''}, you made it — I'm {speaker}. It's "
+        "really good to hear you. What can I do for you today?"
+    )
 
     now = datetime.now(timezone.utc)
     prompt = prompt + (
@@ -148,6 +176,23 @@ async def _build_settings(session_id: str = "", user_name: str = "", greet: bool
             "features, describe these warmly in your own words as natural sentences "
             "grouped by theme — never recite raw tool names or read this list "
             "verbatim.\n" + capabilities
+        )
+
+    # The user's other assistants (names only) — enough for the model to know it
+    # can switch and what to pass to switch_assistant. Each has its own separate
+    # memory, so a switch is a real change of context, not a cosmetic relabel.
+    other = [
+        p for p in (_clean_name(x) for x in personas.split(",") if x.strip())
+        if p and p.lower() != speaker.lower()
+    ]
+    if other:
+        prompt = prompt + (
+            "\n\nSwitching assistants: this user also has "
+            + ", ".join(other)
+            + ". Each is a separate assistant with its own memory and documents. "
+            "If they ask to switch to one — 'switch to my work assistant', 'go to "
+            "Personal' — call switch_assistant with that assistant's name. Only "
+            "switch when they clearly ask; don't offer unprompted."
         )
 
     context = await _recent_context(session_id)
@@ -238,6 +283,17 @@ def _extract_action(content: str) -> dict | None:
     return data.get("_action") if isinstance(data, dict) else None
 
 
+def _strip_action(content: str) -> str:
+    """Drop the `_action` envelope, leaving the rest for the LLM to speak from."""
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return content
+    if isinstance(data, dict):
+        data.pop("_action", None)
+    return json.dumps(data)
+
+
 async def _resolve_action(fn: dict, session_id: str, browser: WebSocket, action: dict) -> str:
     await browser.send_text(json.dumps(action))
     logger.info("tool %r requested action %r; waiting up to %ds",
@@ -258,7 +314,14 @@ async def _run_one_function_call(dg, browser: WebSocket, fn: dict, session_id: s
         content = await _run_tool(fn, session_id)
         action = _extract_action(content)
         if action:
-            content = await _resolve_action(fn, session_id, browser, action)
+            # `once` actions are fire-and-forget (e.g. a persona switch that
+            # reconnects the socket): tell the browser and return right away.
+            # Everything else — like OAuth — is re-polled until it resolves.
+            if action.get("once"):
+                await browser.send_text(json.dumps(action))
+                content = _strip_action(content)
+            else:
+                content = await _resolve_action(fn, session_id, browser, action)
     except Exception as exc:
         # _run_tool already guards the tool call itself; this covers everything
         # else (e.g. _resolve_action hitting a browser socket that just closed).
@@ -286,14 +349,24 @@ async def _handle_function_call(dg, browser: WebSocket, message: dict, session_i
     await asyncio.gather(*(_run_one_function_call(dg, browser, fn, session_id) for fn in functions))
 
 
-async def bridge(browser: WebSocket, session_id: str = "", user_name: str = "", greet: bool = True) -> None:
+async def bridge(
+    browser: WebSocket,
+    session_id: str = "",
+    user_name: str = "",
+    greet: bool = True,
+    assistant_name: str = "",
+    instructions: str = "",
+    personas: str = "",
+) -> None:
     api_key = os.environ.get("DEEPGRAM_API_KEY")
     if not api_key:
         await browser.send_json({"type": "error", "message": "DEEPGRAM_API_KEY is not set"})
         return
 
     async with websockets.connect(DG_URL, additional_headers={"Authorization": f"Token {api_key}"}) as dg:
-        await dg.send(json.dumps(await _build_settings(session_id, user_name, greet)))
+        await dg.send(json.dumps(await _build_settings(
+            session_id, user_name, greet, assistant_name, instructions, personas
+        )))
 
         async def browser_to_dg() -> None:
             while True:
