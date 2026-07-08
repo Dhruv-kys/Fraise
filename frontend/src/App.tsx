@@ -1,5 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useVoiceAgent, uploadDocument, type OrbState } from "./useVoiceAgent";
+import {
+  AVATAR_CHOICES,
+  createAssistant,
+  deleteAssistant,
+  getActiveId,
+  listAssistants,
+  setActiveId,
+  updateAssistant,
+  type Assistant,
+} from "./assistants";
 import Orb from "./Orb";
 import "./App.css";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -97,7 +107,62 @@ function greetingFor(d: Date): string {
 }
 
 export default function App() {
-  const { messages, status, orbState, levelRef, outLevelRef, speechSupported, toggle, notifyUpload, authNeeded, clearAuth } = useVoiceAgent();
+  // Phase 11 — the row of assistants, and which one is active. The active id is
+  // the scope key: it becomes ?sid= for memory, docs, and history.
+  const [assistants, setAssistants] = useState<Assistant[]>(() => listAssistants());
+  const [activeId, setActiveIdState] = useState<string>(() => getActiveId());
+  const active = assistants.find((a) => a.id === activeId) ?? assistants[0];
+  const [editing, setEditing] = useState<Assistant | "new" | null>(null);
+
+  const switchTo = useCallback((id: string) => {
+    setActiveId(id);
+    setActiveIdState(id);
+    setEditing(null);
+  }, []);
+
+  // Voice-native switch: the backend named an assistant; match it locally.
+  const handleVoiceSwitch = useCallback(
+    (name: string) => {
+      const target = listAssistants().find(
+        (a) => a.name.trim().toLowerCase() === name.trim().toLowerCase(),
+      );
+      if (target) switchTo(target.id);
+    },
+    [switchTo],
+  );
+
+  const { messages, status, orbState, levelRef, outLevelRef, speechSupported, toggle, reconnect, notifyUpload, authNeeded, clearAuth, listening } = useVoiceAgent(handleVoiceSwitch);
+
+  // When the active assistant changes while a voice session is live, reopen the
+  // socket as the new persona (new sid + config). If idle, the next start picks
+  // it up automatically — nothing to do.
+  const prevIdRef = useRef(activeId);
+  useEffect(() => {
+    if (prevIdRef.current !== activeId) {
+      prevIdRef.current = activeId;
+      if (listening) reconnect();
+    }
+  }, [activeId, listening, reconnect]);
+
+  const saveAssistant = useCallback(
+    (data: { name: string; avatar: string; instructions: string }, id?: string) => {
+      if (id) {
+        setAssistants(updateAssistant(id, data));
+      } else {
+        const created = createAssistant(data);
+        setAssistants(listAssistants());
+        switchTo(created.id);
+      }
+      setEditing(null);
+    },
+    [switchTo],
+  );
+
+  const removeAssistant = useCallback((id: string) => {
+    setAssistants(deleteAssistant(id));
+    setActiveIdState(getActiveId());
+    setEditing(null);
+  }, []);
 
   const [theme, toggleTheme] = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -246,7 +311,7 @@ export default function App() {
             <div className="account-mark">{(name || "You").charAt(0).toUpperCase()}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="account-name">{name || "You"}</div>
-              <div className="account-sub">Personal workspace</div>
+              <div className="account-sub">{active.avatar} {active.name}</div>
             </div>
             <svg width="16" height="16" viewBox="0 0 24 24">
               <circle cx="5" cy="12" r="2" />
@@ -275,6 +340,33 @@ export default function App() {
                 <span className="dot" style={{ background: pill.color }} />
                 <span className="label">{pill.label}</span>
               </div>
+            </div>
+
+            <div className="assistant-switcher" role="tablist" aria-label="Assistants">
+              {assistants.map((a) => {
+                const isActive = a.id === activeId;
+                return (
+                  <button
+                    key={a.id}
+                    className={`assistant-pill${isActive ? " active" : ""}`}
+                    role="tab"
+                    aria-selected={isActive}
+                    title={isActive ? `${a.name} — edit` : `Switch to ${a.name}`}
+                    onClick={() => (isActive ? setEditing(a) : switchTo(a.id))}
+                  >
+                    <span className="assistant-avatar">{a.avatar}</span>
+                    {isActive && <span className="assistant-name">{a.name}</span>}
+                  </button>
+                );
+              })}
+              <button
+                className="assistant-add"
+                title="New assistant"
+                aria-label="New assistant"
+                onClick={() => setEditing("new")}
+              >
+                +
+              </button>
             </div>
 
             <div className="header-right">
@@ -422,7 +514,111 @@ export default function App() {
           </form>
         </div>
       )}
+
+      {editing && (
+        <AssistantEditor
+          assistant={editing === "new" ? null : editing}
+          canDelete={editing !== "new" && assistants.length > 1}
+          onSave={saveAssistant}
+          onDelete={removeAssistant}
+          onCancel={() => setEditing(null)}
+        />
+      )}
       <SpeedInsights />
+    </div>
+  );
+}
+
+function AssistantEditor({
+  assistant,
+  canDelete,
+  onSave,
+  onDelete,
+  onCancel,
+}: {
+  assistant: Assistant | null;
+  canDelete: boolean;
+  onSave: (data: { name: string; avatar: string; instructions: string }, id?: string) => void;
+  onDelete: (id: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(assistant?.name ?? "");
+  const [avatar, setAvatar] = useState(assistant?.avatar ?? AVATAR_CHOICES[0]);
+  const [instructions, setInstructions] = useState(assistant?.instructions ?? "");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  return (
+    <div className="name-overlay" onClick={onCancel}>
+      <form
+        className="name-card editor-card"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSave({ name: name.trim() || "New assistant", avatar, instructions }, assistant?.id);
+        }}
+      >
+        <div className="editor-avatar-preview">{avatar}</div>
+        <h2 className="name-title">{assistant ? "Edit assistant" : "New assistant"}</h2>
+        <p className="name-sub">A separate name, look, and memory of its own.</p>
+
+        <label className="editor-label">Name</label>
+        <input
+          className="name-input"
+          type="text"
+          autoFocus
+          placeholder="Work, Personal, Coach…"
+          value={name}
+          maxLength={40}
+          onChange={(e) => setName(e.target.value)}
+        />
+
+        <label className="editor-label">Avatar</label>
+        <div className="avatar-grid">
+          {AVATAR_CHOICES.map((e) => (
+            <button
+              key={e}
+              type="button"
+              className={`avatar-choice${e === avatar ? " active" : ""}`}
+              onClick={() => setAvatar(e)}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+
+        <label className="editor-label">Custom instructions</label>
+        <textarea
+          className="editor-textarea"
+          placeholder="Tone, role, and standing rules — e.g. 'You're my work assistant. Be concise and professional.'"
+          value={instructions}
+          maxLength={1500}
+          rows={4}
+          onChange={(e) => setInstructions(e.target.value)}
+        />
+
+        <button className="name-go" type="submit">
+          {assistant ? "Save" : "Create"}
+        </button>
+        {canDelete && assistant && (
+          <button
+            className="name-skip editor-delete"
+            type="button"
+            onClick={() => onDelete(assistant.id)}
+          >
+            Delete this assistant
+          </button>
+        )}
+        <button className="name-skip" type="button" onClick={onCancel}>
+          Cancel
+        </button>
+      </form>
     </div>
   );
 }

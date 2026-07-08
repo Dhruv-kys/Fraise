@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getActiveAssistant, getActiveId, listAssistants } from "./assistants";
 
 export type Role = "user" | "agent" | "system";
 export interface Message {
@@ -19,25 +20,37 @@ const WS_URL =
   (isLocalHost
     ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`
     : PROD_WS_URL);
-// Stable per-browser id so memory persists across reloads. No login — same
-// browser is treated as the same user.
+// The active assistant's id is the scope key (Phase 11) — memory, documents,
+// and conversation history are all keyed on it, so switching assistants gives a
+// clean, isolated mind. No login: the browser holds the assistants.
 function sessionId(): string {
-  let id = localStorage.getItem("fraise_sid");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("fraise_sid", id);
-  }
-  return id;
+  return getActiveId();
 }
 
-// Greet only the tab's first connection — sessionStorage survives a reload but
-// clears when the tab closes, matching "skip greeting on reconnect/reload."
+// Greet the first connection *per assistant* per tab, so switching personas
+// mid-app gets a fresh hello as the new persona but a reload/reconnect doesn't.
+function greetedKey(id: string): string {
+  return `fraise-greeted-${id}`;
+}
+
 function wsUrlWithSession(): string {
+  const active = getActiveAssistant();
   const url = new URL(WS_URL, location.href);
-  url.searchParams.set("sid", sessionId());
+  url.searchParams.set("sid", active.id);
   const name = localStorage.getItem("fraise-name");
   if (name) url.searchParams.set("name", name);
-  if (sessionStorage.getItem("fraise-greeted")) {
+  if (active.name && active.name.toLowerCase() !== "fraise") {
+    url.searchParams.set("persona", active.name);
+  }
+  if (active.instructions.trim()) {
+    url.searchParams.set("instructions", active.instructions.trim());
+  }
+  // Other assistants' names, for voice-native switching ("switch to Work").
+  const others = listAssistants()
+    .filter((a) => a.id !== active.id)
+    .map((a) => a.name);
+  if (others.length) url.searchParams.set("personas", others.join(","));
+  if (sessionStorage.getItem(greetedKey(active.id))) {
     url.searchParams.set("greet", "0");
   }
   return url.toString();
@@ -72,7 +85,7 @@ const PLAYBACK_LEAD = 0.18; // seconds of jitter cushion before playback starts
  * Agent) and plays the agent's audio back. Orb state and the transcript are
  * driven by the agent's JSON events.
  */
-export function useVoiceAgent() {
+export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<Status>("online");
   const [active, setActive] = useState(false);
@@ -103,6 +116,11 @@ export function useVoiceAgent() {
   // registered the interruption — those still arrive after UserStartedSpeaking
   // and would otherwise keep playing over the user.
   const mutedRef = useRef(false);
+
+  // Latest switch handler in a ref so handleEvent can call it without being
+  // rebuilt (and re-subscribing the socket) every render.
+  const switchRef = useRef(onRequestSwitch);
+  switchRef.current = onRequestSwitch;
 
   const push = useCallback((role: Role, text: string) => {
     if (!text?.trim()) return;
@@ -230,6 +248,11 @@ export function useVoiceAgent() {
         case "auth_redirect":
           setAuthNeeded(data.url as string);
           break;
+        case "switch_assistant":
+          // Voice-native switch: the backend tool named an assistant; the App
+          // resolves the name against the local list and reconnects as it.
+          if (typeof data.name === "string") switchRef.current?.(data.name);
+          break;
         case "Error":
         case "error":
           // A fatal Deepgram error (or a bridge failure) can arrive while the
@@ -285,8 +308,9 @@ export function useVoiceAgent() {
       ws.onopen = () => {
         setStatus("online");
         // Persist here, not in wsUrlWithSession — a failed first attempt must
-        // still greet on retry, so the flag only sticks once we're really connected.
-        sessionStorage.setItem("fraise-greeted", "1");
+        // still greet on retry, so the flag only sticks once we're really
+        // connected. Keyed per assistant so each persona greets once per tab.
+        sessionStorage.setItem(greetedKey(getActiveId()), "1");
       };
       ws.onerror = () => setStatus("error");
       ws.onclose = () => {
@@ -353,6 +377,16 @@ export function useVoiceAgent() {
     else void start();
   }, [active, start, stop]);
 
+  // Reconnect the whole pipeline — used when the active assistant changes so the
+  // socket reopens with the new scope (sid) and persona. getUserMedia won't
+  // re-prompt (permission persists), so a clean stop→start is simplest here.
+  const reconnect = useCallback(() => {
+    setMessages([]); // different assistant, different mind — clear the transcript
+    stop();
+    // Let stop() tear down the old contexts/socket before opening new ones.
+    setTimeout(() => void start(), 120);
+  }, [stop, start]);
+
   // Tell the live agent a document was just uploaded, so it speaks about it.
   // No-op if the voice session isn't connected — the doc is still indexed.
   const notifyUpload = useCallback((filename: string) => {
@@ -386,6 +420,7 @@ export function useVoiceAgent() {
     outLevelRef,
     speechSupported,
     toggle,
+    reconnect,
     notifyUpload,
     authNeeded,
     clearAuth: () => setAuthNeeded(null),
