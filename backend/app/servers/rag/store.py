@@ -40,6 +40,7 @@ def add_document(session_id: str, filename: str, text: str) -> dict:
             (session_id, filename, now, len(text), text),
         )
         document_id = cur.lastrowid
+        n_chunks = 0
         for ordinal, (start, end) in enumerate(chunk.windows(len(spans))):
             chunk_text = text[spans[start][0]:spans[end - 1][1]]
             vector = embeddings.pool_span(token_vectors[start:end])
@@ -51,7 +52,8 @@ def add_document(session_id: str, filename: str, text: str) -> dict:
                 "INSERT INTO vec_chunks (chunk_id, session_id, embedding) VALUES (?, ?, ?)",
                 (chunk_id, session_id, sqlite_vec.serialize_float32(vector.tolist())),
             )
-    return {"filename": filename, "chunks": ordinal + 1 if spans else 0}
+            n_chunks = ordinal + 1
+    return {"filename": filename, "chunks": n_chunks}
 
 
 def search(session_id: str, query: str, k: int = 5, n: int = 30) -> list[str]:

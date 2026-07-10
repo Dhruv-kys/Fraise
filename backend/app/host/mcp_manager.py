@@ -55,6 +55,23 @@ def _expand_env(value: Any) -> Any:
     return value
 
 
+def _flatten_structured(structured: dict | None) -> str | None:
+    """Unwrap FastMCP's auto structured-output envelope, or pass a real dict through as JSON.
+
+    FastMCP wraps any non-object tool return (e.g. a plain `str`) as
+    {"result": <value>} in structuredContent. Tools like rag.ask() return an
+    already-speakable sentence — JSON-encoding that whole envelope instead of
+    unwrapping it sends the LLM `{"result": "..."}` instead of plain text,
+    which breaks the "always speak the answer" contract on later turns.
+    """
+    if not structured:
+        return None
+    if structured.keys() == {"result"}:
+        result = structured["result"]
+        return result if isinstance(result, str) else json.dumps(result)
+    return json.dumps(structured)
+
+
 def _hide_injected(schema: dict) -> dict:
     """Return a copy of an input schema with host-injected params removed."""
     props = schema.get("properties")
@@ -207,14 +224,14 @@ class MCPManager:
 
         if server["builtin"]:
             content, structured = await server["handle"].call_tool(tname, arguments)
-            if structured:
-                return json.dumps(structured)
-            return "".join(getattr(b, "text", "") for b in (content or [])).strip()
+            return _flatten_structured(structured) or "".join(
+                getattr(b, "text", "") for b in (content or [])
+            ).strip()
 
         result = await server["handle"].call_tool(tname, arguments)
-        if getattr(result, "structuredContent", None):
-            return json.dumps(result.structuredContent)
-        return "".join(getattr(b, "text", "") for b in (result.content or [])).strip()
+        return _flatten_structured(getattr(result, "structuredContent", None)) or "".join(
+            getattr(b, "text", "") for b in (result.content or [])
+        ).strip()
 
     async def aclose(self) -> None:
         await self._stack.aclose()
