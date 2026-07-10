@@ -78,53 +78,56 @@
   --accent-2: #A63D58;
 }
 
-/* Dark = the same editorial world at night: warm espresso surfaces, wine
-   accent brightened for contrast. Mid-dark, never black. */
+/* Dark = the same editorial world at night. Surfaces are warm charcoal, not
+   maroon: near-neutral (R leads G by ~6, G leads B by ~1) so the wine accent
+   is the only saturated color on screen. Elevation is an even tonal ladder —
+   page → window → panel → card → raised → hover — since shadows barely read
+   on a dark ground. */
 .dark {
-  --grad-app: #201316;
+  --grad-app: #151111;
 
-  --leaf: #6E9C74;
-  --seed: #2E1B20;
+  --leaf: #79A57F;
+  --seed: #241D1E;
 
   /* Dark paper is card stock, not a lit page — it must stay below the text. */
-  --paper: #332428;
-  --paper-back: #2C1F22;
-  --rule: rgba(255, 240, 238, .07);
-  --rule-margin: rgba(199, 92, 116, .34);
-  --ink: #F2E9E4;
+  --paper: #272120;
+  --paper-back: #211C1B;
+  --rule: rgba(244, 236, 232, .08);
+  --rule-margin: rgba(206, 90, 115, .42);
+  --ink: #F2ECE7;
 
-  /* Shadows can't darken an already-dark page, so they lean on opacity and are
-     paired with a lighter surface step to carry the lift. */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .20);
-  --shadow-2: 0 2px 4px rgba(0, 0, 0, .34), 0 10px 24px rgba(0, 0, 0, .30);
-  --shadow-3: 0 4px 8px rgba(0, 0, 0, .38), 0 18px 44px rgba(0, 0, 0, .42);
-  --shadow-ink: 0 2px 4px rgba(0, 0, 0, .38), 0 12px 30px rgba(0, 0, 0, .46);
+  /* Shadows can't darken an already-dark page; the surface ladder carries the
+     lift, shadows just seat edges. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .26), 0 2px 6px rgba(0, 0, 0, .18);
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, .30), 0 10px 24px rgba(0, 0, 0, .26);
+  --shadow-3: 0 4px 8px rgba(0, 0, 0, .34), 0 18px 44px rgba(0, 0, 0, .38);
+  --shadow-ink: 0 2px 4px rgba(0, 0, 0, .34), 0 12px 30px rgba(0, 0, 0, .42);
 
-  --window-bg: #271A1C;
-  --sidebar-grad: #2D1F22;
-  --main-grad: #291B1E;
+  --window-bg: #1B1716;
+  --sidebar-grad: #211C1B;
+  --main-grad: #1E1A19;
 
-  --border-soft: rgba(255, 240, 238, .06);
-  --border-soft-2: rgba(255, 240, 238, .09);
-  --border-soft-3: rgba(255, 240, 238, .13);
-  --border-dash: rgba(255, 240, 238, .17);
+  --border-soft: rgba(244, 236, 232, .07);
+  --border-soft-2: rgba(244, 236, 232, .10);
+  --border-soft-3: rgba(244, 236, 232, .14);
+  --border-dash: rgba(244, 236, 232, .18);
 
-  --surface: #342428;
-  --surface-soft: #2F2023;
-  --surface-strong: #392A2D;
-  --surface-hover: #403033;
-  --surface-active: #3C2C2F;
-  --pill-bg: #332326;
+  --surface: #272120;
+  --surface-soft: #231E1D;
+  --surface-strong: #2C2524;
+  --surface-hover: #342C2B;
+  --surface-active: #302827;
+  --pill-bg: #241F1E;
 
-  --text-primary: #F5EEE9;
-  --text-secondary: #CBBAB6;
-  --text-tertiary: #B2A19D;
-  --text-muted: #90807D;
-  --text-faint: #756563;
-  --text-faint-2: #82726F;
+  --text-primary: #F4EFEA;
+  --text-secondary: #C7BEB9;
+  --text-tertiary: #A79D98;
+  --text-muted: #948A85;
+  --text-faint: #6E6461;
+  --text-faint-2: #7C726E;
 
-  --accent: #C75C74;
-  --accent-2: #D97F92;
+  --accent: #CE5A73;
+  --accent-2: #E0879A;
 }
 
 /* ---------- keyboard focus ---------- */

@@ -58,7 +58,7 @@ function useTheme(): [Theme, () => void] {
       meta.name = "theme-color";
       document.head.appendChild(meta);
     }
-    meta.content = theme === "dark" ? "#271A1C" : "#FAF7F2";
+    meta.content = theme === "dark" ? "#1B1716" : "#FAF7F2";
   }, [theme]);
   return [theme, () => setTheme((t) => (t === "dark" ? "light" : "dark"))];
 }
