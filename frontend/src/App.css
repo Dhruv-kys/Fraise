@@ -2,10 +2,54 @@
 
 /* ---------- theme tokens ---------- */
 /* Editorial wine brand: deep burgundy accent on ivory/cream, warm espresso in
-   dark. Flat design — solid colors only, no gradients, no shadows. Depth comes
-   from borders and surface steps. Accent is the single saturated color. */
+   dark. Solid colors, one saturated accent.
+   Depth is layered, not decorative: the shadow scale below is tinted with the
+   brand's wine (never neutral grey) so cards read as paper lifted off a warm
+   page. Surfaces step: page → board card → hero plane → overlay. */
 :root {
   --grad-app: #F3EFE7;
+
+  /* Type scale — a 1.25 ratio off a 13px base. Sizes used to be picked by eye
+     (9.5, 11.5, 12.5, 13.5, 15, 21, 33) and that incoherence is most of what
+     reads as "unfinished", even when nothing is individually wrong. */
+  --t-micro: 10px;   /* kickers, eyebrow labels — always uppercase + tracked */
+  --t-fine: 11px;
+  --t-small: 12px;
+  --t-base: 13px;
+  --t-lead: 15px;
+  --t-title: 19px;
+  --t-display: 32px;
+
+  /* Space scale — 4px grid. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+
+  /* Radius scale — concentric: an inner corner is outer minus its padding. */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 22px;
+
+  /* Brand mark. Leaf green is the wine's complement, desaturated to sit quietly. */
+  --leaf: #4E7A55;
+  --seed: #FBF5EE;
+
+  /* The sheet Fraise types on. Warmer and lighter than any other surface, so it
+     reads as paper laid on the page rather than another card. */
+  --paper: #FDFBF6;
+  --paper-back: #F4EFE6;
+  --rule: rgba(85, 30, 45, .09);
+  --rule-margin: rgba(142, 42, 69, .28);
+  --ink: #3A2228;
+
+  --shadow-1: 0 1px 2px rgba(74, 26, 40, .05), 0 2px 6px rgba(74, 26, 40, .04);
+  --shadow-2: 0 2px 4px rgba(74, 26, 40, .06), 0 10px 24px rgba(74, 26, 40, .09);
+  --shadow-3: 0 4px 8px rgba(74, 26, 40, .07), 0 18px 44px rgba(74, 26, 40, .13);
+  --shadow-ink: 0 2px 4px rgba(74, 26, 40, .14), 0 12px 30px rgba(74, 26, 40, .22);
 
   --window-bg: #FAF7F2;
   --sidebar-grad: #F3EEE6;
@@ -32,14 +76,29 @@
 
   --accent: #8E2A45;
   --accent-2: #A63D58;
-  --caption: #6E525A;
-  --caption-strong: #2E1B20;
 }
 
 /* Dark = the same editorial world at night: warm espresso surfaces, wine
    accent brightened for contrast. Mid-dark, never black. */
 .dark {
   --grad-app: #201316;
+
+  --leaf: #6E9C74;
+  --seed: #2E1B20;
+
+  /* Dark paper is card stock, not a lit page — it must stay below the text. */
+  --paper: #332428;
+  --paper-back: #2C1F22;
+  --rule: rgba(255, 240, 238, .07);
+  --rule-margin: rgba(199, 92, 116, .34);
+  --ink: #F2E9E4;
+
+  /* Shadows can't darken an already-dark page, so they lean on opacity and are
+     paired with a lighter surface step to carry the lift. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .20);
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, .34), 0 10px 24px rgba(0, 0, 0, .30);
+  --shadow-3: 0 4px 8px rgba(0, 0, 0, .38), 0 18px 44px rgba(0, 0, 0, .42);
+  --shadow-ink: 0 2px 4px rgba(0, 0, 0, .38), 0 12px 30px rgba(0, 0, 0, .46);
 
   --window-bg: #271A1C;
   --sidebar-grad: #2D1F22;
@@ -66,16 +125,13 @@
 
   --accent: #C75C74;
   --accent-2: #D97F92;
-  --caption: #BAAAA6;
-  --caption-strong: #F5EEE9;
 }
 
 /* ---------- keyboard focus ---------- */
 .new-conv:focus-visible,
-.doc-add:focus-visible,
+.card:focus-visible,
 .icon-btn:focus-visible,
 .recent:focus-visible,
-.suggestion:focus-visible,
 .name-go:focus-visible,
 .name-skip:focus-visible,
 .auth-banner-btn:focus-visible {
@@ -116,6 +172,7 @@
 
 /* ---------- sidebar ---------- */
 .sidebar {
+  position: relative; z-index: 6;
   width: 268px;
   flex-shrink: 0;
   display: flex;
@@ -123,23 +180,30 @@
   padding: 15px 14px 14px;
   background: var(--sidebar-grad);
   border-right: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-2);
   transition: background .5s ease, transform .3s cubic-bezier(.4, 0, .2, 1);
 }
 
-.brand { display: flex; align-items: center; gap: 11px; padding: 8px 6px 12px; }
+.brand { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) 6px var(--s-3); }
 .brand-mark {
   width: 30px; height: 30px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 24px; line-height: 1;
   animation: markBreathe 5s ease-in-out infinite;
 }
-@keyframes markBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes markBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+.fraise-mark { width: 100%; height: 100%; display: block; overflow: visible; }
+.fraise-mark .mark-berry { fill: var(--accent); }
+.fraise-mark .mark-leaf { fill: var(--leaf); }
+.fraise-mark .mark-stem { stroke: var(--leaf); fill: none; }
+.fraise-mark .mark-seed { fill: var(--seed); opacity: .85; }
+
 .brand-name {
   font-family: "Instrument Serif", serif;
-  font-size: 22px; line-height: 1; color: var(--text-primary); letter-spacing: .01em;
+  font-size: var(--t-title); line-height: 1; color: var(--text-primary); letter-spacing: .01em;
 }
 .brand-sub {
-  font-size: 9.5px; font-weight: 600; letter-spacing: .18em;
+  font-size: var(--t-micro); font-weight: 600; letter-spacing: .18em;
   text-transform: uppercase; color: var(--text-faint);
 }
 
@@ -151,9 +215,13 @@
   background: var(--surface);
   cursor: pointer;
   font-family: inherit; color: var(--text-primary); font-size: 13.5px; font-weight: 600;
-  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+  box-shadow: var(--shadow-1);
+  transition: background .2s ease, border-color .2s ease, transform .2s ease, box-shadow .2s ease;
 }
-.new-conv:hover { background: var(--surface-hover); border-color: var(--border-soft-3); transform: translateY(-1px); }
+.new-conv:hover {
+  background: var(--surface-hover); border-color: var(--border-soft-3);
+  transform: translateY(-1px); box-shadow: var(--shadow-2);
+}
 .new-conv .plus {
   width: 21px; height: 21px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -161,20 +229,6 @@
   color: #fff; font-size: 15px; line-height: 0; padding-bottom: 2px;
 }
 
-.doc-chips {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
-  margin-top: 18px; max-width: 440px;
-}
-.doc-chip {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 6px 12px; border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--border-soft-3);
-  font-size: 12.5px; font-weight: 600; color: var(--text-primary);
-}
-.doc-chip .doc-icon { font-size: 13px; line-height: 1; }
-.doc-chip .doc-meta { color: var(--text-muted); font-weight: 500; }
-.doc-chip.pending { color: var(--text-secondary); opacity: .8; }
 
 .section-label {
   font-size: 10px; font-weight: 700; letter-spacing: .16em;
@@ -205,11 +259,18 @@
 .recent-meta { font-size: 11px; color: var(--text-faint-2); padding-left: 15px; }
 .recents-empty { font-size: 12px; color: var(--text-faint); padding: 8px 11px; line-height: 1.5; }
 
+.account-wrap { position: relative; margin-top: 6px; border-top: 1px solid var(--border-soft); }
+
 .account {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 6px 2px; margin-top: 6px;
-  border-top: 1px solid var(--border-soft);
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 8px 4px; margin-top: 6px;
+  border: none; background: transparent; cursor: pointer;
+  font-family: inherit; text-align: left;
+  border-radius: 12px;
+  transition: background .18s ease;
 }
+.account:hover, .account.open { background: var(--surface-soft); }
+.account-id { flex: 1; min-width: 0; }
 .account-mark {
   width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -217,9 +278,65 @@
   border: 1px solid var(--border-soft-3);
   font-size: 13px; font-weight: 700; color: var(--accent);
 }
-.account-name { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
-.account-sub { font-size: 10.5px; color: var(--text-faint-2); }
-.account svg { fill: var(--text-faint); }
+.account-mark.lg { width: 38px; height: 38px; font-size: 16px; }
+.account-name { font-size: 12.5px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.account-sub { font-size: 10.5px; color: var(--text-faint-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.account-dots {
+  flex-shrink: 0; display: flex; color: var(--text-faint);
+  transition: color .18s ease, transform .18s ease;
+}
+.account-dots svg { fill: currentColor; }
+.account:hover .account-dots, .account.open .account-dots { color: var(--text-secondary); }
+
+/* ---------- account menu (rename, vibe, appearance) ---------- */
+/* Invisible full-window catcher so a click anywhere else closes the popover. */
+.account-scrim { position: fixed; inset: 0; z-index: 30; background: transparent; border: none; cursor: default; }
+.account-menu {
+  position: absolute; z-index: 31; left: 0; right: 0; bottom: calc(100% + 8px);
+  padding: 8px;
+  background: var(--surface); border: 1px solid var(--border-soft-3);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-3);
+  animation: acctMenuIn .18s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes acctMenuIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.acct-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 8px 12px; margin-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.acct-item {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 9px 10px; border-radius: var(--r-sm);
+  border: none; background: transparent; cursor: pointer;
+  font-family: inherit; font-size: var(--t-base); font-weight: 550; color: var(--text-secondary);
+  text-align: left;
+  transition: background .15s ease, color .15s ease;
+}
+.acct-item:hover { background: var(--surface-soft); color: var(--text-primary); }
+.acct-ico {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-soft); color: var(--accent); font-size: 15px;
+}
+.acct-item:hover .acct-ico { background: var(--surface-strong); }
+.acct-ico svg { width: 15px; height: 15px; display: block; }
+.acct-ico.avatar { background: transparent; }
+.acct-sep { height: 1px; background: var(--border-soft); margin: 6px 2px; }
+.acct-appearance {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 8px 4px 10px;
+}
+.acct-label {
+  font-size: var(--t-micro); font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.acct-theme { display: flex; gap: 3px; padding: 3px; border-radius: 999px; background: var(--surface-soft); }
+.acct-theme button {
+  padding: 4px 12px; border-radius: 999px; border: none; cursor: pointer;
+  font-family: inherit; font-size: var(--t-fine); font-weight: 600; color: var(--text-muted);
+  background: transparent; transition: background .15s ease, color .15s ease;
+}
+.acct-theme button.on { background: var(--accent); color: #fff; }
 
 .credit {
   font-family: "Instrument Serif", serif;
@@ -240,9 +357,12 @@
 }
 
 .main-header {
+  position: relative; z-index: 5;
   height: 60px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 0 26px;
+  background: var(--main-grad);
+  transition: background .5s ease;
 }
 .header-left { display: flex; align-items: center; gap: 12px; }
 .header-right { display: flex; align-items: center; gap: 10px; }
@@ -255,9 +375,10 @@
   background: var(--pill-bg);
   border: 1px solid var(--border-soft);
   color: var(--text-secondary);
-  transition: background .2s ease, transform .2s ease, color .2s ease;
+  box-shadow: var(--shadow-1);
+  transition: background .2s ease, transform .2s ease, color .2s ease, box-shadow .2s ease;
 }
-.icon-btn:hover { background: var(--surface-hover); transform: translateY(-1px); }
+.icon-btn:hover { background: var(--surface-hover); transform: translateY(-1px); box-shadow: var(--shadow-2); }
 .icon-btn:active { transform: translateY(0); }
 .icon-btn svg { width: 18px; height: 18px; display: block; }
 .icon-btn.menu { display: none; }
@@ -291,6 +412,7 @@
   padding: 7px 14px; border-radius: 999px;
   background: var(--pill-bg);
   border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-1);
 }
 .status-pill .dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -305,6 +427,7 @@
   padding: 4px; border-radius: 999px;
   background: var(--pill-bg);
   border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-1);
   overflow-x: auto; scrollbar-width: none;
 }
 .assistant-switcher::-webkit-scrollbar { display: none; }
@@ -316,7 +439,7 @@
   transition: background .2s ease, transform .15s ease, color .2s ease;
 }
 .assistant-pill:hover { background: var(--surface-hover); transform: translateY(-1px); }
-.assistant-pill.active { background: var(--accent); color: #fff; padding-right: 13px; }
+.assistant-pill.active { background: var(--accent); color: #fff; padding-right: 13px; box-shadow: var(--shadow-ink); }
 .assistant-avatar { font-size: 17px; line-height: 1; width: 22px; text-align: center; }
 .assistant-name {
   font-size: 12.5px; font-weight: 650; letter-spacing: .01em; white-space: nowrap;
@@ -333,82 +456,256 @@
 .assistant-add:hover { color: var(--accent); border-color: var(--accent); }
 
 /* ---------- stage ---------- */
+/* The stage is the scroll plane. The hero sticks to its top; the board slides
+   beneath the hero's frosted scrim. That overlap is the depth cue — cards must
+   pass *under* something for the page to read as layered. */
 .assistant-stage {
-  flex: 1; position: relative;
+  flex: 1; position: relative; min-height: 0;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin; scrollbar-color: var(--border-soft-3) transparent;
+}
+.assistant-stage::-webkit-scrollbar { width: 10px; }
+.assistant-stage::-webkit-scrollbar-track { background: transparent; }
+.assistant-stage::-webkit-scrollbar-thumb {
+  background: var(--border-soft-3); border-radius: 999px;
+  border: 3px solid transparent; background-clip: padding-box;
+}
+
+/* Sized by its content, not by the viewport — a vh floor here would push the
+   board below the fold and the page would read as empty. The board must break
+   the bottom edge; that bleed is what invites the scroll. */
+.hero {
+  position: sticky; top: 0; z-index: 3;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 28px; padding: 6px 26px 0;
+  gap: 14px; padding: 0 26px 18px;
 }
+/* Painted behind the hero's children so the WebGL orb stays crisp on top. */
+.hero::before {
+  content: ""; position: absolute; inset: -80px 0 0; z-index: -1;
+  background: var(--main-grad);
+  backdrop-filter: blur(14px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  pointer-events: none;
+}
+
+/* ---------- the sheet ---------- */
+/* Fraise types onto paper. Two sheets: a back one, fanned, purely to give the
+   front one an edge to cast onto — a single sheet floating on a page reads as a
+   card, and we already have cards. */
 .caption-wrap {
-  min-height: 88px; max-width: 560px;
+  width: 100%; max-width: 620px;
   display: flex; align-items: center; justify-content: center;
+  padding: 0 6px 6px 0;
 }
+.paper {
+  position: relative; width: 100%; max-width: 600px;
+  animation: paperIn .5s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes paperIn { from { opacity: 0; transform: translateY(10px) rotate(1deg); } to { opacity: 1; transform: none; } }
+.paper::before {
+  content: ""; position: absolute; inset: 0;
+  background: var(--paper-back);
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+  box-shadow: var(--shadow-1);
+  transform: rotate(1.3deg) translate(5px, 4px);
+}
+
+/* Ruled lines are drawn, not decorative texture: the 40px tile is exactly the
+   caption's line-height, so the type sits on the rules instead of near them.
+   Vertical margin rule at 44px, in a bled-out wine. */
+.sheet {
+  position: relative;
+  min-height: 132px;
+  padding: 22px 26px 24px 58px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft-2);
+  box-shadow: var(--shadow-2);
+  transform: rotate(-.4deg);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--rule-margin), var(--rule-margin)),
+    linear-gradient(to bottom, var(--rule) 0 1px, transparent 1px);
+  background-size: 1px 100%, 100% 40px;
+  background-position: 44px 0, 0 61px;
+  background-repeat: no-repeat, repeat;
+}
+
 .caption {
   margin: 0;
   font-family: "Instrument Serif", serif;
-  font-weight: 400; font-size: 33px; line-height: 1.22;
-  text-align: center; text-wrap: balance;
-  color: var(--caption); transition: color .4s ease;
-  animation: captionIn .5s cubic-bezier(.22, 1, .36, 1) both;
+  font-weight: 400; font-size: var(--t-display); line-height: 40px;
+  letter-spacing: -.005em;
+  text-align: left; text-wrap: pretty;
+  color: var(--ink); transition: color .4s ease;
 }
-@keyframes captionIn { from { opacity: 0; transform: translateY(7px); filter: blur(3px); } to { opacity: 1; transform: none; filter: blur(0); } }
-.caption.listening { color: var(--text-secondary); font-style: italic; }
-.caption.speaking { color: var(--caption-strong); }
-.caption.idle { color: var(--caption); }
+.paper.listening .caption { color: var(--text-tertiary); font-style: italic; }
+.paper.idle .caption { color: var(--text-tertiary); }
+
+/* A typewriter's caret is the strike position — a solid slug, not a hairline. */
 .caption .caret {
-  display: inline-block; width: 2px; height: .82em; margin-left: 4px;
-  background: var(--accent); vertical-align: -1px; border-radius: 2px;
-  animation: caret 1s steps(1) infinite;
+  display: inline-block; width: .42em; height: 3px; margin-left: 3px;
+  background: var(--accent); vertical-align: 5px;
+  animation: caret 1.05s steps(1) infinite;
 }
 
-/* ---------- suggestions (empty state) ---------- */
-.suggestions {
-  display: flex; flex-direction: column; align-items: center; gap: 13px;
+/* ---------- the board ---------- */
+/* Two zones now: documents → suggestions. Upload moved to the dock so it stays
+   put while the board recedes. Narrower than the hero on purpose; a calm column
+   reads as considered, a full-bleed wall of cards reads as a dashboard. */
+.board {
+  width: 100%; max-width: 940px; margin: 0 auto;
+  padding: 0 26px 40px;
   animation: suggestIn .5s ease both;
+  transition: opacity .25s ease, transform .25s ease, filter .25s ease;
 }
 @keyframes suggestIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* recedes the moment a conversation begins — a shelf, not a feed */
+.board.receded {
+  opacity: 0; transform: translateY(6px); filter: blur(1px);
+  pointer-events: none;
+}
 
-.suggestions-label {
-  font-size: 10px; font-weight: 700; letter-spacing: .18em;
+.board-section { margin-top: var(--s-6); }
+/* One label per group. It used to be stamped on every card as a kicker — the
+   same three words, seven times, in accent caps. That repetition *was* the
+   clutter; a heading says it once and the cards get quiet. */
+.board-label {
+  margin: 0 0 var(--s-3) 2px;
+  font-size: var(--t-micro); font-weight: 700; letter-spacing: .18em;
   text-transform: uppercase; color: var(--text-faint);
 }
-.suggestions-grid {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px; max-width: 520px;
+
+
+/* ---------- cards ---------- */
+/* Suggestions are uniform, so they get a grid. Documents have variable height,
+   so they get masonry — that's the only place the ragged column earns itself. */
+.suggest-grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
 }
-.suggestion {
-  display: flex; align-items: center; gap: 10px;
-  padding: 11px 15px; border-radius: 13px;
-  background: var(--surface-soft);
-  border: 1px solid var(--border-soft-2);
-  color: var(--text-secondary); font-size: 13.5px; font-weight: 500;
-  line-height: 1.25;
-  transition: background .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
+.docs-masonry { columns: 4 190px; column-gap: 14px; }
+.docs-masonry .card { break-inside: avoid; margin-bottom: 14px; }
+
+.card {
+  width: 100%; display: block; text-align: left;
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg); padding: var(--s-4); cursor: pointer;
+  font-family: inherit;
+  box-shadow: var(--shadow-1);
+  transition: transform .22s cubic-bezier(.22, 1, .36, 1), box-shadow .22s ease, border-color .2s ease;
   animation: suggestItemIn .45s cubic-bezier(.22, 1, .36, 1) both;
 }
-.suggestion:nth-child(1) { animation-delay: .06s; }
-.suggestion:nth-child(2) { animation-delay: .12s; }
-.suggestion:nth-child(3) { animation-delay: .18s; }
-.suggestion:nth-child(4) { animation-delay: .24s; }
+.card:nth-child(1) { animation-delay: .04s; }
+.card:nth-child(2) { animation-delay: .09s; }
+.card:nth-child(3) { animation-delay: .14s; }
+.card:nth-child(4) { animation-delay: .19s; }
+.card:nth-child(5) { animation-delay: .24s; }
+.card:nth-child(6) { animation-delay: .29s; }
 @keyframes suggestItemIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.suggestion:hover {
-  background: var(--surface);
-  border-color: var(--border-soft-3);
-  color: var(--text-primary);
-  transform: translateY(-1px);
+/* The lift is the whole point: rise toward the reader, shadow spreads to match. */
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-3);
+  border-color: var(--border-soft-2);
 }
-.suggestion-icon {
-  flex-shrink: 0; font-size: 13px; line-height: 1;
-  color: var(--accent); opacity: .85;
+.card:active { transform: translateY(-1px); box-shadow: var(--shadow-2); }
+
+/* The icon rides in a tinted tile, not bare on the card — it gives the glyph a
+   consistent optical weight the way an emoji's own bounding box used to. */
+.card-icon {
+  width: 34px; height: 34px; border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: var(--s-3);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+  transition: background .2s ease, color .2s ease;
 }
+.card-icon .icon { width: 18px; height: 18px; display: block; }
+.card:hover .card-icon { background: var(--accent); color: #fff; border-color: transparent; }
+.card-say { font-size: var(--t-base); font-weight: 500; color: var(--text-secondary); line-height: 1.45; display: block; }
+
+/* Exactly one accent card per view — the most useful thing you could say next.
+   Two would be no emphasis at all. */
+.card.accent {
+  background: var(--accent); border-color: transparent;
+  box-shadow: var(--shadow-ink);
+}
+.card.accent .card-say { color: #fff; }
+.card.accent .card-icon {
+  background: rgba(255, 255, 255, .14); border-color: rgba(255, 255, 255, .2); color: #fff;
+}
+.card.accent:hover { box-shadow: var(--shadow-3), var(--shadow-ink); border-color: transparent; }
+.card.accent:hover .card-icon { background: rgba(255, 255, 255, .22); color: #fff; }
+
+/* Quote and documents aren't clickable — don't promise a press. */
+.card.quote, .card.doc-card { cursor: default; }
+
+.card.quote {
+  background: transparent; border-color: transparent; box-shadow: none;
+  display: flex; align-items: center; padding: var(--s-4) var(--s-2);
+}
+.card.quote:hover { transform: none; box-shadow: none; border-color: transparent; }
+.card.quote .card-say {
+  font-family: "Instrument Serif", serif; font-style: italic;
+  font-size: var(--t-title); line-height: 1.34; color: var(--text-tertiary);
+}
+/* Real typographic quotes, hung so the text stays optically aligned. */
+.card.quote .card-say::before,
+.card.quote .card-say::after { color: var(--accent); }
+.card.quote .card-say::before { content: "\201C"; margin-left: -.34em; }
+.card.quote .card-say::after { content: "\201D"; }
+
+/* A document wears a face derived from its own name — a motif, not a stock
+   photo. Deterministic, offline, and it can't accidentally be meaningful. */
+.card.doc-card { padding: 0; overflow: hidden; }
+.cover {
+  position: relative; aspect-ratio: 4 / 3;
+  background: var(--accent); color: rgba(255, 255, 255, .3);
+  display: flex; align-items: flex-end; padding: var(--s-3);
+}
+.cover-art { position: absolute; inset: 0; width: 100%; height: 100%; fill: currentColor; }
+.cover-ext {
+  position: relative;
+  font-family: "Instrument Serif", serif;
+  font-size: 26px; line-height: 1; letter-spacing: .04em;
+  color: #fff; opacity: .96;
+}
+.card.doc-card .card-meta {
+  padding: var(--s-3) 14px; display: flex; align-items: baseline; gap: var(--s-2);
+  font-size: var(--t-small); font-weight: 600; color: var(--text-primary);
+}
+.card.doc-card .meta-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card.doc-card .card-meta .chunks {
+  color: var(--text-muted); font-weight: 500; margin-left: auto; flex-shrink: 0;
+  font-size: var(--t-fine);
+}
+.card.doc-card.pending { opacity: .7; }
+.card.doc-card.pending .cover { background: var(--text-faint); }
 
 @media (max-width: 760px) {
-  .suggestions-grid { grid-template-columns: 1fr; max-width: 340px; }
+  .board { padding: 0 16px 32px; }
+  .board-section { margin-top: var(--s-5); }
+  .suggest-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .docs-masonry { columns: 2 150px; column-gap: 12px; }
 }
 
 /* ---------- dock ---------- */
+/* Topmost plane. Its scrim fades the scrolling board out just before it would
+   collide with the wave, so the board reads as passing behind the dock. */
 .dock {
+  position: relative; z-index: 4;
   flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
-  gap: 15px; padding: 0 26px 30px;
+  gap: 15px; padding: 12px 26px 30px;
+  background: var(--main-grad);
+  transition: background .5s ease;
+}
+.dock::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 100%;
+  height: 60px; pointer-events: none;
+  background: linear-gradient(to top, var(--main-grad), transparent);
 }
 .wave {
   display: flex; align-items: center; gap: 4px; height: 34px;
@@ -435,7 +732,33 @@
 .wave span:nth-child(12){ height: 12px; animation: barC .95s ease-in-out infinite; animation-delay: -.55s; }
 .wave span:nth-child(13){ height: 8px;  animation: barA 1.10s ease-in-out infinite; animation-delay: -.20s; }
 
+.dock-row { display: inline-flex; align-items: center; gap: 14px; }
 .dock-hint { display: inline-flex; align-items: center; font-size: 12.5px; color: var(--text-muted); font-weight: 500; letter-spacing: .02em; }
+
+/* Compact, always-on upload. Small enough to sit in the dock beside the hint;
+   never recedes because the dock is the top plane, not the board. */
+.dock-upload {
+  display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+  height: 32px; padding: 0 13px 0 10px; border-radius: 999px;
+  border: 1px solid var(--border-soft-2); background: var(--pill-bg);
+  color: var(--text-secondary); cursor: pointer; font-family: inherit;
+  font-size: 12px; font-weight: 600; letter-spacing: .01em;
+  box-shadow: var(--shadow-1);
+  transition: color .2s ease, border-color .2s ease, background .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+.dock-upload svg { width: 15px; height: 15px; display: block; }
+.dock-upload:hover {
+  color: var(--accent); border-color: var(--accent);
+  transform: translateY(-1px); box-shadow: var(--shadow-2);
+}
+.dock-upload.error { color: var(--accent); border-color: var(--accent); }
+.dock-upload-label { white-space: nowrap; }
+
+@media (max-width: 480px) {
+  /* Just the icon on the narrowest screens — the label would crowd the hint. */
+  .dock-upload { padding: 0; width: 32px; justify-content: center; }
+  .dock-upload-label { display: none; }
+}
 .kbd {
   display: inline-flex; align-items: center; margin-left: 8px;
   padding: 2px 7px; border-radius: 6px;
@@ -444,25 +767,6 @@
   background: var(--surface);
   border: 1px solid var(--border-soft-2);
 }
-
-/* ---------- add document (in stage) ---------- */
-.doc-add {
-  display: inline-flex; align-items: center; gap: 9px;
-  padding: 10px 18px; border-radius: 999px;
-  background: var(--surface-soft);
-  border: 1px dashed var(--border-dash);
-  color: var(--text-secondary); font-family: inherit;
-  font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: background .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
-}
-.doc-add:hover {
-  background: var(--surface);
-  border-color: var(--accent);
-  color: var(--text-primary);
-  transform: translateY(-1px);
-}
-.doc-add svg { width: 16px; height: 16px; color: var(--accent); }
-.doc-add.error { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- first-run name prompt ---------- */
 .name-overlay {
@@ -480,11 +784,12 @@
   border-radius: 22px;
   background: var(--window-bg);
   border: 1px solid var(--border-soft-3);
+  box-shadow: var(--shadow-3);
   text-align: center;
   animation: nameCardIn .38s cubic-bezier(.22, 1, .36, 1) both;
 }
 @keyframes nameCardIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
-.name-mark { width: 44px; height: 44px; margin-bottom: 16px; font-size: 36px; }
+.name-mark { width: 46px; height: 46px; margin-bottom: var(--s-4); }
 .name-title {
   margin: 0; font-family: "Instrument Serif", serif;
   font-size: 27px; font-weight: 400; color: var(--text-primary);
@@ -578,7 +883,13 @@
   .sidebar.open { transform: translateX(0); }
 
   .icon-btn.menu { display: flex; }
-  .caption { font-size: 27px; }
+  /* Rules must retile to the new line-height or the type drifts off them. */
+  .caption { font-size: 24px; line-height: 34px; }
+  .sheet {
+    min-height: 112px; padding: 18px 18px 20px 46px;
+    background-size: 1px 100%, 100% 34px;
+    background-position: 34px 0, 0 51px;
+  }
   .main-header { padding: 0 16px; }
   .assistant-stage { padding: 6px 16px 0; }
   .dock { padding: 0 16px 26px; }
@@ -591,5 +902,7 @@
 @media (prefers-reduced-motion: reduce) {
   .wave span { animation: none !important; }
   .sidebar { transition: none; }
-  .suggestions, .suggestion, .name-card, .caption, .brand-mark { animation: none !important; }
+  .board, .card, .name-card, .paper, .brand-mark { animation: none !important; }
+  /* The typewriter itself is disabled in JS; this stops the caret strobing. */
+  .caption .caret { animation: none; }
 }

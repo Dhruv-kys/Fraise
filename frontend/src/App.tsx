@@ -11,6 +11,8 @@ import {
   type Assistant,
 } from "./assistants";
 import Orb from "./Orb";
+import Board from "./Board";
+import { FraiseMark } from "./icons";
 import "./App.css";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
@@ -35,15 +37,6 @@ const DOCK_HINT: Record<OrbState, string> = {
   thinking: "Working…",
   speaking: "Speaking…",
 };
-
-// Empty-state discovery prompts — shown before the first turn so the stage
-// isn't just an orb in a void, and so first-time users learn what to say.
-const SUGGESTIONS = [
-  { icon: "✦", text: "What's 18% of 240?" },
-  { icon: "◇", text: "Remember I prefer window seats" },
-  { icon: "❋", text: "Summarize the document I added" },
-  { icon: "❍", text: "What have I asked you to remember?" },
-];
 
 type Theme = "light" | "dark";
 
@@ -70,6 +63,34 @@ function useTheme(): [Theme, () => void] {
   return [theme, () => setTheme((t) => (t === "dark" ? "light" : "dark"))];
 }
 
+// Reveals `text` one character at a time.
+//
+// The agent's transcript arrives incrementally, so `text` grows mid-type. We
+// only rewind when the new text isn't a continuation of what's already on the
+// page — otherwise the reveal just keeps chasing the longer string, which is
+// what makes it look like the words are being typed as they're spoken.
+function useTypewriter(text: string, enabled: boolean, cps = 48): string {
+  const [count, setCount] = useState(0);
+  const printed = useRef("");
+
+  useEffect(() => {
+    if (!text.startsWith(printed.current)) setCount(0);
+    printed.current = text;
+  }, [text]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setCount(text.length);
+      return;
+    }
+    if (count >= text.length) return;
+    const id = setTimeout(() => setCount((c) => Math.min(c + 1, text.length)), 1000 / cps);
+    return () => clearTimeout(id);
+  }, [count, text, enabled, cps]);
+
+  return text.slice(0, count);
+}
+
 const SunIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <circle cx="12" cy="12" r="4.2" />
@@ -91,13 +112,6 @@ const GitHubIcon = () => (
     <path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.05-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.13-.3-.54-1.53.11-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.23 0 4.63-2.81 5.65-5.49 5.95.43.37.81 1.1.81 2.22 0 1.61-.01 2.9-.01 3.29 0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z" />
   </svg>
 );
-const DocIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-    <path d="M14 3v5h5" />
-  </svg>
-);
-
 function greetingFor(d: Date): string {
   const h = d.getHours();
   if (h < 5) return "Working late";
@@ -148,6 +162,10 @@ export default function App() {
     (data: { name: string; avatar: string; instructions: string }, id?: string) => {
       if (id) {
         setAssistants(updateAssistant(id, data));
+        // Editing the active persona's vibe mid-session: reopen the socket so the
+        // new name/instructions land in the prompt (a new persona is created idle,
+        // so it needs no reconnect).
+        if (id === activeId && listening) reconnect();
       } else {
         const created = createAssistant(data);
         setAssistants(listAssistants());
@@ -155,7 +173,7 @@ export default function App() {
       }
       setEditing(null);
     },
-    [switchTo],
+    [switchTo, activeId, listening, reconnect],
   );
 
   const removeAssistant = useCallback((id: string) => {
@@ -166,16 +184,29 @@ export default function App() {
 
   const [theme, toggleTheme] = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
-  // First-run: ask the visitor's name once, persist it, and address them by it.
+  // First-run asks the visitor's name once; the account menu lets them change it
+  // (or their persona's vibe) any time after.
   const [name, setName] = useState<string>(() => localStorage.getItem("fraise-name") ?? "");
   const [askName, setAskName] = useState<boolean>(() => localStorage.getItem("fraise-name") === null);
+  const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const saveName = (raw: string) => {
     const clean = raw.trim().slice(0, 40);
     localStorage.setItem("fraise-name", clean);
     setName(clean);
+    const wasEdit = editingName;
     setAskName(false);
+    setEditingName(false);
+    // A live session carries the name in its socket URL (?name=), so a rename
+    // only reaches the backend prompt on reconnect.
+    if (wasEdit && listening) reconnect();
+  };
+  const openRename = () => {
+    setNameInput(name);
+    setEditingName(true);
+    setAccountMenuOpen(false);
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -232,6 +263,7 @@ export default function App() {
         toggle();
       } else if (e.key === "Escape") {
         setMenuOpen(false);
+        setAccountMenuOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -264,8 +296,18 @@ export default function App() {
     captionClass = "idle";
   }
 
+  // Type only what Fraise says. A listening caption is the user's own words
+  // coming back off the mic — replaying those a character at a time would lag
+  // behind their voice and feel broken.
+  const reduceMotion = useRef(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false).current;
+  const types = captionClass === "speaking" || captionClass === "idle";
+  const typed = useTypewriter(caption, types && !reduceMotion);
+  const caretOn = typed.length < caption.length || waveOn;
+
   const pill = statusPill(status, orbState);
-  const showSuggestions = speechSupported && orbState === "idle" && messages.length === 0;
+  // Keep the board mounted while docs exist or a turn is in flight so it can
+  // recede (fade) rather than pop out — a shelf, not a feed.
+  const showBoard = speechSupported && (messages.length === 0 || docs.length > 0 || !!uploading);
 
   // Recent list — derived from the user's turns this session.
   const recents = [...messages].filter((m) => m.role === "user").reverse().slice(0, 8);
@@ -277,7 +319,7 @@ export default function App() {
         {menuOpen && <button className="scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
         <aside className={`sidebar${menuOpen ? " open" : ""}`}>
           <div className="brand">
-            <div className="brand-mark">🍓</div>
+            <div className="brand-mark"><FraiseMark /></div>
             <div>
               <div className="brand-name">Fraise</div>
               <div className="brand-sub">Voice assistant</div>
@@ -307,17 +349,87 @@ export default function App() {
             )}
           </div>
 
-          <div className="account">
-            <div className="account-mark">{(name || "You").charAt(0).toUpperCase()}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="account-name">{name || "You"}</div>
-              <div className="account-sub">{active.avatar} {active.name}</div>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 24 24">
-              <circle cx="5" cy="12" r="2" />
-              <circle cx="12" cy="12" r="2" />
-              <circle cx="19" cy="12" r="2" />
-            </svg>
+          <div className="account-wrap">
+            {accountMenuOpen && (
+              <button
+                className="account-scrim"
+                aria-label="Close account menu"
+                onClick={() => setAccountMenuOpen(false)}
+              />
+            )}
+
+            {accountMenuOpen && (
+              <div className="account-menu" role="menu">
+                <div className="acct-head">
+                  <div className="account-mark lg">{(name || "You").charAt(0).toUpperCase()}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="account-name">{name || "You"}</div>
+                    <div className="account-sub">Talking with {active.avatar} {active.name}</div>
+                  </div>
+                </div>
+
+                <button className="acct-item" role="menuitem" onClick={openRename}>
+                  <span className="acct-ico">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+                    </svg>
+                  </span>
+                  Change your name
+                </button>
+
+                <button
+                  className="acct-item"
+                  role="menuitem"
+                  onClick={() => { setEditing(active); setAccountMenuOpen(false); }}
+                >
+                  <span className="acct-ico avatar">{active.avatar}</span>
+                  Customize {active.name}’s vibe
+                </button>
+
+                <div className="acct-sep" />
+
+                <div className="acct-appearance">
+                  <span className="acct-label">Appearance</span>
+                  <div className="acct-theme" role="group" aria-label="Theme">
+                    <button
+                      className={theme === "light" ? "on" : ""}
+                      onClick={() => theme !== "light" && toggleTheme()}
+                      aria-pressed={theme === "light"}
+                    >
+                      Light
+                    </button>
+                    <button
+                      className={theme === "dark" ? "on" : ""}
+                      onClick={() => theme !== "dark" && toggleTheme()}
+                      aria-pressed={theme === "dark"}
+                    >
+                      Dark
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button
+              className={`account${accountMenuOpen ? " open" : ""}`}
+              aria-haspopup="menu"
+              aria-expanded={accountMenuOpen}
+              onClick={() => setAccountMenuOpen((o) => !o)}
+            >
+              <div className="account-mark">{(name || "You").charAt(0).toUpperCase()}</div>
+              <div className="account-id">
+                <div className="account-name">{name || "You"}</div>
+                <div className="account-sub">{active.avatar} {active.name}</div>
+              </div>
+              <span className="account-dots" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                  <circle cx="5" cy="12" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="19" cy="12" r="2" />
+                </svg>
+              </span>
+            </button>
           </div>
 
           <div className="credit">
@@ -407,59 +519,28 @@ export default function App() {
           )}
 
           <section className="assistant-stage">
-            <Orb state={orbState} onClick={toggle} inputLevelRef={levelRef} outputLevelRef={outLevelRef} />
+            {/* The hero is its own plane: it sticks to the top and the board
+                scrolls underneath its frosted scrim. */}
+            <div className="hero">
+              <Orb state={orbState} onClick={toggle} inputLevelRef={levelRef} outputLevelRef={outLevelRef} />
 
-            <div className="caption-wrap">
-              <p key={caption} className={`caption ${captionClass}`}>
-                {caption}
-                {waveOn && <span className="caret" />}
-              </p>
-            </div>
-
-            {showSuggestions && (
-              <div className="suggestions">
-                <span className="suggestions-label">Try saying</span>
-                <div className="suggestions-grid">
-                  {SUGGESTIONS.map((s) => (
-                    <div key={s.text} className="suggestion">
-                      <span className="suggestion-icon">{s.icon}</span>
-                      <span>{s.text}</span>
-                    </div>
-                  ))}
+              <div className="caption-wrap">
+                {/* key on the phase, not the text — keying on `caption` would
+                    remount the sheet on every typed character. */}
+                <div key={captionClass} className={`paper ${captionClass}`}>
+                  <div className="sheet">
+                    <p className="caption" aria-live="polite">
+                      {typed}
+                      {caretOn && <span className="caret" />}
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
 
-            {(docs.length > 0 || uploading) && (
-              <div className="doc-chips">
-                {uploading && (
-                  <span className="doc-chip pending">
-                    <span className="doc-icon">📄</span>
-                    {uploading}…
-                  </span>
-                )}
-                {docs.map((d) => (
-                  <span key={d.name} className="doc-chip">
-                    <span className="doc-icon">📄</span>
-                    {d.name}
-                    <span className="doc-meta">{d.chunks} chunks</span>
-                  </span>
-                ))}
-              </div>
+            {showBoard && (
+              <Board docs={docs} uploading={uploading} receded={orbState !== "idle"} />
             )}
-
-            <button
-              className={`doc-add${docError ? " error" : ""}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleFiles(e.dataTransfer.files);
-              }}
-            >
-              <DocIcon />
-              {uploading ? `Adding ${uploading}…` : docError || "Add a document"}
-            </button>
             <input
               ref={fileInputRef}
               type="file"
@@ -475,26 +556,50 @@ export default function App() {
                 <span key={i} />
               ))}
             </div>
-            <span className="dock-hint">
-              {speechSupported ? DOCK_HINT[orbState] : "Voice needs Chrome or Edge"}
-              {speechSupported && orbState === "idle" && <kbd className="kbd">Space</kbd>}
-            </span>
+            <div className="dock-row">
+              <span className="dock-hint">
+                {speechSupported ? DOCK_HINT[orbState] : "Voice needs Chrome or Edge"}
+                {speechSupported && orbState === "idle" && <kbd className="kbd">Space</kbd>}
+              </span>
+              {/* Small, always-visible upload — lives in the dock (z-4) so it never
+                  recedes with the board while Fraise is talking. */}
+              <button
+                className={`dock-upload${docError ? " error" : ""}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  handleFiles(e.dataTransfer.files);
+                }}
+                title={docError || "Add a document — .txt, .md, .pdf"}
+                aria-label={docError || "Add a document"}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 16V4M8 8l4-4 4 4" />
+                  <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                </svg>
+                <span className="dock-upload-label">
+                  {uploading ? "Adding…" : docError ? "Try again" : "Add document"}
+                </span>
+              </button>
+            </div>
           </footer>
         </main>
       </div>
 
-      {/* ---------- first-run name prompt ---------- */}
-      {askName && (
-        <div className="name-overlay">
+      {/* ---------- name prompt: first-run and later renames share this card ---------- */}
+      {(askName || editingName) && (
+        <div className="name-overlay" onClick={() => editingName && setEditingName(false)}>
           <form
             className="name-card"
+            onClick={(e) => e.stopPropagation()}
             onSubmit={(e) => {
               e.preventDefault();
               saveName(nameInput);
             }}
           >
-            <div className="brand-mark name-mark">🍓</div>
-            <h2 className="name-title">Welcome to Fraise</h2>
+            <div className="brand-mark name-mark"><FraiseMark /></div>
+            <h2 className="name-title">{editingName ? "Your name" : "Welcome to Fraise"}</h2>
             <p className="name-sub">What should I call you?</p>
             <input
               className="name-input"
@@ -506,10 +611,14 @@ export default function App() {
               onChange={(e) => setNameInput(e.target.value)}
             />
             <button className="name-go" type="submit" disabled={!nameInput.trim()}>
-              Continue
+              {editingName ? "Save" : "Continue"}
             </button>
-            <button className="name-skip" type="button" onClick={() => saveName("")}>
-              Skip for now
+            <button
+              className="name-skip"
+              type="button"
+              onClick={() => (editingName ? setEditingName(false) : saveName(""))}
+            >
+              {editingName ? "Cancel" : "Skip for now"}
             </button>
           </form>
         </div>
