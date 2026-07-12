@@ -38,14 +38,6 @@
   --leaf: #4E7A55;
   --seed: #FBF5EE;
 
-  /* The sheet Fraise types on. Warmer and lighter than any other surface, so it
-     reads as paper laid on the page rather than another card. */
-  --paper: #FDFBF6;
-  --paper-back: #F4EFE6;
-  --rule: rgba(85, 30, 45, .09);
-  --rule-margin: rgba(142, 42, 69, .28);
-  --ink: #3A2228;
-
   --shadow-1: 0 1px 2px rgba(74, 26, 40, .05), 0 2px 6px rgba(74, 26, 40, .04);
   --shadow-2: 0 2px 4px rgba(74, 26, 40, .06), 0 10px 24px rgba(74, 26, 40, .09);
   --shadow-3: 0 4px 8px rgba(74, 26, 40, .07), 0 18px 44px rgba(74, 26, 40, .13);
@@ -88,13 +80,6 @@
 
   --leaf: #79A57F;
   --seed: #241D1E;
-
-  /* Dark paper is card stock, not a lit page — it must stay below the text. */
-  --paper: #272120;
-  --paper-back: #211C1B;
-  --rule: rgba(244, 236, 232, .08);
-  --rule-margin: rgba(206, 90, 115, .42);
-  --ink: #F2ECE7;
 
   /* Shadows can't darken an already-dark page; the surface ladder carries the
      lift, shadows just seat edges. */
@@ -459,9 +444,10 @@
 .assistant-add:hover { color: var(--accent); border-color: var(--accent); }
 
 /* ---------- stage ---------- */
-/* The stage is the scroll plane. The hero sticks to its top; the board slides
-   beneath the hero's frosted scrim. That overlap is the depth cue — cards must
-   pass *under* something for the page to read as layered. */
+/* The stage is the scroll plane. The hero scrolls WITH it — it used to be
+   `position: sticky`, which pinned the orb to the top of the window the moment
+   you scrolled and never let it come back down. A layering trick isn't worth an
+   orb that gets stuck. */
 .assistant-stage {
   flex: 1; position: relative; min-height: 0;
   overflow-y: auto; overflow-x: hidden;
@@ -478,77 +464,33 @@
    board below the fold and the page would read as empty. The board must break
    the bottom edge; that bleed is what invites the scroll. */
 .hero {
-  position: sticky; top: 0; z-index: 3;
+  position: relative; z-index: 3;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 14px; padding: 0 26px 18px;
-}
-/* Painted behind the hero's children so the WebGL orb stays crisp on top. */
-.hero::before {
-  content: ""; position: absolute; inset: -80px 0 0; z-index: -1;
-  background: var(--main-grad);
-  backdrop-filter: blur(14px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
-  pointer-events: none;
+  gap: 10px; padding: 0 26px 14px;
 }
 
-/* ---------- the sheet ---------- */
-/* Fraise types onto paper. Two sheets: a back one, fanned, purely to give the
-   front one an edge to cast onto — a single sheet floating on a page reads as a
-   card, and we already have cards. */
+/* ---------- caption ---------- */
+/* Plain type on the page. The ruled-paper sheet is gone: it framed one line of
+   speech in a heavy object, which fought the artifact for attention and dragged
+   the whole hero down the screen. */
 .caption-wrap {
-  width: 100%; max-width: 620px;
+  width: 100%; max-width: 620px; min-height: 76px;
   display: flex; align-items: center; justify-content: center;
-  padding: 0 6px 6px 0;
 }
-.paper {
-  position: relative; width: 100%; max-width: 600px;
-  animation: paperIn .5s cubic-bezier(.22, 1, .36, 1) both;
-}
-@keyframes paperIn { from { opacity: 0; transform: translateY(10px) rotate(1deg); } to { opacity: 1; transform: none; } }
-.paper::before {
-  content: ""; position: absolute; inset: 0;
-  background: var(--paper-back);
-  border: 1px solid var(--border-soft);
-  border-radius: 3px;
-  box-shadow: var(--shadow-1);
-  transform: rotate(1.3deg) translate(5px, 4px);
-}
-
-/* Ruled lines are drawn, not decorative texture: the 40px tile is exactly the
-   caption's line-height, so the type sits on the rules instead of near them.
-   Vertical margin rule at 44px, in a bled-out wine. */
-.sheet {
-  position: relative;
-  min-height: 132px;
-  padding: 22px 26px 24px 58px;
-  border-radius: 3px;
-  border: 1px solid var(--border-soft-2);
-  box-shadow: var(--shadow-2);
-  transform: rotate(-.4deg);
-  background-color: var(--paper);
-  background-image:
-    linear-gradient(var(--rule-margin), var(--rule-margin)),
-    linear-gradient(to bottom, var(--rule) 0 1px, transparent 1px);
-  background-size: 1px 100%, 100% 40px;
-  background-position: 44px 0, 0 61px;
-  background-repeat: no-repeat, repeat;
-}
-
 .caption {
   margin: 0;
   font-family: "Instrument Serif", serif;
-  font-weight: 400; font-size: var(--t-display); line-height: 40px;
+  font-weight: 400; font-size: var(--t-display); line-height: 1.24;
   letter-spacing: -.005em;
-  text-align: left; text-wrap: pretty;
-  color: var(--ink); transition: color .4s ease;
+  text-align: center; text-wrap: balance;
+  color: var(--text-primary); transition: color .4s ease;
+  animation: captionIn .45s cubic-bezier(.22, 1, .36, 1) both;
 }
-.paper.listening .caption { color: var(--text-tertiary); font-style: italic; }
-.paper.idle .caption { color: var(--text-tertiary); }
-
-/* A typewriter's caret is the strike position — a solid slug, not a hairline. */
+@keyframes captionIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.caption.idle, .caption.listening { color: var(--text-tertiary); }
+.caption.listening { font-style: italic; }
 .caption .caret {
-  display: inline-block; width: .42em; height: 3px; margin-left: 3px;
+  display: inline-block; width: .4em; height: 3px; margin-left: 3px;
   background: var(--accent); vertical-align: 5px;
   animation: caret 1.05s steps(1) infinite;
 }
@@ -886,13 +828,7 @@
   .sidebar.open { transform: translateX(0); }
 
   .icon-btn.menu { display: flex; }
-  /* Rules must retile to the new line-height or the type drifts off them. */
-  .caption { font-size: 24px; line-height: 34px; }
-  .sheet {
-    min-height: 112px; padding: 18px 18px 20px 46px;
-    background-size: 1px 100%, 100% 34px;
-    background-position: 34px 0, 0 51px;
-  }
+  .caption { font-size: 24px; line-height: 1.28; }
   .main-header { padding: 0 16px; }
   .assistant-stage { padding: 6px 16px 0; }
   .dock { padding: 0 16px 26px; }
@@ -905,7 +841,330 @@
 @media (prefers-reduced-motion: reduce) {
   .wave span { animation: none !important; }
   .sidebar { transition: none; }
-  .board, .card, .name-card, .paper, .brand-mark { animation: none !important; }
+  .board, .card, .name-card, .caption, .brand-mark { animation: none !important; }
   /* The typewriter itself is disabled in JS; this stops the caret strobing. */
   .caption .caret { animation: none; }
+}
+
+/* ---------- agents at work ---------- */
+/* The panel exists to make parallelism legible: N cards, N bars moving at once.
+   A single spinner would be a lie about what's happening underneath. */
+.agent-panel, .artifact {
+  width: 100%; max-width: 960px; margin: 0 auto;
+  padding: 0 26px 40px;
+  animation: suggestIn .45s cubic-bezier(.22, 1, .36, 1) both;
+}
+.agent-panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+  margin-bottom: 6px;
+}
+.agent-panel-head .board-label { margin: 0; }
+.agent-progress {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 11px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border-soft-2);
+  font-size: var(--t-fine); font-weight: 650; color: var(--text-secondary);
+  box-shadow: var(--shadow-1);
+}
+.agent-query {
+  margin: 0 0 var(--s-4);
+  font-family: "Instrument Serif", serif; font-size: 24px; line-height: 1.25;
+  color: var(--text-primary);
+}
+.agent-grid {
+  display: grid; gap: var(--s-3);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  align-items: start;
+}
+
+/* A working agent is lifted and outlined in accent; a finished one settles back
+   down. The card itself reports its state before you read a word of it. */
+.agent-card {
+  display: flex; flex-direction: column;
+  padding: var(--s-4);
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-1);
+  transition: border-color .3s ease, box-shadow .3s ease, transform .3s cubic-bezier(.22,1,.36,1), opacity .3s ease;
+}
+.agent-card.searching, .agent-card.reading, .agent-card.thinking {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
+}
+.agent-card.failed { opacity: .6; }
+
+.agent-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.agent-name {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: var(--t-base); font-weight: 700; color: var(--text-primary);
+  letter-spacing: -.005em;
+}
+.agent-phase {
+  flex-shrink: 0;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-muted); white-space: nowrap;
+}
+.agent-card.done .agent-phase {
+  padding: 3px 8px; border-radius: 999px;
+  background: var(--accent); color: #fff; letter-spacing: .06em;
+}
+
+.agent-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--text-faint); }
+.agent-dot.searching, .agent-dot.reading, .agent-dot.thinking {
+  background: var(--accent); animation: agentPulse 1.1s ease-in-out infinite;
+}
+.agent-dot.done { background: var(--accent); }
+@keyframes agentPulse { 0%, 100% { opacity: .3; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
+
+/* Indeterminate while working, filled when done — the track itself is the tell. */
+.agent-bar {
+  position: relative; overflow: hidden;
+  height: 3px; margin-top: var(--s-3); border-radius: 3px;
+  background: var(--surface-soft);
+}
+.agent-bar span { position: absolute; inset: 0; border-radius: 3px; background: var(--accent); }
+.agent-card.queued .agent-bar span { opacity: .15; }
+.agent-card.done .agent-bar span { opacity: 1; }
+.agent-card.failed .agent-bar span { opacity: .25; }
+.agent-bar.on span { width: 40%; animation: agentSweep 1.2s ease-in-out infinite; }
+@keyframes agentSweep {
+  0% { transform: translateX(-105%); }
+  100% { transform: translateX(255%); }
+}
+
+/* The live thought — what this agent is doing right now, in its own words. */
+.agent-note {
+  margin: var(--s-3) 0 0;
+  font-size: var(--t-fine); line-height: 1.5; color: var(--text-muted);
+}
+.agent-note.live { color: var(--text-secondary); }
+
+.agent-titles {
+  margin: var(--s-2) 0 0; padding: var(--s-2) 0 0; list-style: none;
+  border-top: 1px dashed var(--border-soft-2);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.agent-titles li {
+  font-size: var(--t-fine); color: var(--text-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding-left: 10px; position: relative;
+  animation: suggestItemIn .3s ease both;
+}
+.agent-titles li::before {
+  content: ""; position: absolute; left: 0; top: 7px;
+  width: 3px; height: 3px; border-radius: 50%; background: var(--accent); opacity: .5;
+}
+
+.agent-toggle {
+  align-self: flex-start; margin-top: var(--s-3); padding: 0;
+  display: inline-flex; align-items: center; gap: 5px;
+  border: none; background: none; cursor: pointer; font-family: inherit;
+  font-size: var(--t-fine); font-weight: 700; color: var(--accent);
+}
+.agent-toggle .chev { transition: transform .18s ease; display: inline-block; }
+.agent-toggle .chev.up { transform: rotate(-90deg); }
+
+.agent-findings { margin: var(--s-2) 0 0; padding-left: 15px; animation: suggestItemIn .25s ease both; }
+.agent-findings li {
+  font-size: var(--t-fine); line-height: 1.55; color: var(--text-secondary); margin-bottom: 5px;
+}
+.agent-findings li::marker { color: var(--accent); }
+
+.agent-trail {
+  margin: var(--s-3) 0 0; padding: var(--s-3) 0 0 16px;
+  border-top: 1px solid var(--border-soft);
+}
+.agent-trail li { font-size: 10px; line-height: 1.5; color: var(--text-faint); margin-bottom: 3px; }
+.agent-trail li::marker { color: var(--text-faint); }
+
+.agent-error { margin-top: var(--s-2); font-size: var(--t-fine); color: var(--text-faint); }
+
+.agent-planning {
+  display: flex; align-items: center; gap: 9px;
+  padding: var(--s-4) var(--s-5);
+  background: var(--surface); border: 1px solid var(--accent);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-2);
+  font-size: var(--t-base); font-weight: 550; color: var(--text-secondary);
+}
+
+/* ---------- artifact ---------- */
+.artifact-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+.artifact-head .board-label { margin: 0 0 2px; }
+.artifact-title {
+  margin: 0; font-family: "Instrument Serif", serif; font-weight: 400;
+  font-size: 28px; line-height: 1.15; color: var(--text-primary);
+}
+.artifact-close {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-soft-2); background: var(--pill-bg);
+  color: var(--text-secondary); cursor: pointer;
+  transition: color .2s ease, border-color .2s ease;
+}
+.artifact-close:hover { color: var(--accent); border-color: var(--accent); }
+.artifact-close svg { width: 15px; height: 15px; }
+
+.doc-section {
+  padding: var(--s-4) var(--s-5);
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-1);
+  margin-bottom: var(--s-3);
+}
+.doc-heading, .slide-heading {
+  margin: 0 0 var(--s-3);
+  font-family: "Instrument Serif", serif; font-weight: 400;
+  color: var(--text-primary);
+}
+.doc-heading { font-size: var(--t-title); }
+.doc-bullets, .slide-bullets { margin: 0; padding-left: 18px; }
+.doc-bullets li, .slide-bullets li {
+  font-size: var(--t-base); line-height: 1.55; color: var(--text-secondary);
+  margin-bottom: 7px;
+}
+.doc-bullets li::marker, .slide-bullets li::marker { color: var(--accent); }
+
+/* A slide is one idea on a wide, quiet surface — deliberately not a doc section. */
+.slide {
+  position: relative;
+  min-height: 300px; padding: var(--s-6) var(--s-6) var(--s-5);
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: var(--r-xl); box-shadow: var(--shadow-2);
+}
+.slide-num {
+  position: absolute; top: var(--s-4); right: var(--s-5);
+  font-size: var(--t-micro); font-weight: 700; letter-spacing: .12em;
+  color: var(--text-faint);
+}
+.slide-heading { font-size: 30px; line-height: 1.15; }
+.slide-bullets li { font-size: var(--t-lead); line-height: 1.6; margin-bottom: 11px; }
+.slide-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: var(--s-3);
+}
+.slide-nav > button {
+  padding: 7px 15px; border-radius: 999px;
+  border: 1px solid var(--border-soft-2); background: var(--pill-bg);
+  color: var(--text-secondary); cursor: pointer;
+  font-family: inherit; font-size: var(--t-small); font-weight: 600;
+  transition: color .2s ease, border-color .2s ease, opacity .2s ease;
+}
+.slide-nav > button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.slide-nav > button:disabled { opacity: .35; cursor: default; }
+.slide-dots { display: flex; gap: 6px; }
+.slide-dots .dot {
+  width: 7px; height: 7px; border-radius: 50%; padding: 0;
+  border: none; background: var(--border-soft-3); cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.slide-dots .dot.on { background: var(--accent); transform: scale(1.25); }
+
+.artifact-sources { margin-top: var(--s-5); }
+.source-list { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.source {
+  display: flex; align-items: baseline; gap: var(--s-2);
+  padding: 7px 10px; border-radius: var(--r-sm);
+  text-decoration: none; transition: background .15s ease;
+}
+.source:hover { background: var(--surface-soft); }
+.source-tag {
+  flex-shrink: 0;
+  font-size: var(--t-micro); font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--accent);
+}
+.source-title {
+  font-size: var(--t-small); color: var(--text-tertiary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .agent-panel, .artifact { padding: 0 16px 32px; }
+  .slide { min-height: 240px; padding: var(--s-5) var(--s-4); }
+  .slide-heading { font-size: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-bar.on span { animation: none; width: 100%; opacity: .5; }
+}
+
+/* When agents are running, the work is the answer — shrink the hero so the deck
+   isn't pushed below the fold. transform:scale leaves the layout box at full
+   size, so the negative margin reclaims the gap it leaves behind (340px orb at
+   0.42 → (340 * 0.58) / 2 ≈ 99px on each side). */
+/* The orb NEVER moves or resizes. Compact mode used to scale it to 0.5 and pull
+   it up with negative margins, so the orb jumped to a different size and place
+   the moment agents started — which is what "the orb breaks position" was. Now
+   compact only trims padding; the orb is the one fixed point on the screen. */
+.hero.compact {
+  gap: 6px;
+  padding: 0 26px 10px;
+}
+/* The bloom is a 460px blur(44px) halo. Scaling the stage shrinks its box but it
+   still paints a soft pink smear across the top of the artifact — the thing you
+   actually came to read. In compact mode it has no job, so it goes. */
+.hero.compact .orb-bloom-a,
+.hero.compact .orb-shadow { display: none; }
+.hero.compact .caption-wrap { display: none; }
+
+/* Research agents, at rest — the capability shown before it's ever invoked. */
+.agents-idle {
+  display: flex; flex-direction: column; gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.agents-idle-copy {
+  margin: 0; width: 100%;
+  font-size: var(--t-lead); line-height: 1.55; color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.agents-idle-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.agent-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border-soft-2);
+  font-size: var(--t-fine); font-weight: 600; color: var(--text-tertiary);
+}
+.agent-chip::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--accent); opacity: .55;
+}
+
+/* ---------- sidebar: conversation + memories ---------- */
+/* Each list scrolls in its own right, so a long conversation never grows the
+   sidebar or shoves the account row off the bottom. */
+.chat-log {
+  flex: 1 1 auto; min-height: 60px; max-height: 32vh;
+  overflow-y: auto; padding-right: 2px;
+  display: flex; flex-direction: column; gap: 10px;
+  scrollbar-width: thin; scrollbar-color: var(--border-soft-3) transparent;
+}
+.chat-log::-webkit-scrollbar { width: 6px; }
+.chat-log::-webkit-scrollbar-thumb { background: var(--border-soft-3); border-radius: 999px; }
+
+.chat-turn { display: flex; flex-direction: column; gap: 3px; padding: 0 11px; min-width: 0; }
+.chat-turn .who {
+  font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-faint); line-height: 1;
+}
+.chat-turn.assistant .who { color: var(--accent); }
+/* Clamp: a rambling reply must not blow the sidebar open. */
+.chat-turn .said {
+  font-size: var(--t-fine); line-height: 1.5; color: var(--text-secondary);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
+.chat-turn.assistant .said { color: var(--text-tertiary); }
+
+.memories { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.memory-line {
+  position: relative; padding: 5px 11px 5px 20px;
+  font-size: var(--t-fine); line-height: 1.45; color: var(--text-tertiary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.memory-line::before {
+  content: ""; position: absolute; left: 11px; top: 11px;
+  width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
 }

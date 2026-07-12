@@ -12,6 +12,9 @@ import {
 } from "./assistants";
 import Orb from "./Orb";
 import Board from "./Board";
+import { AgentPanel, ArtifactView } from "./Agents";
+import { useAgents } from "./useAgents";
+import { useHistory } from "./useHistory";
 import { FraiseMark } from "./icons";
 import "./App.css";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -46,7 +49,9 @@ function useTheme(): [Theme, () => void] {
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem("fraise-theme");
     if (saved === "light" || saved === "dark") return saved;
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    // Light is the brand's home. We used to follow the OS, which meant most
+    // people met Fraise in the dark without ever choosing it.
+    return "light";
   });
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -112,6 +117,15 @@ const GitHubIcon = () => (
     <path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.05-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.13-.3-.54-1.53.11-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.23 0 4.63-2.81 5.65-5.49 5.95.43.37.81 1.1.81 2.22 0 1.61-.01 2.9-.01 3.29 0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z" />
   </svg>
 );
+// Timestamps come back as UTC ISO from SQLite; show them the way a person says them.
+function timeAgo(iso: string): string {
+  const secs = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (secs < 60) return "just now";
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return `${Math.floor(secs / 86400)}d ago`;
+}
+
 function greetingFor(d: Date): string {
   const h = d.getHours();
   if (h < 5) return "Working late";
@@ -146,6 +160,14 @@ export default function App() {
   );
 
   const { messages, status, orbState, levelRef, outLevelRef, speechSupported, toggle, reconnect, notifyUpload, authNeeded, clearAuth, listening } = useVoiceAgent(handleVoiceSwitch);
+
+  // The research agents stream their progress on their own channel, keyed by the
+  // same id as everything else the user owns.
+  const { run, artifact, history, openId, openArtifact, dismiss: dismissRun } = useAgents(activeId);
+
+  // Conversation + remembered facts, from the server. Refreshed whenever a turn
+  // completes (messages.length changes), so the sidebar tracks the conversation.
+  const { turns, memories } = useHistory(activeId, messages.length);
 
   // When the active assistant changes while a voice session is live, reopen the
   // socket as the new persona (new sid + config). If idle, the next start picks
@@ -309,8 +331,6 @@ export default function App() {
   // recede (fade) rather than pop out — a shelf, not a feed.
   const showBoard = speechSupported && (messages.length === 0 || docs.length > 0 || !!uploading);
 
-  // Recent list — derived from the user's turns this session.
-  const recents = [...messages].filter((m) => m.role === "user").reverse().slice(0, 8);
 
   return (
     <div className={`stage ${orbState}`}>
@@ -331,23 +351,61 @@ export default function App() {
             New conversation
           </button>
 
-          <div className="section-label">Recent</div>
+          {/* Past research, straight from the DB — so it survives a reload, unlike
+              the spoken turns, which only ever lived in this tab's memory. */}
+          <div className="section-label">Research</div>
 
           <div className="recents">
-            {recents.length === 0 ? (
-              <div className="recents-empty">Your conversations will show up here.</div>
+            {history.length === 0 ? (
+              <div className="recents-empty">
+                Ask me to research something and the write-ups will collect here.
+              </div>
             ) : (
-              recents.map((m, i) => (
-                <button key={m.id} className={`recent${i === 0 ? " active" : ""}`}>
+              history.map((h) => (
+                <button
+                  key={h.id}
+                  className={`recent${h.id === openId ? " active" : ""}`}
+                  onClick={() => { void openArtifact(h.id); setMenuOpen(false); }}
+                  title={h.title}
+                >
                   <span className="recent-title">
                     <span className="dot" />
-                    <span>{m.text}</span>
+                    <span>{h.title}</span>
                   </span>
-                  <span className="recent-meta">{i === 0 ? "Active now" : "Earlier"}</span>
+                  <span className="recent-meta">
+                    {h.format === "slides" ? "Deck" : "Doc"} · {timeAgo(h.created_at)}
+                  </span>
                 </button>
               ))
             )}
           </div>
+
+          {/* The conversation, read back from the server — so it survives a reload
+              instead of living only in this tab. Same sid as memory and research. */}
+          {turns.length > 0 && (
+            <>
+              <div className="section-label">Conversation</div>
+              <div className="chat-log">
+                {turns.map((t, i) => (
+                  <div key={i} className={`chat-turn ${t.role}`}>
+                    <span className="who">{t.role === "user" ? name || "You" : active.name}</span>
+                    <span className="said">{t.text}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {memories.length > 0 && (
+            <>
+              <div className="section-label">Remembered</div>
+              <div className="memories">
+                {memories.slice(0, 6).map((m, i) => (
+                  <div key={i} className="memory-line">{m}</div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="account-wrap">
             {accountMenuOpen && (
@@ -520,26 +578,28 @@ export default function App() {
 
           <section className="assistant-stage">
             {/* The hero is its own plane: it sticks to the top and the board
-                scrolls underneath its frosted scrim. */}
-            <div className="hero">
+                scrolls underneath its frosted scrim. It compacts when agents are
+                running — at that point the work *is* the answer, and a 340px orb
+                would push the deck below the fold. */}
+            <div className={`hero${run || artifact ? " compact" : ""}`}>
               <Orb state={orbState} onClick={toggle} inputLevelRef={levelRef} outputLevelRef={outLevelRef} />
 
               <div className="caption-wrap">
-                {/* key on the phase, not the text — keying on `caption` would
-                    remount the sheet on every typed character. */}
-                <div key={captionClass} className={`paper ${captionClass}`}>
-                  <div className="sheet">
-                    <p className="caption" aria-live="polite">
-                      {typed}
-                      {caretOn && <span className="caret" />}
-                    </p>
-                  </div>
-                </div>
+                <p className={`caption ${captionClass}`} aria-live="polite">
+                  {typed}
+                  {caretOn && <span className="caret" />}
+                </p>
               </div>
             </div>
 
-            {showBoard && (
-              <Board docs={docs} uploading={uploading} receded={orbState !== "idle"} />
+            {/* The agents and their artifact own the stage while a run is alive —
+                they're the answer, so they don't recede when Fraise speaks. */}
+            {artifact ? (
+              <ArtifactView artifact={artifact} onClose={dismissRun} />
+            ) : run ? (
+              <AgentPanel run={run} />
+            ) : (
+              showBoard && <Board docs={docs} uploading={uploading} receded={orbState !== "idle"} />
             )}
             <input
               ref={fileInputRef}

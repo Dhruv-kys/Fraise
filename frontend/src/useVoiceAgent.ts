@@ -56,8 +56,8 @@ function wsUrlWithSession(): string {
   return url.toString();
 }
 
-// Same origin as the voice socket, over http(s) — for the /upload endpoint.
-function httpBase(): string {
+// Same origin as the voice socket, over http(s) — for /upload and /agents/stream.
+export function httpBase(): string {
   const url = new URL(WS_URL, location.href);
   url.protocol = url.protocol === "wss:" ? "https:" : "http:";
   return url.origin;
@@ -332,8 +332,8 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
         audio: {
           channelCount: 1,
           echoCancellation: true,
-          noiseSuppression: false,
-          autoGainControl: false,
+          noiseSuppression: true,
+          autoGainControl: true,
         },
       });
       streamRef.current = stream;

@@ -1,4 +1,12 @@
-/* Stage wrapper around the ElevenLabs WebGL orb. */
+/* Stage wrapper around the ElevenLabs WebGL orb.
+
+   Sizes live in one variable. They used to be a 340px stage with a 460px /
+   blur(44px) bloom — a halo reaching ~550px across. That bloom was the pink
+   smear over the page, and the oversized box was the empty gap between the orb
+   and the caption: the layout reserved 340px whether or not the canvas drew
+   into all of it (Safari draws the sphere smaller than Chrome, which is why the
+   void was worse there). A tighter orb makes the hero honest in both. */
+:root { --orb: 232px; }
 
 @keyframes glowPulse {
   0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: .7; }
@@ -7,10 +15,10 @@
 
 .orb-stage {
   position: relative;
-  width: 340px;
-  height: 340px;
-  max-width: 72vw;
-  max-height: 72vw;
+  width: var(--orb);
+  height: var(--orb);
+  max-width: 62vw;
+  max-height: 62vw;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,8 +29,8 @@
   left: 50%;
   bottom: 6px;
   transform: translateX(-50%);
-  width: 190px;
-  height: 30px;
+  width: calc(var(--orb) * 0.55);
+  height: 22px;
   border-radius: 50%;
   background: radial-gradient(closest-side, rgba(190, 40, 70, .22), transparent);
   filter: blur(9px);
@@ -34,13 +42,13 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 460px;
-  height: 460px;
-  max-width: 90vw;
-  max-height: 90vw;
+  width: calc(var(--orb) * 1.28);
+  height: calc(var(--orb) * 1.28);
+  max-width: 76vw;
+  max-height: 76vw;
   border-radius: 50%;
   background: radial-gradient(circle, #FFC2D2 0%, #FFD9C9 42%, transparent 70%);
-  filter: blur(44px);
+  filter: blur(26px);
   transform: translate(-50%, -50%);
   animation: glowPulse 6s ease-in-out infinite;
   pointer-events: none;
@@ -57,10 +65,10 @@
 
 .orb {
   position: relative;
-  width: 300px;
-  height: 300px;
-  max-width: 64vw;
-  max-height: 64vw;
+  width: calc(var(--orb) * 0.9);
+  height: calc(var(--orb) * 0.9);
+  max-width: 56vw;
+  max-height: 56vw;
   border: none;
   padding: 0;
   background: transparent;

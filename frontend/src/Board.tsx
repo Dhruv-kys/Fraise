@@ -13,11 +13,13 @@ type Doc = { name: string; chunks: number };
 // One line of pure editorial texture — the thesis of the whole product.
 const QUOTE = "The best interface is a conversation you forget you're having.";
 
+// Research leads, and takes the accent card — it's the thing people don't know
+// they can ask for, and it's the most capable thing here.
 const RESTING: Suggestion[] = [
-  { icon: "math", text: "What's 18% of 240?" },
+  { icon: "search", text: "Research the best SDE internships and make me a deck", accent: true },
+  { icon: "web", text: "Compare the best electric cars under 20 lakhs" },
   { icon: "remember", text: "Remember I prefer window seats" },
-  { icon: "web", text: "Search the web for tonight's weather", accent: true },
-  { icon: "folder", text: "List the files in my Fraise folder" },
+  { icon: "math", text: "What's 18% of 240?" },
 ];
 
 function titleOf(filename: string): string {
@@ -34,8 +36,8 @@ function suggestionsFor(docs: Doc[]): Suggestion[] {
   return [
     { icon: "doc", text: `Summarize ${title}`, accent: true },
     { icon: "search", text: `What does ${title} say about…?` },
+    { icon: "web", text: "Research this topic and write it up" },
     { icon: "recall", text: "What have I asked you to remember?" },
-    { icon: "web", text: "Search the web for tonight's weather" },
   ];
 }
 
@@ -78,6 +80,24 @@ export default function Board({ docs, uploading, receded }: BoardProps) {
           </div>
         </section>
       )}
+
+      {/* The agents, at rest. People can't ask for what they don't know exists —
+          this shows the fan-out before it ever happens. */}
+      <section className="board-section">
+        <h2 className="board-label">Research agents</h2>
+        <div className="agents-idle">
+          <p className="agents-idle-copy">
+            Ask me to research anything and I'll put a team of agents on it — each
+            searching a different source at the same time, then writing the findings
+            up as a document or a deck.
+          </p>
+          <div className="agents-idle-chips">
+            {["Job boards", "Reviews", "Forums", "News", "Docs", "The open web"].map((c) => (
+              <span key={c} className="agent-chip">{c}</span>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="board-section">
         <h2 className="board-label">Try saying</h2>
