@@ -31,6 +31,11 @@
       "module": "app.servers.personas",
       "attr": "mcp"
     },
+    "research": {
+      "type": "builtin",
+      "module": "app.servers.research",
+      "attr": "mcp"
+    },
     "filesystem": {
       "type": "stdio",
       "command": "npx",

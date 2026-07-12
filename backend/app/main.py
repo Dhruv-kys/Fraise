@@ -8,6 +8,7 @@
 """
 import asyncio
 import contextlib
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -18,12 +19,16 @@ import anyio
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.servers.calendar_auth import router as calendar_auth_router
+from app.host import bus
 from app.host.mcp_manager import manager
 from app.servers.calculator import mcp
+from app.servers.memory import store as memory_store
 from app.servers.rag import embeddings, extract, reranker, store as rag_store
+from app.storage import db
 from app.host.voice_agent import bridge
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
@@ -75,6 +80,69 @@ app.add_middleware(
 @app.get("/health")
 async def health() -> dict:
     return {"ok": True}
+
+
+@app.get("/agents/stream")
+async def agents_stream(sid: str = Query(...)) -> StreamingResponse:
+    """Live progress from the research agents, as Server-Sent Events.
+
+    A tool call can only answer once, but a fan-out of agents has a story to tell
+    while it runs. The research server publishes to `bus`; this relays it to the
+    browser so the user watches the agents work instead of a spinner. SSE rather
+    than another WebSocket: this is strictly one-way and survives reconnects for
+    free via EventSource.
+    """
+    queue = bus.subscribe(sid)
+
+    async def events():
+        try:
+            # Flush a comment immediately so proxies don't sit on the response.
+            yield ": connected\n\n"
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=20)
+                except asyncio.TimeoutError:
+                    yield ": keep-alive\n\n"  # keeps idle proxies from closing us
+                    continue
+                yield f"data: {json.dumps(event)}\n\n"
+        finally:
+            bus.unsubscribe(sid, queue)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+    )
+
+
+@app.get("/history")
+async def history(sid: str = Query(...), limit: int = Query(40)) -> dict:
+    """The conversation itself, plus what Fraise was told to remember.
+
+    Both were already being written on every turn — `conversation_turns` by the
+    voice bridge, `memories` by the remember tool — but nothing could read them
+    back, so a reload looked like amnesia even though nothing was lost. Same
+    session id scopes both, which is what makes them one connected memory.
+    """
+    turns = await anyio.to_thread.run_sync(memory_store.recent_turns, sid, limit)
+    facts = await anyio.to_thread.run_sync(memory_store.recall, sid, "", 20)
+    return {
+        "turns": [{"role": r, "text": c} for r, c in turns],
+        "memories": facts,
+    }
+
+
+@app.get("/artifacts")
+async def artifacts(sid: str = Query(...)) -> list[dict]:
+    return await anyio.to_thread.run_sync(db.list_artifacts, sid)
+
+
+@app.get("/artifacts/{artifact_id}")
+async def artifact(artifact_id: str, sid: str = Query(...)) -> dict:
+    found = await anyio.to_thread.run_sync(db.get_artifact, artifact_id, sid)
+    if not found:
+        raise HTTPException(status_code=404, detail="no such artifact")
+    return found
 
 
 @app.post("/upload")

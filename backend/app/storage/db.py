@@ -4,8 +4,11 @@ One file on disk, no server. Schema changes are forward-only migrations keyed
 by SQLite's built-in `PRAGMA user_version`. The sqlite-vec extension is loaded on
 every connection so the RAG `vec0` table is queryable.
 """
+import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 import sqlite_vec
 
@@ -58,6 +61,20 @@ _MIGRATIONS = [
         created_at TEXT
     );
     """,
+    # 4 — research artifacts. `body` is the whole rendered artifact as JSON
+    # (sections, citations, which agents contributed); it's write-once per run,
+    # so there's nothing to gain from normalizing it into tables.
+    """
+    CREATE TABLE artifacts (
+        id TEXT PRIMARY KEY,
+        session_id TEXT,
+        title TEXT,
+        format TEXT,
+        body TEXT,
+        created_at TEXT
+    );
+    CREATE INDEX idx_artifacts_session ON artifacts (session_id, created_at DESC);
+    """,
 ]
 
 
@@ -78,3 +95,58 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.executescript(_MIGRATIONS[i])
         conn.execute(f"PRAGMA user_version = {i + 1}")
         conn.commit()
+
+
+# ---------- artifacts ----------
+
+def new_id() -> str:
+    return uuid4().hex
+
+
+def save_artifact(artifact_id: str, session_id: str, title: str, fmt: str, body: str) -> None:
+    conn = connect()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO artifacts (id, session_id, title, format, body, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (artifact_id, session_id, title, fmt, body, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_artifact(artifact_id: str, session_id: str) -> dict | None:
+    """Scoped by session_id as well as id — an artifact id is a guessable handle,
+    and one browser must never be able to read another's research."""
+    conn = connect()
+    try:
+        row = conn.execute(
+            "SELECT id, title, format, body, created_at FROM artifacts "
+            "WHERE id = ? AND session_id = ?",
+            (artifact_id, session_id),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "format": row["format"],
+        "created_at": row["created_at"],
+        **json.loads(row["body"]),
+    }
+
+
+def list_artifacts(session_id: str, limit: int = 20) -> list[dict]:
+    conn = connect()
+    try:
+        rows = conn.execute(
+            "SELECT id, title, format, created_at FROM artifacts WHERE session_id = ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            (session_id, limit),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [dict(r) for r in rows]

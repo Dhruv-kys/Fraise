@@ -1,0 +1,408 @@
+"""Research MCP server — a planner designs the agents, then they fan out.
+
+One voice command becomes N agents running at once, each on a different angle,
+each summarizing its own slice. A synthesizer merges them into an artifact — a
+doc or a slide deck — and the voice LLM speaks only a headline, because the
+artifact is the answer and TTS is a bad way to read twenty search results.
+
+The agents are NOT a fixed list. A planner decides them per question: ask about
+internships and you get job boards; ask to compare electric cars and you get
+reviews, pricing, and owner forums. Hardcoding sources would mean this only ever
+worked for the one example it was built against.
+
+Progress is published to `bus` as the plan lands and each agent moves, so the
+browser renders them working in parallel rather than staring at a spinner.
+"""
+import asyncio
+import json
+import logging
+import re
+import time
+from typing import Literal
+
+from mcp.server.fastmcp import FastMCP
+
+from app.host import bus
+from app.servers.research import llm, search
+from app.storage import db
+
+logger = logging.getLogger(__name__)
+
+mcp = FastMCP("research")
+
+# Bounded fan-out. Every agent is a search + an LLM call inside the same minute,
+# so this is a tokens-per-minute budget as much as a latency one.
+MIN_AGENTS = 2
+MAX_AGENTS = 4
+_AGENT_BUDGET = 60  # seconds for one agent's search + summarize
+
+# asyncio only holds a *weak* reference to a running task. A fire-and-forget
+# create_task() whose handle we drop can be garbage-collected mid-flight — the
+# agents would silently vanish partway through. Hold the handle until it's done.
+_running: set[asyncio.Task] = set()
+
+
+_PLANNER_SYSTEM = (
+    "You plan a parallel research team. Given one question, design the agents that "
+    "should go and look — each on a genuinely different angle, all at the same time.\n\n"
+    f"Return JSON: {{\"agents\": [...]}} with {MIN_AGENTS} to {MAX_AGENTS} agents. Each agent is:\n"
+    '  "label": 1-2 words naming what this agent IS — either the site it searches, or '
+    "the angle it covers.\n"
+    '  "query": the search query THIS agent runs. Specific to its angle, and different '
+    "from every other agent's — never repeat a query.\n"
+    '  "domains": bare hostnames to restrict this agent to, like "example.com". Use them '
+    "only when a site is genuinely the natural home for that information, and only for "
+    "sites you are confident exist and cover this topic. Use [] to search the open web.\n"
+    '  "angle": one line telling the agent what to extract.\n\n'
+    "Hard rules:\n"
+    "- EVERY agent must be relevant to THIS question. Derive the sources from the "
+    "question itself. Never reach for a site because it is famous or because it fits "
+    "some other kind of question — a job board has no place in a question about cars.\n"
+    "- At least one agent must search the open web (domains: []).\n"
+    "- Prefer open web over a narrow domain list you are unsure about: over-scoping "
+    "returns nothing at all, which is worse than a broad search.\n"
+    "- If the user names sources, those must be among the agents."
+)
+
+
+def _slug(text: str, i: int) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return s or f"agent-{i}"
+
+
+# The planner is asked for domains and sometimes answers with prose — observed:
+# ["mouthshut.com", "Mouthshut is an Indian review site"]. Passed to Tavily's
+# include_domains, that quietly narrows the search to nothing and the agent comes
+# back empty for no visible reason. Keep only things shaped like a hostname.
+_DOMAIN_RE = re.compile(r"^(?:https?://)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)/?$", re.I)
+
+
+def _clean_domains(raw) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for d in raw:
+        m = _DOMAIN_RE.match(str(d).strip())
+        if m:
+            out.append(m.group(1).lower())
+        elif str(d).strip():
+            logger.info("planner emitted a non-domain, dropping: %r", str(d)[:60])
+    return out[:4]
+
+
+def _fallback_plan(query: str) -> list[dict]:
+    """The planner is an LLM call, and LLM calls fail. A run must still happen."""
+    return [
+        {"id": "web", "label": "Web", "query": query, "domains": [],
+         "angle": "anything that directly answers the question"},
+        {"id": "background", "label": "Background", "query": f"{query} guide overview",
+         "domains": [], "angle": "context, comparisons, and things worth knowing"},
+    ]
+
+
+async def _plan(query: str, hint: str) -> list[dict]:
+    """Decide who goes looking. This is what makes the team fit the question."""
+    ask = f"Question: {query}"
+    if hint:
+        ask += f"\nThe user specifically asked for these sources: {hint}"
+
+    try:
+        data = await llm.complete_json(_PLANNER_SYSTEM, ask, model=llm.SYNTH_MODEL)
+    except llm.LLMUnavailable as exc:
+        logger.warning("planner unavailable (%s); falling back", exc)
+        return _fallback_plan(query)
+
+    raw = data.get("agents")
+    if not isinstance(raw, list) or not raw:
+        return _fallback_plan(query)
+
+    agents: list[dict] = []
+    seen: set[str] = set()
+    for i, a in enumerate(raw[:MAX_AGENTS]):
+        if not isinstance(a, dict):
+            continue
+        label = str(a.get("label") or "").strip()[:24]
+        q = str(a.get("query") or "").strip() or query
+        if not label:
+            continue
+
+        # The id is derived from the label, and the planner happily returns two
+        # agents both called "News". Colliding ids mean their progress events
+        # overwrite each other and the UI renders duplicate React keys — the cards
+        # visibly break. Ids must be unique even when labels aren't.
+        base = _slug(label, i)
+        agent_id = base
+        n = 2
+        while agent_id in seen:
+            agent_id = f"{base}-{n}"
+            n += 1
+        seen.add(agent_id)
+
+        agents.append({
+            "id": agent_id,
+            "label": label,
+            "query": q,
+            "domains": _clean_domains(a.get("domains")),
+            "angle": str(a.get("angle") or "what answers the question")[:200],
+        })
+
+    if len(agents) < MIN_AGENTS:
+        return _fallback_plan(query)
+    return agents
+
+
+_PLAIN_TEXT_RULE = (
+    "Write PLAIN TEXT ONLY. No markdown of any kind: no asterisks, no bold, no "
+    "square brackets, no links, no headings, no backticks. Never write a URL — the "
+    "sources are listed separately, and a URL read aloud is unusable. Every line is "
+    "an ordinary English sentence."
+)
+
+
+def _agent_system(label: str, angle: str) -> str:
+    return (
+        f"You are the {label} research agent. You are given search results. "
+        f"Focus on: {angle}. Extract only what the results actually say — never invent "
+        "a fact, company, price, salary, or link. Reply with 3-6 tight bullet points, "
+        "each concrete and specific. If the results are thin or irrelevant, say so.\n\n"
+        + _PLAIN_TEXT_RULE
+    )
+
+
+async def _run_agent(spec: dict, session_id: str) -> dict:
+    """One agent: search its angle, summarize its slice. Never raises — a failed
+    agent is a reported failure, not a dead run (the others still land).
+
+    Every step publishes a `note`: the agent's own account of what it is doing right
+    now. A bar says something is happening; the note says *what*, which is the
+    difference between watching agents and watching a spinner.
+    """
+    name, label = spec["id"], spec["label"]
+    started = time.monotonic()
+
+    def step(status: str, note: str, **extra) -> None:
+        bus.publish(session_id, {
+            "type": "agent", "agent": name, "label": label,
+            "status": status, "note": note, **extra,
+        })
+
+    scope = ", ".join(spec["domains"]) if spec["domains"] else "the open web"
+    step("searching", f"Searching {scope} for “{spec['query']}”")
+
+    try:
+        results = await asyncio.wait_for(
+            search.search(spec["query"], spec["domains"]), _AGENT_BUDGET
+        )
+        # An over-narrow domain list returns nothing at all — which looks like "there
+        # is no answer" when it really means "we looked in too small a place". Widen
+        # once to the open web before giving up.
+        if not results and spec["domains"]:
+            step("searching", "Nothing there — widening to the open web")
+            results = await asyncio.wait_for(search.search(spec["query"], []), _AGENT_BUDGET)
+
+        if not results:
+            step("done", f"Nothing matched {label}.", found=0, summary="")
+            return {"agent": name, "label": label, "findings": "", "sources": []}
+
+        titles = [r["title"] for r in results if r["title"]][:5]
+        step("reading", f"Found {len(results)} results — reading them", found=len(results), titles=titles)
+
+        corpus = "\n\n".join(
+            f"[{i + 1}] {r['title']}\n{r['url']}\n{r['content']}"
+            for i, r in enumerate(results)
+        )
+        step("thinking", "Pulling out what actually answers the question",
+             found=len(results), titles=titles)
+
+        raw = await asyncio.wait_for(
+            llm.complete(
+                _agent_system(label, spec["angle"]),
+                f"Query: {spec['query']}\n\nResults:\n{corpus}",
+            ),
+            _AGENT_BUDGET,
+        )
+        # Plain text from here on: this feeds a TTS voice and a verbatim renderer.
+        findings = "\n".join(
+            line for line in (llm.strip_markdown(l) for l in raw.splitlines()) if line
+        )
+        elapsed = round(time.monotonic() - started, 1)
+        step("done", f"Done in {elapsed}s",
+             found=len(results), titles=titles, summary=findings, elapsed=elapsed)
+        return {"agent": name, "label": label, "findings": findings, "sources": results}
+
+    except Exception as exc:  # a dead agent must not kill the other ones
+        logger.warning("agent %s failed: %s", name, exc)
+        step("failed", "Couldn't finish", error=str(exc)[:160])
+        return {"agent": name, "label": label, "findings": "", "sources": [], "error": str(exc)}
+
+
+_SYNTH_SYSTEM = (
+    "You merge findings from several research agents into one artifact.\n"
+    "Rules: use ONLY what the agents reported — never invent a fact, company, "
+    "number, or link. Where agents agree, say it once. Where they conflict or a "
+    "source found nothing, note it honestly.\n\n"
+    "Return JSON with exactly these keys:\n"
+    '  "title": a short headline (max 8 words)\n'
+    '  "spoken": ONE or TWO sentences a voice assistant reads aloud. Natural English, '
+    "no markdown, no lists, no URLs — the headline finding plus a nudge to look at "
+    "the write-up.\n"
+    '  "sections": an array of 3-6 objects, each {"heading": str, "bullets": [str, ...]}\n'
+    "Each bullet is one concrete, specific sentence.\n\n"
+    + _PLAIN_TEXT_RULE
+)
+
+
+async def _synthesize(query: str, agent_results: list[dict]) -> dict:
+    usable = [a for a in agent_results if a.get("findings")]
+    if not usable:
+        return {
+            "title": "No results",
+            "spoken": "I couldn't find anything solid on that — the sources came back "
+                      "empty. Want me to try different wording?",
+            "sections": [],
+        }
+
+    report = "\n\n".join(f"### {a['label']} agent\n{a['findings']}" for a in usable)
+    data = await llm.complete_json(
+        _SYNTH_SYSTEM, f"Original request: {query}\n\n{report}", model=llm.SYNTH_MODEL
+    )
+
+    sections = data.get("sections")
+    if not isinstance(sections, list) or not sections:
+        # A model that drops the structure shouldn't lose the work — fall back to
+        # the agents' own findings as the sections.
+        sections = [
+            {"heading": a["label"],
+             "bullets": [l for l in a["findings"].splitlines() if l.strip()]}
+            for a in usable
+        ]
+
+    # Scrub every string the user will see or hear. The model is told not to emit
+    # markdown; it does anyway, and one stray "**" becomes "star star" out loud.
+    clean: list[dict] = []
+    for s in sections:
+        if not isinstance(s, dict):
+            continue
+        bullets = [
+            b for b in (llm.strip_markdown(str(x)) for x in (s.get("bullets") or []))
+            if b
+        ]
+        heading = llm.strip_markdown(str(s.get("heading") or ""))
+        if heading or bullets:
+            clean.append({"heading": heading, "bullets": bullets})
+
+    return {
+        "title": llm.strip_markdown(str(data.get("title") or "")) or query[:60],
+        "spoken": llm.strip_markdown(str(data.get("spoken") or ""))
+                  or "I've pulled the findings together — take a look.",
+        "sections": clean,
+    }
+
+
+async def _run(run_id: str, query: str, hint: str, fmt: str, session_id: str) -> None:
+    """The background job: plan the team, fan out, synthesize, store, announce."""
+    bus.publish(session_id, {
+        "type": "run", "run_id": run_id, "status": "planning", "query": query,
+        "format": fmt, "agents": [],
+        "note": "Working out who should go looking",
+    })
+
+    plan = await _plan(query, hint)
+
+    bus.publish(session_id, {
+        "type": "run", "run_id": run_id, "status": "running", "query": query, "format": fmt,
+        "agents": [
+            {"agent": a["id"], "label": a["label"], "status": "queued",
+             "note": f"Will search {', '.join(a['domains']) if a['domains'] else 'the open web'}"}
+            for a in plan
+        ],
+    })
+
+    # The whole point: every agent runs at once, so the run costs the slowest agent
+    # rather than the sum of them.
+    results = await asyncio.gather(*(_run_agent(a, session_id) for a in plan))
+
+    bus.publish(session_id, {
+        "type": "run", "run_id": run_id, "status": "synthesizing",
+        "note": "Merging what the agents found into one answer",
+    })
+    try:
+        artifact = await _synthesize(query, list(results))
+    except llm.LLMUnavailable as exc:
+        logger.warning("synthesis failed: %s", exc)
+        bus.publish(session_id, {
+            "type": "run", "run_id": run_id, "status": "failed", "error": str(exc)[:160],
+        })
+        return
+
+    citations = [
+        {"label": a["label"], "title": s["title"], "url": s["url"]}
+        for a in results for s in a.get("sources", [])[:4]
+    ]
+    body = {
+        "title": artifact["title"],
+        "query": query,
+        "format": fmt,
+        "sections": artifact["sections"],
+        "citations": citations,
+        "agents": [
+            {"agent": a["agent"], "label": a["label"], "ok": bool(a.get("findings"))}
+            for a in results
+        ],
+    }
+    await asyncio.to_thread(
+        db.save_artifact, run_id, session_id, artifact["title"], fmt, json.dumps(body)
+    )
+
+    bus.publish(session_id, {
+        "type": "run", "run_id": run_id, "status": "done",
+        "artifact": body, "spoken": artifact["spoken"],
+    })
+
+
+# Named `deep_research`, not `research`: the Tavily MCP server already exposes a
+# `tavily_research`, and an LLM choosing between two tools called "research" picks
+# the wrong one about half the time. The name has to win on its own.
+@mcp.tool()
+async def deep_research(
+    query: str,
+    sources: str = "",
+    format: Literal["doc", "slides"] = "doc",
+    session_id: str = "",
+) -> str:
+    """Put a team of research agents to work IN PARALLEL on one question, each on a
+    different source or angle, then collect their findings into a document or slide
+    deck the user can read on screen.
+
+    The agents are chosen to fit the question — job boards for a job search, review
+    sites and forums for a product comparison, and so on. You do not pick them.
+
+    This is the right tool whenever the answer deserves more than a sentence:
+    finding jobs or internships, comparing options, researching a company, topic, or
+    market, or any request for a write-up, report, summary, document, or slides.
+    Prefer it over tavily_search or tavily_research for those — those return raw
+    results, while this runs several agents and produces a written artifact.
+
+    query: what to research, in plain words, e.g. "best SDE internships for 2026 grads".
+    sources: only if the user names specific places to look ("check LinkedIn and
+      Reddit"). Pass their words through. Leave empty otherwise.
+    format: "slides" if they ask for a deck or presentation, otherwise "doc".
+    """
+    run_id = db.new_id()
+
+    # Fire and forget: the fan-out takes far longer than the host's per-tool timeout,
+    # and holding the voice turn hostage for 30s of searching would be the worst
+    # possible UX. Speak now, deliver the artifact when it lands.
+    task = asyncio.create_task(_run(run_id, query, sources, format, session_id))
+    _running.add(task)
+    task.add_done_callback(_running.discard)
+
+    return json.dumps({
+        "spoken": "On it — I'm putting a team of agents on that now. I'll pull their "
+                  f"findings into a {'deck' if format == 'slides' else 'write-up'} "
+                  "for you in a moment.",
+        "run_id": run_id,
+        "note": "Agents are being planned and run in the background. Tell the user "
+                "they're working; do not invent findings. The write-up appears in "
+                "their UI when ready.",
+    })
