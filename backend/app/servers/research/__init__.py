@@ -169,7 +169,7 @@ def _agent_system(label: str, angle: str) -> str:
     )
 
 
-async def _run_agent(spec: dict, session_id: str) -> dict:
+async def _run_agent(spec: dict, run_id: str, session_id: str) -> dict:
     """One agent: search its angle, summarize its slice. Never raises — a failed
     agent is a reported failure, not a dead run (the others still land).
 
@@ -182,7 +182,7 @@ async def _run_agent(spec: dict, session_id: str) -> dict:
 
     def step(status: str, note: str, **extra) -> None:
         bus.publish(session_id, {
-            "type": "agent", "agent": name, "label": label,
+            "type": "agent", "run_id": run_id, "agent": name, "label": label,
             "status": status, "note": note, **extra,
         })
 
@@ -300,6 +300,25 @@ async def _synthesize(query: str, agent_results: list[dict]) -> dict:
 
 
 async def _run(run_id: str, query: str, hint: str, fmt: str, session_id: str) -> None:
+    """Run a research job without ever leaving the browser waiting forever.
+
+    This task is intentionally detached from the voice turn. Any unexpected
+    exception therefore has to become a visible failure event; otherwise the task
+    is merely discarded by its done callback and the UI remains in "planning".
+    """
+    try:
+        await _run_impl(run_id, query, hint, fmt, session_id)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        logger.exception("research run %s crashed", run_id)
+        bus.publish(session_id, {
+            "type": "run", "run_id": run_id, "status": "failed", "error": str(exc)[:160],
+        })
+
+
+async def _run_impl(run_id: str, query: str, hint: str, fmt: str, session_id: str) -> None:
+    """The background job: plan the team, fan out, synthesize, store, announce."""
     """The background job: plan the team, fan out, synthesize, store, announce."""
     bus.publish(session_id, {
         "type": "run", "run_id": run_id, "status": "planning", "query": query,
@@ -320,7 +339,19 @@ async def _run(run_id: str, query: str, hint: str, fmt: str, session_id: str) ->
 
     # The whole point: every agent runs at once, so the run costs the slowest agent
     # rather than the sum of them.
-    results = await asyncio.gather(*(_run_agent(a, session_id) for a in plan))
+    results = await asyncio.gather(*(_run_agent(a, run_id, session_id) for a in plan))
+
+    # An empty team result is not an artifact. In particular, missing provider
+    # credentials make every search agent fail; previously that was synthesized as
+    # a successful, empty "No results" document and persisted to the sidebar.
+    # Leave the failures visible on the live cards and end the run honestly instead.
+    if not any(result.get("findings") for result in results):
+        errors = [str(result["error"]) for result in results if result.get("error")]
+        error = errors[0] if errors else "No sources returned results. Try a different query."
+        bus.publish(session_id, {
+            "type": "run", "run_id": run_id, "status": "failed", "error": error[:160],
+        })
+        return
 
     bus.publish(session_id, {
         "type": "run", "run_id": run_id, "status": "synthesizing",

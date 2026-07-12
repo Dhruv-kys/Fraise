@@ -5,12 +5,15 @@ by SQLite's built-in `PRAGMA user_version`. The sqlite-vec extension is loaded o
 every connection so the RAG `vec0` table is queryable.
 """
 import json
+import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
 import sqlite_vec
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "fraise.db"
 
@@ -116,6 +119,18 @@ def save_artifact(artifact_id: str, session_id: str, title: str, fmt: str, body:
         conn.close()
 
 
+def _artifact_body(raw: str) -> dict | None:
+    """Read stored artifact JSON without turning one bad row into a 500."""
+    try:
+        body = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        logger.warning("skipping malformed artifact record")
+        return None
+    if not isinstance(body, dict) or not body.get("sections"):
+        return None
+    return body
+
+
 def get_artifact(artifact_id: str, session_id: str) -> dict | None:
     """Scoped by session_id as well as id — an artifact id is a guessable handle,
     and one browser must never be able to read another's research."""
@@ -130,12 +145,17 @@ def get_artifact(artifact_id: str, session_id: str) -> dict | None:
         conn.close()
     if not row:
         return None
+    body = _artifact_body(row["body"])
+    # Older versions saved an artifact even when every provider call failed.
+    # Those records have no content, so don't surface a blank document to users.
+    if not body:
+        return None
     return {
         "id": row["id"],
         "title": row["title"],
         "format": row["format"],
         "created_at": row["created_at"],
-        **json.loads(row["body"]),
+        **body,
     }
 
 
@@ -143,10 +163,17 @@ def list_artifacts(session_id: str, limit: int = 20) -> list[dict]:
     conn = connect()
     try:
         rows = conn.execute(
-            "SELECT id, title, format, created_at FROM artifacts WHERE session_id = ? "
-            "ORDER BY created_at DESC LIMIT ?",
-            (session_id, limit),
+            "SELECT id, title, format, body, created_at FROM artifacts WHERE session_id = ? "
+            "ORDER BY created_at DESC",
+            (session_id,),
         ).fetchall()
     finally:
         conn.close()
-    return [dict(r) for r in rows]
+    # Filter the historical empty artifacts created by the old failure path.
+    valid: list[dict] = []
+    for row in rows:
+        if _artifact_body(row["body"]):
+            valid.append({key: row[key] for key in ("id", "title", "format", "created_at")})
+            if len(valid) == limit:
+                break
+    return valid

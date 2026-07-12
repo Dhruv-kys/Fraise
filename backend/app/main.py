@@ -22,6 +22,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+# Load configuration before importing application modules. Several modules read
+# their settings at import time (for example the voice-agent endpoint), so doing
+# this below those imports made a local .env ineffective unless systemd also set
+# the same variables in its environment.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
 from app.servers.calendar_auth import router as calendar_auth_router
 from app.host import bus
 from app.host.mcp_manager import manager
@@ -31,17 +37,19 @@ from app.servers.rag import embeddings, extract, reranker, store as rag_store
 from app.storage import db
 from app.host.voice_agent import bridge
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
-
 logger = logging.getLogger(__name__)
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-# Comma-separated list in prod, e.g. "https://fraise.vercel.app".
-CORS_ORIGINS = [
-    o.strip()
-    for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
-    if o.strip()
-]
+# Comma-separated list in prod. Keep the public deployment here as a safe
+# default: WebSockets can connect cross-origin, but browser fetch/EventSource
+# calls for history, artifacts, and live agent progress need an explicit CORS
+# response or the browser silently hides otherwise-successful API responses.
+_DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "https://fraise.vercel.app")
+_configured_cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
+CORS_ORIGINS = list(dict.fromkeys([
+    *_DEFAULT_CORS_ORIGINS,
+    *(o.strip() for o in _configured_cors_origins if o.strip()),
+]))
 
 
 @asynccontextmanager
