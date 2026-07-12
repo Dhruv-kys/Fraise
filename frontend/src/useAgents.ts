@@ -93,6 +93,12 @@ export function useAgents(sid: string) {
     setArtifact(null);
     setOpenId(null);
     void loadHistory();
+
+    // SSE is the live experience, but a proxy or a brief network change can
+    // interrupt it. Polling keeps completed documents discoverable regardless
+    // of the stream's state instead of leaving the sidebar permanently stale.
+    const interval = window.setInterval(() => void loadHistory(), 5_000);
+    return () => window.clearInterval(interval);
   }, [sid, loadHistory]);
 
   const openArtifact = useCallback(
@@ -125,7 +131,7 @@ export function useAgents(sid: string) {
       if (e.type === "run") {
         // "planning" opens the run with no agents yet — the planner is still
         // deciding who to send. "running" then delivers the team it chose.
-        if (e.status === "planning" || e.status === "running") {
+        if (e.status === "planning") {
           setArtifact(null);
           setRun((r) => ({
             runId: e.run_id,
@@ -146,7 +152,28 @@ export function useAgents(sid: string) {
           }));
           return;
         }
-        setRun((r) => (r ? { ...r, status: e.status, error: e.error, note: e.note } : r));
+        if (e.status === "running") {
+          setArtifact(null);
+          setRun((r) => {
+            // A second request may begin while the first is still finishing.
+            // Never let an older run replace the panel for the current one.
+            if (r && r.runId !== e.run_id) return r;
+            return {
+              runId: e.run_id,
+              query: e.query ?? r?.query ?? "",
+              status: e.status,
+              format: e.format ?? r?.format ?? "doc",
+              agents: e.agents?.length ? e.agents as AgentStatus[] : (r?.agents ?? []),
+              note: e.note,
+            };
+          });
+          return;
+        }
+        if (runRef.current?.runId !== e.run_id) return;
+        setRun((r): Run | null => {
+          if (!r || r.runId !== e.run_id) return r;
+          return { ...r, status: e.status, error: e.error, note: e.note };
+        });
         if (e.status === "done" && e.artifact) {
           setArtifact(e.artifact as Artifact);
           setOpenId(e.run_id);
@@ -159,7 +186,7 @@ export function useAgents(sid: string) {
         // Merge by agent name — events arrive per phase transition, and an agent
         // we never saw queued (a source added mid-flight) should still appear.
         setRun((r) => {
-          if (!r) return r;
+          if (!r || r.runId !== e.run_id) return r;
           const next = [...r.agents];
           const i = next.findIndex((a) => a.agent === e.agent);
           const prev = i >= 0 ? next[i] : undefined;
