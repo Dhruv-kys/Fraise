@@ -166,6 +166,11 @@ export default function App() {
   // same id as everything else the user owns.
   const { run, artifact, history, openId, openArtifact, dismiss: dismissRun } = useAgents(activeId);
 
+  // The dictated day: one brain-dump split into tasks, fanned out to lane agents.
+  // Lives on the hero (the front door); the workspace is a second way in.
+  const { day, process: processDay, dismiss: dismissDay } = useDay(activeId);
+  const [enteredApp, setEnteredApp] = useState(false);
+
   // Conversation + remembered facts, from the server. Refreshed whenever a turn
   // completes (messages.length changes), so the sidebar tracks the conversation.
   const { turns, memories } = useHistory(activeId, messages.length);
@@ -332,6 +337,29 @@ export default function App() {
   // recede (fade) rather than pop out — a shelf, not a feed.
   const showBoard = speechSupported && (messages.length === 0 || docs.length > 0 || !!uploading);
 
+  // The front door — the Obsidian hero with the dictation composer. Talking or
+  // opening the workspace crosses into the full app below (which keeps captions,
+  // the research panel, memory, and history). The dictated day lives out here.
+  if (!enteredApp) {
+    return (
+      <>
+        <Hero
+          orbState={orbState}
+          onOrbClick={() => {
+            setEnteredApp(true);
+            if (!listening) toggle();
+          }}
+          inputLevelRef={levelRef}
+          outputLevelRef={outLevelRef}
+          day={day}
+          onProcess={processDay}
+          onDismissDay={dismissDay}
+          onEnterApp={() => setEnteredApp(true)}
+        />
+        <SpeedInsights />
+      </>
+    );
+  }
 
   return (
     <div className={`stage ${orbState}`}>
@@ -339,13 +367,13 @@ export default function App() {
         {/* ---------- sidebar ---------- */}
         {menuOpen && <button className="scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
         <aside className={`sidebar${menuOpen ? " open" : ""}`}>
-          <div className="brand">
+          <button className="brand" onClick={() => setEnteredApp(false)} title="Back to the front door">
             <div className="brand-mark"><FraiseMark /></div>
             <div>
               <div className="brand-name">Fraise</div>
               <div className="brand-sub">Voice assistant</div>
             </div>
-          </div>
+          </button>
 
           <button className="new-conv" onClick={() => { toggle(); setMenuOpen(false); }}>
             <span className="plus">+</span>

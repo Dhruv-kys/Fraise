@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Orb from "./Orb";
 import { FraiseMark, GitHubMark } from "./icons";
-import { HERO_ASCII } from "./heroAscii";
+import { HERO_ASCII, HERO_RAMP, HERO_ASPECT, HERO_ORB_X, HERO_ORB_Y, HERO_ORB_W } from "./heroAscii";
 import type { Day, DayTask, Lane } from "./useDay";
 import type { OrbState } from "./useVoiceAgent";
 import "./Hero.css";
@@ -16,6 +16,78 @@ import "./Hero.css";
 const SpeechRecognition: any =
   (typeof window !== "undefined" && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) ||
   null;
+
+// Scramble-decode: the word cycles through random glyphs and resolves left to
+// right, then re-runs whenever `playKey` changes. Punctuation and spaces are
+// held so only the letters churn — the "living text" the reference leans on.
+const SCRAMBLE_GLYPHS = "ABCDEFGHKMNPRSTVXZ0123456789$#%&?/\\<>=+*";
+const isLetter = (c: string) => c >= "a" && c <= "z" || c >= "A" && c <= "Z" || c >= "0" && c <= "9";
+
+function useScramble(text: string, playKey: number, speed = 1.5, settle = 9): string {
+  const [out, setOut] = useState(text);
+  const reduce = useRef(
+    typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  ).current;
+
+  useEffect(() => {
+    if (reduce) {
+      setOut(text);
+      return;
+    }
+    let frame = 0;
+    let timer = 0;
+    const tick = () => {
+      let done = true;
+      let s = "";
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (!isLetter(ch)) {
+          s += ch;
+          continue;
+        }
+        const startAt = i * speed;
+        if (frame >= startAt + settle) {
+          s += ch;
+        } else {
+          s += SCRAMBLE_GLYPHS[(Math.random() * SCRAMBLE_GLYPHS.length) | 0];
+          done = false;
+        }
+      }
+      setOut(s);
+      frame++;
+      if (!done) timer = window.setTimeout(tick, 34);
+      else setOut(text);
+    };
+    tick();
+    return () => window.clearTimeout(timer);
+  }, [text, playKey, speed, settle, reduce]);
+
+  return out;
+}
+
+function Scramble({ text, playKey, speed, settle }: { text: string; playKey: number; speed?: number; settle?: number }) {
+  const out = useScramble(text, playKey, speed, settle);
+  return <span aria-label={text}>{out}</span>;
+}
+
+// The headline: scrambles in on mount, and the italic word re-decodes on a slow
+// loop so the line never sits perfectly still.
+function Headline() {
+  const [loop, setLoop] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setLoop((n) => n + 1), 5200);
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <h1 className="hx-head">
+      <Scramble text="Say your whole day." playKey={0} speed={1.3} settle={8} />
+      <br />
+      <em>
+        It&rsquo;s <Scramble text="handled." playKey={loop} speed={2.2} settle={12} />
+      </em>
+    </h1>
+  );
+}
 
 // Live dictation via the Web Speech API — the right tool for a long monologue you
 // then edit, and it stays clear of the conversational Deepgram loop the orb uses.
@@ -71,6 +143,54 @@ function useDictation(onFinal: (text: string) => void) {
   return { dictating, interim, toggle, stop, supported: !!SpeechRecognition };
 }
 
+// The ASCII field, alive. Background cells are spaces (fixed); body cells hold a
+// glyph whose brightness we keep by only ever re-rolling within a few steps of
+// the original ramp index — so the figure stays legible while the characters
+// keep churning, the way the reference's "numbers" never sit still.
+function AsciiField() {
+  const reduce = useRef(
+    typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  ).current;
+  const [grid, setGrid] = useState(HERO_ASCII);
+
+  useEffect(() => {
+    if (reduce) return;
+    const lines = HERO_ASCII.split("\n").map((l) => l.split(""));
+    const cells: { r: number; c: number; base: number }[] = [];
+    for (let r = 0; r < lines.length; r++) {
+      for (let c = 0; c < lines[r].length; c++) {
+        const ch = lines[r][c];
+        if (ch !== " ") {
+          const idx = HERO_RAMP.indexOf(ch);
+          cells.push({ r, c, base: idx < 1 ? 1 : idx });
+        }
+      }
+    }
+    const max = HERO_RAMP.length - 1;
+    const perTick = Math.max(1, Math.floor(cells.length * 0.11));
+    let timer = 0;
+    const tick = () => {
+      for (let i = 0; i < perTick; i++) {
+        const cell = cells[(Math.random() * cells.length) | 0];
+        let idx = cell.base + (((Math.random() * 5) | 0) - 2);
+        if (idx < 1) idx = 1;
+        else if (idx > max) idx = max;
+        lines[cell.r][cell.c] = HERO_RAMP[idx];
+      }
+      setGrid(lines.map((l) => l.join("")).join("\n"));
+      timer = window.setTimeout(tick, 70);
+    };
+    tick();
+    return () => window.clearTimeout(timer);
+  }, [reduce]);
+
+  return (
+    <pre className="hx-ascii" aria-hidden="true">
+      {grid}
+    </pre>
+  );
+}
+
 // ---- the ASCII figure that resolves to a photo, orb held where the vinyl was ----
 
 const ANNOTATIONS: { side: "l" | "r"; top: string; tick: string; lines: string[] }[] = [
@@ -91,12 +211,15 @@ function RevealFigure({
   outputLevelRef?: React.RefObject<number>;
 }) {
   return (
-    <figure className="hx-reveal">
-      <img className="hx-photo" src="/hero-atlas.jpg" alt="A figure holding the orb aloft" loading="eager" />
-      <pre className="hx-ascii" aria-hidden="true">{HERO_ASCII}</pre>
+    <figure className="hx-reveal" style={{ aspectRatio: String(HERO_ASPECT) }}>
+      <img className="hx-photo" src="/hero-atlas-cut.png" alt="A figure holding the orb aloft" loading="eager" />
+      <AsciiField />
       <div className="hx-scanline" aria-hidden="true" />
 
-      <div className="hx-orb-slot">
+      <div
+        className="hx-orb-slot"
+        style={{ left: `${HERO_ORB_X}%`, top: `${HERO_ORB_Y}%`, width: `${HERO_ORB_W}%` }}
+      >
         <Orb state={orbState} onClick={onOrbClick} inputLevelRef={inputLevelRef} outputLevelRef={outputLevelRef} />
       </div>
 
@@ -112,10 +235,6 @@ function RevealFigure({
             </span>
           </div>
         ))}
-        <span className="hx-bracket tl" />
-        <span className="hx-bracket tr" />
-        <span className="hx-bracket bl" />
-        <span className="hx-bracket br" />
       </div>
     </figure>
   );
@@ -350,11 +469,7 @@ export default function Hero({
       <main className={`hx-stage${active ? " compact" : ""}`}>
         <div className="hx-headline">
           <span className="hx-eyebrow">Dictate once — agents do the rest</span>
-          <h1 className="hx-head">
-            Say your whole day.
-            <br />
-            <em>It&rsquo;s handled.</em>
-          </h1>
+          <Headline />
         </div>
 
         {active ? (

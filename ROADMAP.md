@@ -138,6 +138,20 @@ Deliver on the privacy stance end to end: with local models on, nothing leaves t
 
 ---
 
+## Phase 11 — Profiles & personas 🚧
+
+Multiple named assistants in one browser — a row of avatars you tap to switch (like Strawberry's companion switcher), each with its own avatar, name, instructions, and its own memory. Switch to "Work" and Fraise carries your work facts, docs, and custom instructions; switch to "Personal" and it's a clean, separate mind. Every assistant shares the same config *shape* — only the values differ. This is not new capability: it reuses the per-session scoping that memory, RAG, and conversation history already key on, so isolation comes for free. Assistants live in the **voice host** as a scope key + a prompt fragment; no MCP server changes, and the "a capability is one config entry" invariant holds.
+
+- [x] **Assistant as a scope key** — each assistant carries a stable id used exactly where `session_id` is today (memory rows, RAG documents, `conversation_turns`), so it accumulates its own remembered facts, uploaded files, and conversation continuity in isolation, with zero server-side changes. The list lives in `localStorage` (`assistants.ts`); a first-run migration seeds a default assistant whose id reuses the old `fraise_sid`, so a returning user's memory and documents carry over instead of orphaning.
+- [x] **Per-assistant config** — a settings panel per assistant: avatar, name, and custom instructions (its system-prompt fragment: tone, role, standing rules). Instructions and the persona name fold into the prompt (`persona`/`instructions` query params → `_build_settings`) the same way `user_name` and date/capabilities already do; a non-default name renames the assistant in-prompt and in its greeting. (A view of *its* Memory and Transcripts is deferred — it needs new backend read endpoints.)
+- [x] **Avatar switcher (frontend)** — a persistent top-bar pill of assistant avatars with a `+` to create one, plus create/rename/edit/delete (localStorage-backed, like the first-run name modal). Tapping another avatar reconnects `/ws` with that assistant's id + instructions and clears the transcript, giving a clean persona swap mid-app with no reload; tapping the active one opens its editor.
+- [x] **Voice-native switching** — "switch to my work assistant" as a spoken command. A tiny `personas` MCP server exposes `switch_assistant(name)`, which returns a fire-and-forget `_action` the host forwards to the browser; the browser matches the name against its local list and reconnects as that persona. The other assistants' names are folded into the prompt so the model knows it can switch and what to pass.
+- [x] **Cross-assistant isolation guarantee** — one assistant's memory or documents never surface in another; because the id *is* the `session_id` scope, isolation is the storage default, and a shared/global scope stays opt-in (unbuilt), not default.
+
+> Distinct from Phase 10 accounts: assistants are multiple personas for one person on one device; accounts are one identity synced across devices. They compose — an account can own many assistants — but assistants ship first and need no auth.
+
+---
+
 ## Public MCP servers
 
 Supported with no new code — the host already speaks `http` and `stdio`, so connecting one is a single entry in `mcp_servers.json`. Live so far:

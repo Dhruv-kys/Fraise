@@ -174,7 +174,8 @@
   transition: background .5s ease, transform .3s cubic-bezier(.4, 0, .2, 1);
 }
 
-.brand { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) 6px var(--s-3); }
+.brand { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) 6px var(--s-3); width: 100%; background: none; border: none; cursor: pointer; text-align: left; color: inherit; font: inherit; border-radius: var(--r-md); transition: background .16s ease; }
+.brand:hover { background: var(--surface-soft); }
 .brand-mark {
   width: 30px; height: 30px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;

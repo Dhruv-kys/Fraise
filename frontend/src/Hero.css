@@ -112,10 +112,10 @@
   color: var(--blue-2);
 }
 .hx-head {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   font-family: "Instrument Serif", serif;
   font-weight: 400;
-  font-size: clamp(38px, 6.4vw, 92px);
+  font-size: clamp(34px, 5.4vw, 78px);
   line-height: 0.98;
   letter-spacing: -0.015em;
   color: #D9DCE6;
@@ -133,9 +133,11 @@
 .hx-reveal {
   position: relative;
   container-type: inline-size;
-  height: clamp(280px, 46vh, 540px);
-  aspect-ratio: 736 / 920;
-  margin: clamp(6px, 2vh, 22px) 0;
+  /* As big as the viewport allows once the nav, headline and composer are seated
+     — so the figure dominates without ever pushing the composer below the fold.
+     aspect-ratio is set inline from the cutout's real dimensions. */
+  height: clamp(320px, calc(100vh - 420px), 780px);
+  margin: clamp(4px, 1.2vh, 14px) 0;
   cursor: default;
 }
 .hx-photo,
@@ -144,34 +146,52 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1), filter 0.7s ease;
+  transform-origin: 50% 43%;       /* resolve around the held orb */
+  backface-visibility: hidden;
+  will-change: opacity, transform, filter;
 }
 .hx-photo {
-  object-fit: cover;
-  object-position: center 40%;
-  border-radius: 10px;
+  object-fit: contain;
   opacity: 0;
-  filter: saturate(1.02) contrast(1.02);
-  -webkit-mask-image: radial-gradient(ellipse 92% 96% at 50% 46%, #000 62%, transparent 100%);
-  mask-image: radial-gradient(ellipse 92% 96% at 50% 46%, #000 62%, transparent 100%);
+  transform: scale(1.07);
+  filter: blur(16px) brightness(0.52) saturate(0.66);
+  transition:
+    opacity 1.25s cubic-bezier(0.22, 0.68, 0.14, 1),
+    transform 1.6s cubic-bezier(0.22, 0.68, 0.14, 1),
+    filter 1.25s cubic-bezier(0.22, 0.68, 0.14, 1);
 }
 .hx-ascii {
   margin: 0;
   overflow: hidden;
   white-space: pre;
   font-family: var(--mono);
-  font-size: 0.96cqw;
+  font-size: 3.087cqw;      /* coarse, big, readable glyphs (54 cols) */
+  font-weight: 500;
   line-height: 1.235;
   letter-spacing: 0;
-  color: #7C93FF;
-  text-shadow: 0 0 8px rgba(61, 90, 255, 0.35);
-  opacity: 0.92;
+  color: #8FA6FF;
+  text-shadow: 0 0 12px rgba(61, 90, 255, 0.55);
+  opacity: 0.95;
+  transform: scale(1);
+  filter: blur(0);
   user-select: none;
-  -webkit-mask-image: radial-gradient(ellipse 92% 96% at 50% 46%, #000 58%, transparent 100%);
-  mask-image: radial-gradient(ellipse 92% 96% at 50% 46%, #000 58%, transparent 100%);
+  transition:
+    opacity 1s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 1.6s cubic-bezier(0.22, 0.68, 0.14, 1),
+    filter 0.85s ease;
 }
-.hx-reveal:hover .hx-photo { opacity: 1; }
-.hx-reveal:hover .hx-ascii { opacity: 0; }
+.hx-reveal:hover .hx-photo,
+.hx-reveal:focus-within .hx-photo {
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0) brightness(1.02) saturate(1.05);
+}
+.hx-reveal:hover .hx-ascii,
+.hx-reveal:focus-within .hx-ascii {
+  opacity: 0;
+  transform: scale(1.05);
+  filter: blur(3px);
+}
 
 /* a slow scan sweep over the ascii for the phosphor feel */
 .hx-scanline {
@@ -193,10 +213,7 @@
 
 /* the orb, held where the vinyl was */
 .hx-orb-slot {
-  position: absolute;
-  left: 50%;
-  top: 43.5%;
-  width: 40%;
+  position: absolute;   /* left / top / width set inline from the cutout geometry */
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
   z-index: 4;
@@ -242,18 +259,6 @@
   color: var(--muted);
   text-transform: uppercase;
 }
-
-.hx-bracket {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--line-2);
-  opacity: 0.6;
-}
-.hx-bracket.tl { top: 4%; left: 8%; border-right: none; border-bottom: none; }
-.hx-bracket.tr { top: 4%; right: 8%; border-left: none; border-bottom: none; }
-.hx-bracket.bl { bottom: 4%; left: 8%; border-right: none; border-top: none; }
-.hx-bracket.br { bottom: 4%; right: 8%; border-left: none; border-top: none; }
 
 /* ---------- composer ---------- */
 .hx-composer {
@@ -414,11 +419,19 @@
   .hx-nav-right .hx-cta { display: inline-flex; }
   .hx-composer { flex-wrap: wrap; }
   .hx-process { width: 100%; justify-content: center; }
-  .hx-reveal { height: clamp(240px, 38vh, 400px); }
-  .hx-ascii { font-size: 1.4cqw; }
+  .hx-reveal { height: clamp(280px, 44vh, 440px); }
+}
+
+/* Touch devices can't hover — show the photograph by default rather than
+   stranding people on the ASCII with no way to resolve it. */
+@media (hover: none) {
+  .hx-photo { opacity: 1; transform: none; filter: blur(0) saturate(1.03); }
+  .hx-ascii { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hx-scanline, .hx-mic-wave span, .hx-task-bar.on span, .hx-pulse { animation: none !important; }
-  .hx-photo, .hx-ascii { transition: opacity 0.2s ease; }
+  .hx-photo, .hx-ascii { transition: opacity 0.3s ease !important; }
+  .hx-photo { transform: none !important; filter: brightness(1) saturate(1) !important; }
+  .hx-reveal:hover .hx-ascii, .hx-reveal:focus-within .hx-ascii { transform: none !important; filter: none !important; }
 }
