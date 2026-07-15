@@ -12,8 +12,10 @@ import {
 } from "./assistants";
 import Orb from "./Orb";
 import Board from "./Board";
+import Hero from "./Hero";
 import { AgentPanel, ArtifactView } from "./Agents";
 import { useAgents } from "./useAgents";
+import { useDay } from "./useDay";
 import { useHistory } from "./useHistory";
 import { FraiseMark } from "./icons";
 import "./App.css";
@@ -24,13 +26,13 @@ function statusPill(
   status: "connecting" | "online" | "error",
   orbState: OrbState,
 ): { label: string; color: string } {
-  if (status === "connecting") return { label: "Connecting…", color: "#C08A3E" };
-  if (status === "error") return { label: "Offline", color: "#B4485C" };
+  if (status === "connecting") return { label: "Connecting…", color: "#C79A45" };
+  if (status === "error") return { label: "Offline", color: "#E06B7E" };
   return {
-    idle: { label: "Ready", color: "#A9959B" },
-    listening: { label: "Listening", color: "#C75C74" },
-    thinking: { label: "Working", color: "#4E8A6A" },
-    speaking: { label: "Speaking", color: "#8E2A45" },
+    idle: { label: "Ready", color: "#7E8598" },
+    listening: { label: "Listening", color: "#5B6CFF" },
+    thinking: { label: "Working", color: "#3FE0A0" },
+    speaking: { label: "Speaking", color: "#8493FF" },
   }[orbState];
 }
 
@@ -49,9 +51,8 @@ function useTheme(): [Theme, () => void] {
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem("fraise-theme");
     if (saved === "light" || saved === "dark") return saved;
-    // Light is the brand's home. We used to follow the OS, which meant most
-    // people met Fraise in the dark without ever choosing it.
-    return "light";
+    // Obsidian is the brand's home now — the front door is dark.
+    return "dark";
   });
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -63,7 +64,7 @@ function useTheme(): [Theme, () => void] {
       meta.name = "theme-color";
       document.head.appendChild(meta);
     }
-    meta.content = theme === "dark" ? "#1B1716" : "#FAF7F2";
+    meta.content = theme === "dark" ? "#07080B" : "#F5F6F9";
   }, [theme]);
   return [theme, () => setTheme((t) => (t === "dark" ? "light" : "dark"))];
 }

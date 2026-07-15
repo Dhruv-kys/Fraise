@@ -30,7 +30,7 @@ export default function Orb({ state, onClick, inputLevelRef, outputLevelRef }: O
         <Suspense fallback={<div className="orb-fallback" />}>
           <GlOrb
             className="orb-gl"
-            colors={["#F0568B", "#FFC9DD"]}
+            colors={["#3D5AFF", "#63E6FF"]}
             seed={1337}
             agentState={AGENT[state]}
             inputVolumeRef={inputLevelRef}

@@ -1,17 +1,16 @@
 /* Fraise — voice assistant shell. */
 
 /* ---------- theme tokens ---------- */
-/* Editorial wine brand: deep burgundy accent on ivory/cream, warm espresso in
-   dark. Solid colors, one saturated accent.
-   Depth is layered, not decorative: the shadow scale below is tinted with the
-   brand's wine (never neutral grey) so cards read as paper lifted off a warm
-   page. Surfaces step: page → board card → hero plane → overlay. */
+/* Obsidian & Signal Blue — a premium, fintech-grade rebrand. Near-black canvas,
+   one electric blue accent, warm-ivory type, cool blue-tinted borders, a single
+   action-green. Dark is the brand's home (the front door); light is the same
+   world by day. Solid colors, one saturated accent — depth is a surface ladder,
+   not decoration: page → window → panel → card → raised → hover.
+   :root is the light variant; .dark (below) is the default primary look. */
 :root {
-  --grad-app: #F3EFE7;
+  --grad-app: #EEF0F5;
 
-  /* Type scale — a 1.25 ratio off a 13px base. Sizes used to be picked by eye
-     (9.5, 11.5, 12.5, 13.5, 15, 21, 33) and that incoherence is most of what
-     reads as "unfinished", even when nothing is individually wrong. */
+  /* Type scale — a 1.25 ratio off a 13px base. */
   --t-micro: 10px;   /* kickers, eyebrow labels — always uppercase + tracked */
   --t-fine: 11px;
   --t-small: 12px;
@@ -34,85 +33,88 @@
   --r-lg: 18px;
   --r-xl: 22px;
 
-  /* Brand mark. Leaf green is the wine's complement, desaturated to sit quietly. */
-  --leaf: #4E7A55;
-  --seed: #FBF5EE;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --shadow-1: 0 1px 2px rgba(74, 26, 40, .05), 0 2px 6px rgba(74, 26, 40, .04);
-  --shadow-2: 0 2px 4px rgba(74, 26, 40, .06), 0 10px 24px rgba(74, 26, 40, .09);
-  --shadow-3: 0 4px 8px rgba(74, 26, 40, .07), 0 18px 44px rgba(74, 26, 40, .13);
-  --shadow-ink: 0 2px 4px rgba(74, 26, 40, .14), 0 12px 30px rgba(74, 26, 40, .22);
+  /* Action green — the one non-blue accent, used only for "go"/live states. */
+  --leaf: #17A673;
+  --seed: #EEF1FF;
+  --go: #12B981;
 
-  --window-bg: #FAF7F2;
-  --sidebar-grad: #F3EEE6;
-  --main-grad: #F9F6F0;
+  --shadow-1: 0 1px 2px rgba(20, 30, 70, .05), 0 2px 6px rgba(20, 30, 70, .05);
+  --shadow-2: 0 2px 4px rgba(20, 30, 70, .07), 0 10px 24px rgba(20, 30, 70, .10);
+  --shadow-3: 0 4px 8px rgba(20, 30, 70, .08), 0 18px 44px rgba(20, 30, 70, .14);
+  --shadow-ink: 0 2px 4px rgba(20, 30, 70, .14), 0 12px 30px rgba(20, 30, 70, .22);
 
-  --border-soft: rgba(85, 30, 45, .08);
-  --border-soft-2: rgba(85, 30, 45, .11);
-  --border-soft-3: rgba(85, 30, 45, .14);
-  --border-dash: rgba(85, 30, 45, .24);
+  --window-bg: #FBFBFD;
+  --sidebar-grad: #F1F3F8;
+  --main-grad: #F8F9FC;
+
+  --border-soft: rgba(30, 45, 110, .09);
+  --border-soft-2: rgba(30, 45, 110, .13);
+  --border-soft-3: rgba(30, 45, 110, .17);
+  --border-dash: rgba(30, 45, 110, .26);
 
   --surface: #FFFFFF;
-  --surface-soft: #F6F1E9;
+  --surface-soft: #EFF1F7;
   --surface-strong: #FFFFFF;
   --surface-hover: #FFFFFF;
-  --surface-active: #FFFFFF;
+  --surface-active: #F4F6FB;
   --pill-bg: #FFFFFF;
 
-  --text-primary: #2E1B20;
-  --text-secondary: #5C4048;
-  --text-tertiary: #6E525A;
-  --text-muted: #997F85;
-  --text-faint: #B29AA0;
-  --text-faint-2: #A78E95;
+  --text-primary: #0D1017;
+  --text-secondary: #3B4150;
+  --text-tertiary: #5A6072;
+  --text-muted: #7E8598;
+  --text-faint: #A2A8B8;
+  --text-faint-2: #949BAC;
 
-  --accent: #8E2A45;
-  --accent-2: #A63D58;
+  --accent: #3D4EE6;
+  --accent-2: #5B6CFF;
 }
 
-/* Dark = the same editorial world at night. Surfaces are warm charcoal, not
-   maroon: near-neutral (R leads G by ~6, G leads B by ~1) so the wine accent
-   is the only saturated color on screen. Elevation is an even tonal ladder —
-   page → window → panel → card → raised → hover — since shadows barely read
-   on a dark ground. */
+/* Dark = the primary Obsidian look. Near-black surfaces stepping up a cool,
+   near-neutral ladder (a whisper of blue, B leads R/G) so the signal-blue accent
+   is the only saturated color on screen. Elevation is the tonal ladder — page →
+   window → panel → card → raised → hover — since shadows barely read on black. */
 .dark {
-  --grad-app: #151111;
+  --grad-app: #07080B;
 
-  --leaf: #79A57F;
-  --seed: #241D1E;
+  --leaf: #3FE0A0;
+  --seed: #10131C;
+  --go: #3FE0A0;
 
   /* Shadows can't darken an already-dark page; the surface ladder carries the
      lift, shadows just seat edges. */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, .26), 0 2px 6px rgba(0, 0, 0, .18);
-  --shadow-2: 0 2px 4px rgba(0, 0, 0, .30), 0 10px 24px rgba(0, 0, 0, .26);
-  --shadow-3: 0 4px 8px rgba(0, 0, 0, .34), 0 18px 44px rgba(0, 0, 0, .38);
-  --shadow-ink: 0 2px 4px rgba(0, 0, 0, .34), 0 12px 30px rgba(0, 0, 0, .42);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .40), 0 2px 6px rgba(0, 0, 0, .30);
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, .44), 0 10px 24px rgba(0, 0, 0, .40);
+  --shadow-3: 0 4px 8px rgba(0, 0, 0, .48), 0 18px 44px rgba(0, 0, 0, .52);
+  --shadow-ink: 0 2px 4px rgba(0, 0, 0, .48), 0 12px 30px rgba(0, 0, 0, .56);
 
-  --window-bg: #1B1716;
-  --sidebar-grad: #211C1B;
-  --main-grad: #1E1A19;
+  --window-bg: #0A0B10;
+  --sidebar-grad: #0C0E14;
+  --main-grad: #090A0E;
 
-  --border-soft: rgba(244, 236, 232, .07);
-  --border-soft-2: rgba(244, 236, 232, .10);
-  --border-soft-3: rgba(244, 236, 232, .14);
-  --border-dash: rgba(244, 236, 232, .18);
+  --border-soft: rgba(150, 170, 255, .09);
+  --border-soft-2: rgba(150, 170, 255, .13);
+  --border-soft-3: rgba(150, 170, 255, .18);
+  --border-dash: rgba(150, 170, 255, .22);
 
-  --surface: #272120;
-  --surface-soft: #231E1D;
-  --surface-strong: #2C2524;
-  --surface-hover: #342C2B;
-  --surface-active: #302827;
-  --pill-bg: #241F1E;
+  --surface: #12141C;
+  --surface-soft: #0E1016;
+  --surface-strong: #171A24;
+  --surface-hover: #1C1F2B;
+  --surface-active: #191C27;
+  --pill-bg: #12141C;
 
-  --text-primary: #F4EFEA;
-  --text-secondary: #C7BEB9;
-  --text-tertiary: #A79D98;
-  --text-muted: #948A85;
-  --text-faint: #6E6461;
-  --text-faint-2: #7C726E;
+  --text-primary: #ECEEF4;
+  --text-secondary: #AEB4C6;
+  --text-tertiary: #878EA1;
+  --text-muted: #6B7285;
+  --text-faint: #4C5265;
+  --text-faint-2: #5A6175;
 
-  --accent: #CE5A73;
-  --accent-2: #E0879A;
+  --accent: #5B6CFF;
+  --accent-2: #8493FF;
 }
 
 /* ---------- keyboard focus ---------- */
