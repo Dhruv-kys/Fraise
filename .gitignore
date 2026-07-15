@@ -19,3 +19,4 @@ backend/app/data/
 
 # Local Netlify folder
 .netlify
+HANDOFF.md
