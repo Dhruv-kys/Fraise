@@ -16,8 +16,9 @@
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* One screen, never scrolls — everything is sized to fit inside the viewport. */
+  height: 100vh;
+  height: 100dvh;
   width: 100%;
   background: var(--ink);
   color: var(--ivory);
@@ -27,10 +28,23 @@
   font-family: "Hanken Grotesk", system-ui, sans-serif;
 }
 
-/* faint technical grid, like the reference's dotted field */
+/* The full-canvas living ASCII matrix — the Razorpay ground. Sits at the very
+   back, faint, behind every other layer. */
+.hx-matrix {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  display: block;
+}
+
+/* faint technical grid over the matrix, softening its centre */
 .hx-grid {
   position: absolute;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
   background-image:
     radial-gradient(circle at center, rgba(120, 140, 255, 0.05) 0.5px, transparent 0.6px);
@@ -38,6 +52,21 @@
   mask-image: radial-gradient(ellipse 80% 70% at 50% 42%, #000 30%, transparent 82%);
   -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 42%, #000 30%, transparent 82%);
 }
+
+/* Electric-blue accent squares — the reference's graphic punctuation. Flat,
+   saturated, a couple with a soft glow; they hover-drift very slowly. */
+.hx-sq {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  background: #1F44FF;
+  box-shadow: 0 0 40px rgba(31, 68, 255, 0.35);
+  animation: hxFloat 9s ease-in-out infinite;
+}
+.hx-sq-1 { width: 46px; height: 46px; left: 11%; top: 64%; opacity: 0.9; }
+.hx-sq-2 { width: 28px; height: 28px; left: 22%; top: 34%; opacity: 0.75; animation-delay: -3s; }
+.hx-sq-3 { width: 60px; height: 60px; right: 12%; top: 64%; opacity: 0.85; animation-delay: -6s; }
+@keyframes hxFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 /* a signal-blue aurora seated behind the figure */
 .hx::before {
   content: "";
@@ -88,20 +117,23 @@
 .hx-cta:hover { background: #6B7BFF; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(61, 90, 255, 0.45); }
 .hx-cta:active { transform: translateY(0); }
 
-/* ---------- stage ---------- */
+/* ---------- stage ----------
+   A fixed-height column: headline pinned top, composer pinned bottom, and the
+   figure flexes to eat every pixel between them — so it's as large as the
+   viewport allows without ever scrolling. */
 .hx-stage {
   position: relative;
   z-index: 2;
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: clamp(6px, 2vh, 28px) 20px 0;
-  min-height: 0;
+  padding: clamp(4px, 1.4vh, 18px) 20px 0;
 }
 
-.hx-headline { text-align: center; }
+.hx-headline { text-align: center; flex-shrink: 0; }
 .hx-eyebrow {
   display: inline-block;
   font-family: var(--mono);
@@ -133,83 +165,56 @@
 .hx-reveal {
   position: relative;
   container-type: inline-size;
-  /* As big as the viewport allows once the nav, headline and composer are seated
-     — so the figure dominates without ever pushing the composer below the fold.
-     aspect-ratio is set inline from the cutout's real dimensions. */
-  height: clamp(320px, calc(100vh - 420px), 780px);
-  margin: clamp(4px, 1.2vh, 14px) 0;
+  /* Flex-grows to fill all the vertical space between headline and composer;
+     its width follows from the inline aspect-ratio (the cutout's real
+     proportions). Height is driven by the flexbox, so the figure is always as
+     large as the viewport allows — no scroll, no fixed guess. */
+  flex: 1 1 0;
+  min-height: 0;
+  width: auto;
+  margin: clamp(4px, 1.2vh, 14px) auto;
   cursor: default;
 }
+/* Photo and ASCII occupy the exact same box and simply cross-fade — no scale,
+   no blur, no movement of any kind, so nothing shifts on hover. Both are
+   pinned identically; only opacity animates. */
 .hx-photo,
-.hx-ascii {
+.hx-ascii-frame {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  transform-origin: 50% 43%;       /* resolve around the held orb */
   backface-visibility: hidden;
-  will-change: opacity, transform, filter;
+  will-change: opacity;
+  transition: opacity 0.55s ease;
 }
 .hx-photo {
   object-fit: contain;
+  opacity: 1;
+}
+/* Centers the ASCII grid within the frame — glyph size is computed in JS from
+   the frame's real box (see AsciiField), so it fills without spilling. */
+.hx-ascii-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   opacity: 0;
-  transform: scale(1.07);
-  filter: blur(16px) brightness(0.52) saturate(0.66);
-  transition:
-    opacity 1.25s cubic-bezier(0.22, 0.68, 0.14, 1),
-    transform 1.6s cubic-bezier(0.22, 0.68, 0.14, 1),
-    filter 1.25s cubic-bezier(0.22, 0.68, 0.14, 1);
 }
 .hx-ascii {
   margin: 0;
-  overflow: hidden;
   white-space: pre;
   font-family: var(--mono);
-  font-size: 3.087cqw;      /* coarse, big, readable glyphs (54 cols) */
   font-weight: 500;
   line-height: 1.235;
   letter-spacing: 0;
   color: #8FA6FF;
-  text-shadow: 0 0 12px rgba(61, 90, 255, 0.55);
-  opacity: 0.95;
-  transform: scale(1);
-  filter: blur(0);
   user-select: none;
-  transition:
-    opacity 1s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 1.6s cubic-bezier(0.22, 0.68, 0.14, 1),
-    filter 0.85s ease;
 }
 .hx-reveal:hover .hx-photo,
-.hx-reveal:focus-within .hx-photo {
-  opacity: 1;
-  transform: scale(1);
-  filter: blur(0) brightness(1.02) saturate(1.05);
-}
-.hx-reveal:hover .hx-ascii,
-.hx-reveal:focus-within .hx-ascii {
-  opacity: 0;
-  transform: scale(1.05);
-  filter: blur(3px);
-}
-
-/* a slow scan sweep over the ascii for the phosphor feel */
-.hx-scanline {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, transparent 0%, rgba(99, 230, 255, 0.06) 50%, transparent 100%);
-  background-size: 100% 40%;
-  background-repeat: no-repeat;
-  animation: hxScan 5.5s linear infinite;
-  opacity: 0.7;
-  transition: opacity 0.5s ease;
-}
-.hx-reveal:hover .hx-scanline { opacity: 0; }
-@keyframes hxScan {
-  0% { background-position: 0 -40%; }
-  100% { background-position: 0 140%; }
-}
+.hx-reveal:focus-within .hx-photo { opacity: 0; }
+.hx-reveal:hover .hx-ascii-frame,
+.hx-reveal:focus-within .hx-ascii-frame { opacity: 1; }
 
 /* the orb, held where the vinyl was */
 .hx-orb-slot {
@@ -220,44 +225,49 @@
   pointer-events: auto;
 }
 .hx-orb-slot .orb-stage { width: 100%; height: 100%; max-width: none; max-height: none; }
-.hx-orb-slot .orb { width: 86%; height: 86%; max-width: none; max-height: none; }
+.hx-orb-slot .orb { width: 100%; height: 100%; max-width: none; max-height: none; }
 .hx-orb-slot .orb-bloom-a { max-width: none; max-height: none; opacity: 0.85; }
+/* No lift, no puddle — the orb reads as sitting flush on the record, not
+   floating above it. */
 .hx-orb-slot .orb-shadow { display: none; }
+.hx-orb-slot .orb-gl,
+.hx-orb-slot .orb-fallback { filter: none; }
 
-/* ---------- technical annotations ---------- */
-.hx-annos { position: absolute; inset: -4% -22% -2%; pointer-events: none; z-index: 3; }
+/* ---------- technical annotations ----------
+   Reads outward from the figure: a lead-line runs from the subject out
+   through open space, and the label lands at the outer edge where there's
+   nothing behind it to fight for attention. No index tags — just the line
+   and the label. */
+/* The figure is narrow, so the labels are thrown well out into the empty space
+   on either side — the container extends far past the figure so no label ever
+   sits on top of it. */
+.hx-annos { position: absolute; inset: -4% -155% -2%; pointer-events: none; z-index: 5; }
 .hx-anno {
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 8px;
-  opacity: 0.55;
+  gap: 16px;
+  opacity: 0.9;
   transition: opacity 0.5s ease;
 }
-.hx-reveal:hover .hx-anno { opacity: 0.95; }
-.hx-anno-r { right: 0; flex-direction: row-reverse; text-align: right; }
-.hx-anno-l { left: 0; text-align: left; }
-.hx-anno-tick {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  color: var(--faint);
-  border: 1px solid var(--line);
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-.hx-anno-line { width: clamp(28px, 6vw, 92px); height: 1px; background: linear-gradient(90deg, var(--line-2), transparent); }
-.hx-anno-r .hx-anno-line { background: linear-gradient(270deg, var(--line-2), transparent); }
+.hx-reveal:hover .hx-anno { opacity: 1; }
+.hx-anno-r { right: 0; flex-direction: row; text-align: right; }
+.hx-anno-l { left: 0; flex-direction: row-reverse; text-align: left; }
+.hx-anno-line { width: clamp(40px, 7.5vw, 110px); height: 1px; background: linear-gradient(90deg, var(--blue-2), transparent); flex-shrink: 0; }
+.hx-anno-r .hx-anno-line { background: linear-gradient(90deg, var(--blue-2), transparent); }
+.hx-anno-l .hx-anno-line { background: linear-gradient(270deg, var(--blue-2), transparent); }
 .hx-anno-text {
   display: flex;
   flex-direction: column;
   font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   line-height: 1.45;
-  color: var(--muted);
+  color: var(--ivory);
   text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 14px rgba(7, 8, 11, 0.9);
+  white-space: nowrap;
 }
 
 /* ---------- composer ---------- */
@@ -422,16 +432,9 @@
   .hx-reveal { height: clamp(280px, 44vh, 440px); }
 }
 
-/* Touch devices can't hover — show the photograph by default rather than
-   stranding people on the ASCII with no way to resolve it. */
-@media (hover: none) {
-  .hx-photo { opacity: 1; transform: none; filter: blur(0) saturate(1.03); }
-  .hx-ascii { opacity: 0; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .hx-scanline, .hx-mic-wave span, .hx-task-bar.on span, .hx-pulse { animation: none !important; }
-  .hx-photo, .hx-ascii { transition: opacity 0.3s ease !important; }
+  .hx-photo, .hx-ascii-frame { transition: opacity 0.3s ease !important; }
   .hx-photo { transform: none !important; filter: brightness(1) saturate(1) !important; }
-  .hx-reveal:hover .hx-ascii, .hx-reveal:focus-within .hx-ascii { transform: none !important; filter: none !important; }
+  .hx-reveal:hover .hx-ascii-frame, .hx-reveal:focus-within .hx-ascii-frame { transform: none !important; filter: none !important; }
 }

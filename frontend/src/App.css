@@ -343,9 +343,32 @@
 /* ---------- main ---------- */
 .main {
   flex: 1; position: relative; display: flex; flex-direction: column; min-width: 0;
+  isolation: isolate;
   background: var(--main-grad);
   transition: background .5s ease;
 }
+/* The hero's cinematic backdrop, ported into the workspace so the app and the
+   front door read as one product: a faint dotted technical grid, and a
+   signal-blue aurora seated behind the orb. Both sit at z-index 0, below the
+   header (z-5) and the stage (z-1). Only shown on the Obsidian (dark) look. */
+.dark .main::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-image: radial-gradient(circle at center, rgba(120, 140, 255, 0.05) 0.5px, transparent 0.6px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 66% 52% at 50% 30%, #000 18%, transparent 74%);
+  mask-image: radial-gradient(ellipse 66% 52% at 50% 30%, #000 18%, transparent 74%);
+}
+.dark .main::after {
+  content: ""; position: absolute; left: 50%; top: 27%; z-index: 0;
+  width: min(46vw, 620px); aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(61, 90, 255, 0.20) 0%, rgba(61, 90, 255, 0.05) 40%, transparent 70%);
+  filter: blur(34px); pointer-events: none;
+  transition: background .5s ease, opacity .5s ease;
+}
+/* The aurora brightens as Fraise wakes — a quiet signal the app is listening. */
+.stage.listening .main::after { background: radial-gradient(circle, rgba(91, 108, 255, 0.28) 0%, rgba(61, 90, 255, 0.08) 42%, transparent 72%); }
+.stage.speaking .main::after { background: radial-gradient(circle, rgba(132, 147, 255, 0.26) 0%, rgba(99, 230, 255, 0.07) 42%, transparent 72%); }
 
 .main-header {
   position: relative; z-index: 5;
@@ -452,7 +475,7 @@
    you scrolled and never let it come back down. A layering trick isn't worth an
    orb that gets stuck. */
 .assistant-stage {
-  flex: 1; position: relative; min-height: 0;
+  flex: 1; position: relative; z-index: 1; min-height: 0;
   overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: var(--border-soft-3) transparent;
 }

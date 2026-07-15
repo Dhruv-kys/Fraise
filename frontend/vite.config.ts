@@ -20,6 +20,8 @@ export default defineConfig({
       // main.py.
       "/artifacts": "http://localhost:8000",
       "/history": "http://localhost:8000",
+      // Google Calendar OAuth (start + callback) lives under /auth/calendar.
+      "/auth": "http://localhost:8000",
       "/agents": {
         target: "http://localhost:8000",
         // SSE must not be buffered, or events arrive in one lump at the end —

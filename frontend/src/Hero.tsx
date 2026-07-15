@@ -1,14 +1,17 @@
 // The front door — Obsidian & Signal Blue.
 //
-// A classical figure holds the orb aloft where a vinyl once was; by default it's
-// rendered in ASCII and resolves into the real photograph on hover (the Razorpay
-// reveal). Below it, a dictation composer: speak your whole day in one breath and
-// it's split into tasks, each fanned out to its own lane agent (see useDay).
+// The whole canvas is a faint, living ASCII matrix (the Razorpay AI-builders
+// texture): dense monospace glyphs churning quietly on black. On top of that
+// field sits the real subject — a classical figure holding the orb aloft where
+// a vinyl once was — plus bright electric-blue accent squares and small code
+// snippets, exactly the reference's "photo on an ASCII ground" composition.
+// Below it, a dictation composer: speak your whole day in one breath and it's
+// split into tasks, each fanned out to its own lane agent (see useDay).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Orb from "./Orb";
 import { FraiseMark, GitHubMark } from "./icons";
-import { HERO_ASCII, HERO_RAMP, HERO_ASPECT, HERO_ORB_X, HERO_ORB_Y, HERO_ORB_W } from "./heroAscii";
+import { HERO_ASCII, HERO_RAMP, HERO_COLS, HERO_ROWS, HERO_ASPECT, HERO_ORB_X, HERO_ORB_Y, HERO_ORB_W } from "./heroAscii";
 import type { Day, DayTask, Lane } from "./useDay";
 import type { OrbState } from "./useVoiceAgent";
 import "./Hero.css";
@@ -143,15 +146,40 @@ function useDictation(onFinal: (text: string) => void) {
   return { dictating, interim, toggle, stop, supported: !!SpeechRecognition };
 }
 
-// The ASCII field, alive. Background cells are spaces (fixed); body cells hold a
-// glyph whose brightness we keep by only ever re-rolling within a few steps of
-// the original ramp index — so the figure stays legible while the characters
-// keep churning, the way the reference's "numbers" never sit still.
+// JetBrains Mono glyphs run about 0.6× as wide as they are tall — used to fit
+// the padded rectangular grid to its frame so it lands exactly on the photo.
+const ASCII_CHAR_ASPECT = 0.6;
+const ASCII_LINE_HEIGHT = 1.235;
+
+// The ASCII field. The grid is a full padded rectangle whose aspect equals the
+// frame's, so sizing it to fill the frame maps every glyph exactly onto the
+// photo it replaces — same coverage, same place, never resized on hover. The
+// only motion is a SLOW churn: a few glyphs at a time re-roll within a step or
+// two of their base brightness, so the figure holds while the text quietly
+// lives. No glow, no scale — the photo simply resolves into these characters.
 function AsciiField() {
   const reduce = useRef(
     typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
   ).current;
   const [grid, setGrid] = useState(HERO_ASCII);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [fontSize, setFontSize] = useState(0);
+
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    const fit = () => {
+      const { width, height } = el.getBoundingClientRect();
+      if (!width || !height) return;
+      const byWidth = width / (HERO_COLS * ASCII_CHAR_ASPECT);
+      const byHeight = height / (HERO_ROWS * ASCII_LINE_HEIGHT);
+      setFontSize(Math.min(byWidth, byHeight));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (reduce) return;
@@ -167,36 +195,40 @@ function AsciiField() {
       }
     }
     const max = HERO_RAMP.length - 1;
-    const perTick = Math.max(1, Math.floor(cells.length * 0.11));
+    // Slow + sparse: only ~3% of glyphs shift each tick, and ticks are ~330ms
+    // apart, so the field breathes rather than fizzes.
+    const perTick = Math.max(1, Math.floor(cells.length * 0.03));
     let timer = 0;
     const tick = () => {
       for (let i = 0; i < perTick; i++) {
         const cell = cells[(Math.random() * cells.length) | 0];
-        let idx = cell.base + (((Math.random() * 5) | 0) - 2);
+        let idx = cell.base + (((Math.random() * 3) | 0) - 1);
         if (idx < 1) idx = 1;
         else if (idx > max) idx = max;
         lines[cell.r][cell.c] = HERO_RAMP[idx];
       }
       setGrid(lines.map((l) => l.join("")).join("\n"));
-      timer = window.setTimeout(tick, 70);
+      timer = window.setTimeout(tick, 330);
     };
     tick();
     return () => window.clearTimeout(timer);
   }, [reduce]);
 
   return (
-    <pre className="hx-ascii" aria-hidden="true">
-      {grid}
-    </pre>
+    <div className="hx-ascii-frame" ref={frameRef} aria-hidden="true">
+      <pre className="hx-ascii" style={fontSize ? { fontSize } : undefined}>
+        {grid}
+      </pre>
+    </div>
   );
 }
 
 // ---- the ASCII figure that resolves to a photo, orb held where the vinyl was ----
 
-const ANNOTATIONS: { side: "l" | "r"; top: string; tick: string; lines: string[] }[] = [
-  { side: "r", top: "20%", tick: "x01", lines: ["SPLITS YOUR DAY", "INTO TASKS"] },
-  { side: "l", top: "46%", tick: "x02", lines: ["ROUTES EACH TO", "ITS OWN AGENT"] },
-  { side: "r", top: "72%", tick: "x03", lines: ["REMEMBERS", "WHAT MATTERS"] },
+const ANNOTATIONS: { side: "l" | "r"; top: string; lines: string[] }[] = [
+  { side: "r", top: "20%", lines: ["SPLITS YOUR DAY", "INTO TASKS"] },
+  { side: "l", top: "46%", lines: ["ROUTES EACH TO", "ITS OWN AGENT"] },
+  { side: "r", top: "72%", lines: ["REMEMBERS", "WHAT MATTERS"] },
 ];
 
 function RevealFigure({
@@ -214,7 +246,6 @@ function RevealFigure({
     <figure className="hx-reveal" style={{ aspectRatio: String(HERO_ASPECT) }}>
       <img className="hx-photo" src="/hero-atlas-cut.png" alt="A figure holding the orb aloft" loading="eager" />
       <AsciiField />
-      <div className="hx-scanline" aria-hidden="true" />
 
       <div
         className="hx-orb-slot"
@@ -226,7 +257,6 @@ function RevealFigure({
       <div className="hx-annos" aria-hidden="true">
         {ANNOTATIONS.map((a, i) => (
           <div key={i} className={`hx-anno hx-anno-${a.side}`} style={{ top: a.top }}>
-            <span className="hx-anno-tick">{a.tick}</span>
             <span className="hx-anno-line" />
             <span className="hx-anno-text">
               {a.lines.map((l, k) => (
@@ -415,6 +445,93 @@ function Composer({
   );
 }
 
+// The full-canvas ASCII matrix — the Razorpay ground. A faint field of
+// monospace glyphs on black, painted to a canvas and churned a few cells at a
+// time so it reads as "living code" without ever pulling focus from the
+// subject. Canvas (not a giant <pre>) because it's viewport-sized: we only
+// repaint the handful of cells that change each tick, so it stays cheap.
+const MATRIX_GLYPHS = "01!<>[]{}()/\\|+=-*#%&$?;:~^_.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNPQRSTUVWXYZ";
+
+function MatrixField() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const reduce = useRef(
+    typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  ).current;
+
+  useEffect(() => {
+    const canvas = ref.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    const CELL = 15; // px between glyph origins
+    let w = 0, h = 0, cols = 0, rows = 0;
+    let cells: string[] = [];
+    let alpha: number[] = [];
+
+    const paintCell = (r: number, c: number) => {
+      const i = r * cols + c;
+      ctx.clearRect(c * CELL, r * CELL, CELL, CELL);
+      ctx.fillStyle = `rgba(150, 168, 235, ${alpha[i]})`;
+      ctx.fillText(cells[i], c * CELL, r * CELL);
+    };
+
+    const build = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = canvas.clientWidth;
+      h = canvas.clientHeight;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.font = "11px 'JetBrains Mono', ui-monospace, monospace";
+      ctx.textBaseline = "top";
+      cols = Math.ceil(w / CELL) + 1;
+      rows = Math.ceil(h / CELL) + 1;
+      cells = new Array(cols * rows);
+      alpha = new Array(cols * rows);
+      ctx.clearRect(0, 0, w, h);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const i = r * cols + c;
+          cells[i] = MATRIX_GLYPHS[(Math.random() * MATRIX_GLYPHS.length) | 0];
+          // Denser/brighter toward the edges, hushed in the middle where the
+          // subject and headline live — like the reference's vignette.
+          const cx = c / cols - 0.5;
+          const cy = r / rows - 0.5;
+          const edge = Math.min(1, (Math.abs(cx) + Math.abs(cy)) * 1.15);
+          alpha[i] = 0.02 + edge * 0.05 + Math.random() * 0.015;
+          paintCell(r, c);
+        }
+      }
+    };
+
+    build();
+    const ro = new ResizeObserver(build);
+    ro.observe(canvas);
+
+    let timer = 0;
+    if (!reduce) {
+      const tick = () => {
+        const n = Math.max(1, Math.floor(cols * rows * 0.012));
+        for (let k = 0; k < n; k++) {
+          const r = (Math.random() * rows) | 0;
+          const c = (Math.random() * cols) | 0;
+          const i = r * cols + c;
+          cells[i] = MATRIX_GLYPHS[(Math.random() * MATRIX_GLYPHS.length) | 0];
+          paintCell(r, c);
+        }
+        timer = window.setTimeout(tick, 110);
+      };
+      tick();
+    }
+    return () => {
+      window.clearTimeout(timer);
+      ro.disconnect();
+    };
+  }, [reduce]);
+
+  return <canvas className="hx-matrix" ref={ref} aria-hidden="true" />;
+}
+
 // ---- the hero shell ----
 
 export interface HeroProps {
@@ -442,7 +559,13 @@ export default function Hero({
 
   return (
     <div className="hx" data-active={active}>
+      <MatrixField />
       <div className="hx-grid" aria-hidden="true" />
+      {/* Electric-blue accent squares floating over the matrix — the reference's
+          graphic punctuation. */}
+      <span className="hx-sq hx-sq-1" aria-hidden="true" />
+      <span className="hx-sq hx-sq-2" aria-hidden="true" />
+      <span className="hx-sq hx-sq-3" aria-hidden="true" />
 
       <nav className="hx-nav">
         <div className="hx-brand">
