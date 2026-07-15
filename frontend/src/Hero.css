@@ -1,0 +1,437 @@
+/* Obsidian & Signal Blue — the front door. Always dark: the ASCII→photo reveal
+   needs a black ground, and this is the brand's home. Self-contained under .hx. */
+
+.hx {
+  --ink: #07080B;
+  --panel: #0D0F16;
+  --line: rgba(150, 170, 255, 0.12);
+  --line-2: rgba(150, 170, 255, 0.22);
+  --blue: #5B6CFF;
+  --blue-2: #8493FF;
+  --cyan: #63E6FF;
+  --go: #3FE0A0;
+  --ivory: #ECEEF4;
+  --muted: #8A90A4;
+  --faint: #565C70;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  background: var(--ink);
+  color: var(--ivory);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+}
+
+/* faint technical grid, like the reference's dotted field */
+.hx-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at center, rgba(120, 140, 255, 0.05) 0.5px, transparent 0.6px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 42%, #000 30%, transparent 82%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 42%, #000 30%, transparent 82%);
+}
+/* a signal-blue aurora seated behind the figure */
+.hx::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 60vw;
+  height: 60vw;
+  max-width: 720px;
+  max-height: 720px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(61, 90, 255, 0.20) 0%, rgba(61, 90, 255, 0.06) 38%, transparent 68%);
+  filter: blur(30px);
+  pointer-events: none;
+}
+
+/* ---------- nav ---------- */
+.hx-nav {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px clamp(18px, 4vw, 56px);
+}
+.hx-brand { display: flex; align-items: center; gap: 8px; }
+.hx-brand-mark { width: 24px; height: 24px; display: block; }
+.hx-brand-name { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+.hx-brand-slash { color: var(--muted); font-size: 15px; font-weight: 500; }
+
+.hx-nav-right { display: flex; align-items: center; gap: clamp(10px, 2vw, 26px); }
+.hx-nav-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font: inherit; font-size: 14px; font-weight: 500;
+  text-decoration: none; padding: 6px 2px;
+  transition: color 0.18s ease;
+}
+.hx-nav-link:hover { color: var(--ivory); }
+.hx-cta {
+  background: var(--blue); color: #fff;
+  border: none; cursor: pointer;
+  padding: 9px 18px; border-radius: 9px;
+  font: inherit; font-size: 14px; font-weight: 600;
+  box-shadow: 0 4px 18px rgba(61, 90, 255, 0.35);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+.hx-cta:hover { background: #6B7BFF; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(61, 90, 255, 0.45); }
+.hx-cta:active { transform: translateY(0); }
+
+/* ---------- stage ---------- */
+.hx-stage {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: clamp(6px, 2vh, 28px) 20px 0;
+  min-height: 0;
+}
+
+.hx-headline { text-align: center; }
+.hx-eyebrow {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--blue-2);
+}
+.hx-head {
+  margin: 10px 0 0;
+  font-family: "Instrument Serif", serif;
+  font-weight: 400;
+  font-size: clamp(34px, 5.4vw, 78px);
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+  color: #D9DCE6;
+}
+.hx-head em {
+  font-style: italic;
+  color: var(--ivory);
+  background: linear-gradient(100deg, var(--ivory) 0%, var(--blue-2) 60%, var(--cyan) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ---------- the reveal figure ---------- */
+.hx-reveal {
+  position: relative;
+  container-type: inline-size;
+  /* As big as the viewport allows once the nav, headline and composer are seated
+     — so the figure dominates without ever pushing the composer below the fold.
+     aspect-ratio is set inline from the cutout's real dimensions. */
+  height: clamp(320px, calc(100vh - 420px), 780px);
+  margin: clamp(4px, 1.2vh, 14px) 0;
+  cursor: default;
+}
+.hx-photo,
+.hx-ascii {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 43%;       /* resolve around the held orb */
+  backface-visibility: hidden;
+  will-change: opacity, transform, filter;
+}
+.hx-photo {
+  object-fit: contain;
+  opacity: 0;
+  transform: scale(1.07);
+  filter: blur(16px) brightness(0.52) saturate(0.66);
+  transition:
+    opacity 1.25s cubic-bezier(0.22, 0.68, 0.14, 1),
+    transform 1.6s cubic-bezier(0.22, 0.68, 0.14, 1),
+    filter 1.25s cubic-bezier(0.22, 0.68, 0.14, 1);
+}
+.hx-ascii {
+  margin: 0;
+  overflow: hidden;
+  white-space: pre;
+  font-family: var(--mono);
+  font-size: 3.087cqw;      /* coarse, big, readable glyphs (54 cols) */
+  font-weight: 500;
+  line-height: 1.235;
+  letter-spacing: 0;
+  color: #8FA6FF;
+  text-shadow: 0 0 12px rgba(61, 90, 255, 0.55);
+  opacity: 0.95;
+  transform: scale(1);
+  filter: blur(0);
+  user-select: none;
+  transition:
+    opacity 1s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 1.6s cubic-bezier(0.22, 0.68, 0.14, 1),
+    filter 0.85s ease;
+}
+.hx-reveal:hover .hx-photo,
+.hx-reveal:focus-within .hx-photo {
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0) brightness(1.02) saturate(1.05);
+}
+.hx-reveal:hover .hx-ascii,
+.hx-reveal:focus-within .hx-ascii {
+  opacity: 0;
+  transform: scale(1.05);
+  filter: blur(3px);
+}
+
+/* a slow scan sweep over the ascii for the phosphor feel */
+.hx-scanline {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 0%, rgba(99, 230, 255, 0.06) 50%, transparent 100%);
+  background-size: 100% 40%;
+  background-repeat: no-repeat;
+  animation: hxScan 5.5s linear infinite;
+  opacity: 0.7;
+  transition: opacity 0.5s ease;
+}
+.hx-reveal:hover .hx-scanline { opacity: 0; }
+@keyframes hxScan {
+  0% { background-position: 0 -40%; }
+  100% { background-position: 0 140%; }
+}
+
+/* the orb, held where the vinyl was */
+.hx-orb-slot {
+  position: absolute;   /* left / top / width set inline from the cutout geometry */
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  pointer-events: auto;
+}
+.hx-orb-slot .orb-stage { width: 100%; height: 100%; max-width: none; max-height: none; }
+.hx-orb-slot .orb { width: 86%; height: 86%; max-width: none; max-height: none; }
+.hx-orb-slot .orb-bloom-a { max-width: none; max-height: none; opacity: 0.85; }
+.hx-orb-slot .orb-shadow { display: none; }
+
+/* ---------- technical annotations ---------- */
+.hx-annos { position: absolute; inset: -4% -22% -2%; pointer-events: none; z-index: 3; }
+.hx-anno {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.55;
+  transition: opacity 0.5s ease;
+}
+.hx-reveal:hover .hx-anno { opacity: 0.95; }
+.hx-anno-r { right: 0; flex-direction: row-reverse; text-align: right; }
+.hx-anno-l { left: 0; text-align: left; }
+.hx-anno-tick {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+  border: 1px solid var(--line);
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.hx-anno-line { width: clamp(28px, 6vw, 92px); height: 1px; background: linear-gradient(90deg, var(--line-2), transparent); }
+.hx-anno-r .hx-anno-line { background: linear-gradient(270deg, var(--line-2), transparent); }
+.hx-anno-text {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 1.45;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ---------- composer ---------- */
+.hx-composer {
+  position: relative;
+  z-index: 3;
+  width: min(760px, 94vw);
+  margin: auto 0 clamp(18px, 4vh, 40px);
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  background: rgba(13, 15, 22, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.hx-composer.live { border-color: rgba(63, 224, 160, 0.4); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 3px rgba(63, 224, 160, 0.1); }
+
+.hx-mic {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #12141C;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid; place-items: center;
+  transition: all 0.18s ease;
+}
+.hx-mic svg { width: 20px; height: 20px; }
+.hx-mic:hover:not(:disabled) { color: var(--ivory); border-color: var(--line-2); }
+.hx-mic:disabled { opacity: 0.4; cursor: not-allowed; }
+.hx-mic.on { background: rgba(63, 224, 160, 0.14); border-color: var(--go); color: var(--go); }
+.hx-mic-wave { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 2px; }
+.hx-mic-wave span { width: 2px; height: 6px; background: var(--go); border-radius: 2px; animation: hxBar 0.9s ease-in-out infinite; }
+.hx-mic-wave span:nth-child(2) { animation-delay: 0.15s; }
+.hx-mic-wave span:nth-child(3) { animation-delay: 0.3s; }
+.hx-mic-wave span:nth-child(4) { animation-delay: 0.45s; }
+@keyframes hxBar { 0%, 100% { transform: scaleY(0.5); } 50% { transform: scaleY(2.1); } }
+
+.hx-composer-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-bottom: 4px; }
+.hx-textarea {
+  width: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ivory);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 10px 4px 0;
+  max-height: 200px;
+}
+.hx-textarea::placeholder { color: var(--faint); }
+.hx-composer-hint { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--go); padding-left: 4px; text-transform: uppercase; }
+
+.hx-process {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 18px;
+  border: none; border-radius: 12px;
+  background: var(--blue); color: #fff;
+  font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(61, 90, 255, 0.35);
+  transition: transform 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+.hx-process:hover:not(:disabled) { background: #6B7BFF; transform: translateY(-1px); }
+.hx-process:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+.hx-process-arrow { transition: transform 0.16s ease; }
+.hx-process:hover:not(:disabled) .hx-process-arrow { transform: translateX(3px); }
+
+/* ---------- day board ---------- */
+.hx-stage.compact .hx-head { font-size: clamp(28px, 3.6vw, 44px); }
+.hx-stage.compact .hx-headline { margin-bottom: 4px; }
+
+.hx-board {
+  width: min(1040px, 96vw);
+  margin: clamp(10px, 2vh, 22px) 0 auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hx-board-head {
+  display: flex; align-items: center; gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.hx-board-progress { color: var(--muted); font-size: 14px; margin-right: auto; }
+.hx-board-close {
+  background: #12141C; border: 1px solid var(--line); color: var(--muted);
+  width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 13px;
+  transition: all 0.16s ease;
+}
+.hx-board-close:hover { color: var(--ivory); border-color: var(--line-2); }
+.hx-board-thinking { display: flex; align-items: center; gap: 12px; color: var(--muted); padding: 40px 4px; font-size: 15px; }
+.hx-pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 0 rgba(91, 108, 255, 0.5); animation: hxPulse 1.4s ease-out infinite; }
+@keyframes hxPulse { 0% { box-shadow: 0 0 0 0 rgba(91, 108, 255, 0.5); } 100% { box-shadow: 0 0 0 14px rgba(91, 108, 255, 0); } }
+
+.hx-board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  overflow-y: auto;
+  padding-bottom: 12px;
+  align-content: start;
+}
+.hx-task {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.3s ease, transform 0.2s ease;
+  animation: hxTaskIn 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes hxTaskIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.hx-task.running { border-color: rgba(91, 108, 255, 0.35); }
+.hx-task.done { border-color: rgba(63, 224, 160, 0.28); }
+.hx-task.proposed { border-color: rgba(132, 147, 255, 0.32); }
+.hx-task.failed { border-color: rgba(224, 107, 126, 0.32); }
+
+.hx-task-head { display: flex; align-items: center; justify-content: space-between; }
+.hx-lane { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--blue-2); letter-spacing: 0.02em; }
+.hx-lane-glyph { font-size: 13px; opacity: 0.9; }
+.hx-task-status { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.hx-task-status.running { color: var(--blue-2); }
+.hx-task-status.done { color: var(--go); }
+.hx-task-status.proposed { color: var(--blue-2); }
+.hx-task-status.failed { color: #E06B7E; }
+.hx-task-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--ivory); line-height: 1.35; }
+
+.hx-task-bar { height: 2px; border-radius: 2px; background: var(--line); overflow: hidden; position: relative; }
+.hx-task-bar span { position: absolute; inset: 0; display: block; }
+.hx-task-bar.on span { width: 40%; background: linear-gradient(90deg, transparent, var(--blue), transparent); animation: hxSlide 1.3s ease-in-out infinite; }
+.hx-task.done .hx-task-bar span, .hx-task.proposed .hx-task-bar span { inset: 0; width: 100%; background: linear-gradient(90deg, var(--blue), var(--go)); }
+@keyframes hxSlide { 0% { left: -40%; } 100% { left: 100%; } }
+
+.hx-task-note { margin: 0; font-size: 13px; color: var(--muted); }
+.hx-task-result { margin: 0; font-size: 13.5px; line-height: 1.5; color: #C3C8D6; white-space: pre-line; }
+.hx-task-error { margin: 0; font-size: 13px; color: #E06B7E; }
+.hx-task-sources { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.hx-task-sources a { font-size: 12px; color: var(--faint); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.15s ease; }
+.hx-task-sources a:hover { color: var(--blue-2); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 720px) {
+  .hx-annos { display: none; }
+  .hx-nav-link { display: none; }
+  .hx-nav-right .hx-cta { display: inline-flex; }
+  .hx-composer { flex-wrap: wrap; }
+  .hx-process { width: 100%; justify-content: center; }
+  .hx-reveal { height: clamp(280px, 44vh, 440px); }
+}
+
+/* Touch devices can't hover — show the photograph by default rather than
+   stranding people on the ASCII with no way to resolve it. */
+@media (hover: none) {
+  .hx-photo { opacity: 1; transform: none; filter: blur(0) saturate(1.03); }
+  .hx-ascii { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hx-scanline, .hx-mic-wave span, .hx-task-bar.on span, .hx-pulse { animation: none !important; }
+  .hx-photo, .hx-ascii { transition: opacity 0.3s ease !important; }
+  .hx-photo { transform: none !important; filter: brightness(1) saturate(1) !important; }
+  .hx-reveal:hover .hx-ascii, .hx-reveal:focus-within .hx-ascii { transform: none !important; filter: none !important; }
+}

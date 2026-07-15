@@ -17,7 +17,7 @@ from uuid import uuid4
 
 import anyio
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -32,6 +32,7 @@ from app.servers.calendar_auth import router as calendar_auth_router
 from app.host import bus
 from app.host.mcp_manager import manager
 from app.servers.calculator import mcp
+from app.servers import daily
 from app.servers.memory import store as memory_store
 from app.servers.rag import embeddings, extract, reranker, store as rag_store
 from app.storage import db
@@ -151,6 +152,22 @@ async def artifact(artifact_id: str, sid: str = Query(...)) -> dict:
     if not found:
         raise HTTPException(status_code=404, detail="no such artifact")
     return found
+
+
+@app.post("/dictate")
+async def dictate(sid: str = Query(...), body: dict = Body(...)) -> dict:
+    """Take a dictated brain-dump of the day, split it into tasks, and fan them
+    out to their lane agents. Returns the day id at once; progress streams over
+    `/agents/stream` (the same SSE the research fan-out uses)."""
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="nothing was dictated")
+    try:
+        tz_offset_min = int(body.get("tz_offset_min") or 0)
+    except (TypeError, ValueError):
+        tz_offset_min = 0
+    day_id = daily.start(text, sid, tz_offset_min)
+    return {"day_id": day_id}
 
 
 @app.post("/upload")

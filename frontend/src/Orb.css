@@ -32,7 +32,7 @@
   width: calc(var(--orb) * 0.55);
   height: 22px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(190, 40, 70, .22), transparent);
+  background: radial-gradient(closest-side, rgba(61, 90, 255, .30), transparent);
   filter: blur(9px);
   pointer-events: none;
 }
@@ -47,21 +47,22 @@
   max-width: 76vw;
   max-height: 76vw;
   border-radius: 50%;
-  background: radial-gradient(circle, #FFC2D2 0%, #FFD9C9 42%, transparent 70%);
+  background: radial-gradient(circle, #6E86FF 0%, #63E6FF 42%, transparent 70%);
   filter: blur(26px);
   transform: translate(-50%, -50%);
   animation: glowPulse 6s ease-in-out infinite;
   pointer-events: none;
   transition: opacity .5s ease;
+  opacity: .7;
 }
 .phase-listening .orb-bloom-a,
 .phase-speaking .orb-bloom-a { opacity: 1; }
 
 .dark .orb-bloom-a {
-  background: radial-gradient(circle, #7C3350 0%, #5E3242 42%, transparent 70%);
-  opacity: .55;
+  background: radial-gradient(circle, #3D5AFF 0%, #1E3AD6 42%, transparent 70%);
+  opacity: .6;
 }
-.dark .orb-shadow { background: radial-gradient(closest-side, rgba(0, 0, 0, .45), transparent); }
+.dark .orb-shadow { background: radial-gradient(closest-side, rgba(0, 0, 0, .5), transparent); }
 
 .orb {
   position: relative;
@@ -79,13 +80,13 @@
 }
 .orb:hover { transform: scale(1.02); }
 .orb:active { transform: scale(.98); }
-.orb:focus-visible { outline: 2px solid rgba(240, 86, 139, .5); outline-offset: 10px; }
+.orb:focus-visible { outline: 2px solid rgba(93, 108, 255, .55); outline-offset: 10px; }
 
 /* the WebGL canvas fills the button; drop-shadow follows the orb's alpha */
 .orb-gl {
   position: absolute;
   inset: 0;
-  filter: drop-shadow(0 14px 26px rgba(190, 45, 85, .28));
+  filter: drop-shadow(0 14px 30px rgba(61, 90, 255, .38));
 }
 
 /* shown while the WebGL chunk loads */
@@ -93,9 +94,9 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 44%, #FFDDE9 0%, #F58FB4 68%, #EC6F9C 100%);
-  filter: drop-shadow(0 14px 26px rgba(190, 45, 85, .28));
-  opacity: .55;
+  background: radial-gradient(circle at 50% 40%, #AFEBFF 0%, #5E7DFF 62%, #3D5AFF 100%);
+  filter: drop-shadow(0 14px 30px rgba(61, 90, 255, .38));
+  opacity: .6;
 }
 
 @media (prefers-reduced-motion: reduce) {
