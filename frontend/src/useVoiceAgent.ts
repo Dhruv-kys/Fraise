@@ -11,9 +11,9 @@ export interface Message {
 type Status = "connecting" | "online" | "error";
 export type OrbState = "idle" | "listening" | "thinking" | "speaking";
 
-// Prod backend (nginx + TLS on the VM). Used when no env override is set and
+// Prod backend (Caddy + TLS on the VM). Used when no env override is set and
 // we're not on localhost, so the deployed site works without a build-time var.
-const PROD_WS_URL = "wss://54-153-130-218.sslip.io/ws";
+const PROD_WS_URL = "wss://100-56-229-165.sslip.io/ws";
 const isLocalHost = ["localhost", "127.0.0.1"].includes(location.hostname);
 const WS_URL =
   import.meta.env.VITE_BACKEND_WS_URL ??
@@ -362,7 +362,7 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
         }
         const rms = Math.sqrt(sum / pcm.length);
         levelRef.current += (Math.min(1, rms * 3.2) - levelRef.current) * 0.4;
-        if (ws.readyState === WebSocket.OPEN) ws.send(pcm.buffer);
+        if (ws.readyState === WebSocket.OPEN) ws.send(pcm.buffer as ArrayBuffer);
       };
 
       setActive(true);
