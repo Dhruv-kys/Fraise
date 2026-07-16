@@ -162,6 +162,10 @@ async def dictate(sid: str = Query(...), body: dict = Body(...)) -> dict:
     text = (body.get("text") or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="nothing was dictated")
+    # ~2 hours of continuous speech at normal pace. Segmentation chunks and
+    # scales with length, so this is an abuse/cost guard, not a quality limit.
+    if len(text) > 120_000:
+        raise HTTPException(status_code=400, detail="that dictation is too long — try splitting it up")
     try:
         tz_offset_min = int(body.get("tz_offset_min") or 0)
     except (TypeError, ValueError):

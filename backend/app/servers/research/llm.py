@@ -83,7 +83,10 @@ class LLMUnavailable(RuntimeError):
     """No key configured, or Groq refused — callers degrade instead of crashing."""
 
 
-async def complete(system: str, user: str, *, json_mode: bool = False, model: str = "") -> str:
+async def complete(
+    system: str, user: str, *, json_mode: bool = False, model: str = "",
+    max_tokens: int | None = None,
+) -> str:
     key = os.environ.get("GROQ_API_KEY")
     if not key:
         raise LLMUnavailable("GROQ_API_KEY is not set")
@@ -98,6 +101,11 @@ async def complete(system: str, user: str, *, json_mode: bool = False, model: st
     }
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
+    # Left unset, a big JSON response (e.g. a long task list) can hit a default
+    # output cap mid-generation with no error — just a silently truncated body.
+    # Callers producing large structured output should pass this explicitly.
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
 
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         for attempt in range(_RETRIES):

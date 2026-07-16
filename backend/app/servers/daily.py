@@ -13,7 +13,9 @@ the research search, the Groq LLM helper, and the memory store. Triggered by the
 `POST /dictate` HTTP endpoint (like `/upload`), not a voice tool.
 """
 import asyncio
+import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
 
@@ -29,6 +31,16 @@ logger = logging.getLogger(__name__)
 _LANE_LIMIT = 3
 _TASK_BUDGET = 55  # seconds for one task's search + summarize
 
+# A long dictation (many minutes of continuous speech) is split into
+# sentence-bounded chunks before segmentation. One giant call risks losing
+# tasks mentioned late in the transcript to model attention limits and to the
+# output token cap; several smaller calls each stay comfortably inside both.
+_CHUNK_CHARS = 4000
+_MAX_TASKS_PER_CHUNK = 16
+_MAX_TASKS_TOTAL = 48
+_DETAIL_MAX_CHARS = 800
+_SEGMENT_MAX_TOKENS = 4096
+
 LANES = ("research", "remember", "reminder", "calendar", "email", "note", "answer")
 
 _running: set[asyncio.Task] = set()
@@ -36,7 +48,9 @@ _running: set[asyncio.Task] = set()
 
 _SEGMENT_SYSTEM = (
     "You turn a spoken brain-dump of someone's day into a list of separate, atomic "
-    "tasks, and sort each into the one agent that should handle it.\n\n"
+    "tasks, and sort each into the one agent that should handle it. You may be shown "
+    "only one part of a longer dictation — segment just what's given here; don't "
+    "invent or assume content from parts you can't see.\n\n"
     "Return JSON: {\"tasks\": [...]}. Each task is:\n"
     '  "title": an imperative phrase, max 8 words, naming the one thing to do.\n'
     '  "lane": exactly one of: research, remember, reminder, calendar, email, note, answer.\n'
@@ -69,41 +83,128 @@ def _today_line(tz_offset_min: int) -> str:
     return d.strftime("Today is %A, %B %-d, %Y, local time %-I:%M %p.")
 
 
-async def _segment(text: str, tz_offset_min: int) -> list[dict]:
-    ask = f"{_today_line(tz_offset_min)}\n\nThe day, as spoken:\n{text.strip()}"
+_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
+# Salvages individual task objects out of a possibly-truncated JSON body — if
+# generation got cut off mid-array, the earlier complete objects still match
+# even though the overall document never closes.
+_TASK_OBJ = re.compile(r'\{[^{}]*"title"[^{}]*\}', re.S)
+
+
+def _split_into_chunks(text: str, max_chars: int = _CHUNK_CHARS) -> list[str]:
+    """Sentence-bounded chunks so no sentence — and no task inside it — is ever
+    cut in half at a chunk boundary."""
+    text = text.strip()
+    if len(text) <= max_chars:
+        return [text]
+    chunks: list[str] = []
+    current = ""
+    for sent in _SENT_SPLIT.split(text):
+        if current and len(current) + len(sent) + 1 > max_chars:
+            chunks.append(current.strip())
+            current = sent
+        else:
+            current = f"{current} {sent}".strip()
+    if current.strip():
+        chunks.append(current.strip())
+    return chunks or [text]
+
+
+def _context_block(session_id: str) -> str:
+    """Recent remembered facts + conversation, folded into the segmentation
+    prompt so references in the dictation ("email her again", "same place as
+    last time") resolve instead of turning into vague or misrouted tasks."""
+    facts = memory_store.recall(session_id, limit=8)
+    turns = memory_store.recent_turns(session_id, limit=6)
+    parts = []
+    if facts:
+        parts.append(
+            "Known facts about this person — use them only to resolve references, "
+            "never to invent new tasks:\n" + "\n".join(f"- {f}" for f in facts)
+        )
+    if turns:
+        recent = "\n".join(f"{role}: {content}" for role, content in turns)
+        parts.append(f"Recent conversation, for resolving pronouns/references only:\n{recent}")
+    return "\n\n".join(parts)
+
+
+def _parse_segment_response(raw: str) -> list[dict]:
     try:
-        data = await llm.complete_json(_SEGMENT_SYSTEM, ask, model=llm.SYNTH_MODEL)
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        data = None
+    if isinstance(data, dict) and isinstance(data.get("tasks"), list):
+        return [t for t in data["tasks"] if isinstance(t, dict)]
+
+    # Hit the output token cap mid-generation, or wrapped the object in prose —
+    # pull out whatever complete task objects exist rather than losing the chunk.
+    tasks = []
+    for m in _TASK_OBJ.finditer(raw):
+        try:
+            d = json.loads(m.group(0))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(d, dict):
+            tasks.append(d)
+    return tasks
+
+
+async def _segment_chunk(text: str, tz_offset_min: int, context: str) -> list[dict]:
+    parts = [_today_line(tz_offset_min)]
+    if context:
+        parts.append(context)
+    parts.append(f"The day, as spoken:\n{text.strip()}")
+    ask = "\n\n".join(parts)
+
+    try:
+        raw = await llm.complete(
+            _SEGMENT_SYSTEM, ask, json_mode=True, model=llm.SYNTH_MODEL,
+            max_tokens=_SEGMENT_MAX_TOKENS,
+        )
     except llm.LLMUnavailable as exc:
         logger.warning("day segmentation unavailable (%s); one-task fallback", exc)
         return [_fallback_task(text)]
 
-    raw = data.get("tasks")
-    if not isinstance(raw, list) or not raw:
+    raw_tasks = _parse_segment_response(raw)
+    if not raw_tasks:
         return [_fallback_task(text)]
 
     tasks: list[dict] = []
-    for i, t in enumerate(raw[:12]):
-        if not isinstance(t, dict):
-            continue
+    for t in raw_tasks[:_MAX_TASKS_PER_CHUNK]:
         title = llm.strip_markdown(str(t.get("title") or "")).strip()[:80]
-        detail = str(t.get("detail") or "").strip()[:400]
+        detail = str(t.get("detail") or "").strip()[:_DETAIL_MAX_CHARS]
         lane = str(t.get("lane") or "note").strip().lower()
         if lane not in LANES:
             lane = "note"
         if not title and not detail:
             continue
-        tasks.append({
-            "id": f"t{i}-{db.new_id()[:6]}",
-            "title": title or detail[:60],
-            "lane": lane,
-            "detail": detail or title,
-        })
+        tasks.append({"title": title or detail[:60], "lane": lane, "detail": detail or title})
     return tasks or [_fallback_task(text)]
 
 
+async def _segment(text: str, tz_offset_min: int, session_id: str) -> list[dict]:
+    context = await asyncio.to_thread(_context_block, session_id)
+    chunks = _split_into_chunks(text)
+
+    if len(chunks) == 1:
+        merged = await _segment_chunk(chunks[0], tz_offset_min, context)
+    else:
+        sem = asyncio.Semaphore(_LANE_LIMIT)
+
+        async def guarded(c: str) -> list[dict]:
+            async with sem:
+                return await _segment_chunk(c, tz_offset_min, context)
+
+        # Each chunk is its own independent LLM call — gather preserves the
+        # spoken order across chunks regardless of which call finishes first.
+        results = await asyncio.gather(*(guarded(c) for c in chunks))
+        merged = [t for chunk_tasks in results for t in chunk_tasks]
+
+    merged = merged[:_MAX_TASKS_TOTAL] or [_fallback_task(text)]
+    return [{**t, "id": f"t{i}-{db.new_id()[:6]}"} for i, t in enumerate(merged)]
+
+
 def _fallback_task(text: str) -> dict:
-    return {"id": f"t0-{db.new_id()[:6]}", "title": text.strip()[:60] or "Your note",
-            "lane": "note", "detail": text.strip()}
+    return {"title": text.strip()[:60] or "Your note", "lane": "note", "detail": text.strip()}
 
 
 # ---- lane handlers: each returns (status, note, result, sources) ----
@@ -203,7 +304,7 @@ async def _run(day_id: str, text: str, session_id: str, tz_offset_min: int) -> N
             "type": "day", "day_id": day_id, "status": "segmenting",
             "note": "Splitting your day into tasks…",
         })
-        tasks = await _segment(text, tz_offset_min)
+        tasks = await _segment(text, tz_offset_min, session_id)
 
         bus.publish(session_id, {
             "type": "day", "day_id": day_id, "status": "running", "text": text,
