@@ -41,10 +41,6 @@ from app.host.voice_agent import bridge
 logger = logging.getLogger(__name__)
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-# Comma-separated list in prod. Keep the public deployment here as a safe
-# default: WebSockets can connect cross-origin, but browser fetch/EventSource
-# calls for history, artifacts, and live agent progress need an explicit CORS
-# response or the browser silently hides otherwise-successful API responses.
 _DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "https://fraise.vercel.app")
 _configured_cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
 CORS_ORIGINS = list(dict.fromkeys([
@@ -93,14 +89,6 @@ async def health() -> dict:
 
 @app.get("/agents/stream")
 async def agents_stream(sid: str = Query(...)) -> StreamingResponse:
-    """Live progress from the research agents, as Server-Sent Events.
-
-    A tool call can only answer once, but a fan-out of agents has a story to tell
-    while it runs. The research server publishes to `bus`; this relays it to the
-    browser so the user watches the agents work instead of a spinner. SSE rather
-    than another WebSocket: this is strictly one-way and survives reconnects for
-    free via EventSource.
-    """
     queue = bus.subscribe(sid)
 
     async def events():
