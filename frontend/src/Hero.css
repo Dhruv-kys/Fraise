@@ -218,85 +218,6 @@
   white-space: nowrap;
 }
 
-/* ---------- composer ---------- */
-.hx-composer {
-  position: relative;
-  z-index: 3;
-  width: min(760px, 94vw);
-  margin: auto 0 clamp(18px, 4vh, 40px);
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  padding: 12px 12px 12px 14px;
-  background: rgba(13, 15, 22, 0.86);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  backdrop-filter: blur(14px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-.hx-composer.live { border-color: rgba(63, 224, 160, 0.4); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 3px rgba(63, 224, 160, 0.1); }
-
-.hx-mic {
-  position: relative;
-  flex-shrink: 0;
-  width: 42px; height: 42px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: #12141C;
-  color: var(--muted);
-  cursor: pointer;
-  display: grid; place-items: center;
-  transition: all 0.18s ease;
-}
-.hx-mic svg { width: 20px; height: 20px; }
-.hx-mic:hover:not(:disabled) { color: var(--ivory); border-color: var(--line-2); }
-.hx-mic:disabled { opacity: 0.4; cursor: not-allowed; }
-.hx-mic.on { background: rgba(63, 224, 160, 0.14); border-color: var(--go); color: var(--go); }
-.hx-mic-wave { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 2px; }
-.hx-mic-wave span { width: 2px; height: 6px; background: var(--go); border-radius: 2px; animation: hxBar 0.9s ease-in-out infinite; }
-.hx-mic-wave span:nth-child(2) { animation-delay: 0.15s; }
-.hx-mic-wave span:nth-child(3) { animation-delay: 0.3s; }
-.hx-mic-wave span:nth-child(4) { animation-delay: 0.45s; }
-@keyframes hxBar { 0%, 100% { transform: scaleY(0.5); } 50% { transform: scaleY(2.1); } }
-
-.hx-composer-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-bottom: 4px; }
-/* Voice only — read-only, so no blinking caret or text-input cursor implies
-   a keyboard is welcome here. The mic is the only way in. */
-.hx-textarea {
-  width: 100%;
-  resize: none;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--ivory);
-  font: inherit;
-  font-size: 15px;
-  line-height: 1.5;
-  padding: 10px 4px 0;
-  max-height: 200px;
-  cursor: default;
-  caret-color: transparent;
-}
-.hx-textarea::placeholder { color: var(--faint); transition: opacity .3s ease; }
-.hx-composer-hint { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--go); padding-left: 4px; text-transform: uppercase; }
-
-.hx-process {
-  flex-shrink: 0;
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 11px 18px;
-  border: none; border-radius: 12px;
-  background: var(--blue); color: #fff;
-  font: inherit; font-size: 14px; font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(61, 90, 255, 0.35);
-  transition: transform 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
-}
-.hx-process:hover:not(:disabled) { background: #6B7BFF; transform: translateY(-1px); }
-.hx-process:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
-.hx-process-arrow { transition: transform 0.16s ease; }
-.hx-process:hover:not(:disabled) .hx-process-arrow { transform: translateX(3px); }
-
 /* ---------- day board ---------- */
 .hx-stage.compact .hx-head { font-size: clamp(28px, 3.6vw, 44px); }
 .hx-stage.compact .hx-headline { margin-bottom: 4px; }
@@ -379,13 +300,11 @@
   .hx-annos { display: none; }
   .hx-nav-link { display: none; }
   .hx-nav-right .hx-cta { display: inline-flex; }
-  .hx-composer { flex-wrap: wrap; }
-  .hx-process { width: 100%; justify-content: center; }
   .hx-reveal { height: clamp(280px, 44vh, 440px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hx-mic-wave span, .hx-task-bar.on span, .hx-pulse { animation: none !important; }
+  .hx-task-bar.on span, .hx-pulse { animation: none !important; }
   .hx-showcase-card { transition: none !important; }
 }
 

@@ -39,5 +39,5 @@ export function useHistory(sid: string, refreshKey: number) {
     void load();
   }, [load, refreshKey]);
 
-  return { turns, memories, reload: load };
+  return { turns, memories };
 }

@@ -27,14 +27,6 @@ export const VOICES: VoiceOption[] = [
   { id: "aura-2-atlas-en", name: "Atlas", gender: "Masculine", accent: "American", traits: ["Enthusiastic", "Confident", "Approachable", "Friendly"], hue: 45 },
 ];
 
-export function findVoice(id: string): VoiceOption {
-  return VOICES.find((v) => v.id === id) ?? VOICES[0];
-}
-
-// The "Hi, I'm Fraise" preview line every voice sample is generated from —
-// see backend/scripts/generate_voice_samples.py.
-export const SAMPLE_LINE = "Hi, I'm Fraise.";
-
 export function sampleUrl(id: string): string {
   return `/voices/${id}.mp3`;
 }

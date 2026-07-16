@@ -1,5 +1,3 @@
-"use client"
-
 import { Suspense, useEffect, useMemo, useRef } from "react"
 import { useTexture } from "@react-three/drei"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"

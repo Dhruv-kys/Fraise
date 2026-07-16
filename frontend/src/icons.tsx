@@ -11,9 +11,6 @@ type IconName =
   | "recall"
   | "web"
   | "doc"
-  | "folder"
-  | "note"
-  | "convert"
   | "search";
 
 const PATHS: Record<IconName, React.ReactNode> = {
@@ -42,14 +39,6 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M13.8 3v5.2H19" />
     </>
   ),
-  folder: <path d="M3.5 6.8A2 2 0 0 1 5.5 5h3.7l2 2.2h7.3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />,
-  note: (
-    <>
-      <path d="M4.5 19.5h3.8L19 8.8 15.2 5 4.5 15.7z" />
-      <path d="M13.6 6.6l3.8 3.8" />
-    </>
-  ),
-  convert: <path d="M4 9.5h16M4 9.5l3.5-3.5M20 14.5H4M20 14.5L16.5 18" />,
   search: (
     <>
       <circle cx="10.8" cy="10.8" r="6.6" />
