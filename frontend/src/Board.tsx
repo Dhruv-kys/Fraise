@@ -7,7 +7,7 @@
 
 import { DocCover, Icon, type IconName } from "./icons";
 
-type Suggestion = { icon: IconName; text: string; accent?: boolean };
+type Suggestion = { icon: IconName; label: string; text: string; accent?: boolean };
 type Doc = { name: string; chunks: number };
 
 // One line of pure editorial texture — the thesis of the whole product.
@@ -16,10 +16,10 @@ const QUOTE = "The best interface is a conversation you forget you're having.";
 // Research leads, and takes the accent card — it's the thing people don't know
 // they can ask for, and it's the most capable thing here.
 const RESTING: Suggestion[] = [
-  { icon: "search", text: "Research the best SDE internships and make me a deck", accent: true },
-  { icon: "web", text: "Compare the best electric cars under 20 lakhs" },
-  { icon: "remember", text: "Remember I prefer window seats" },
-  { icon: "math", text: "What's 18% of 240?" },
+  { icon: "search", label: "Research", text: "Research the best SDE internships and make me a deck", accent: true },
+  { icon: "web", label: "Compare", text: "Compare the best electric cars under 20 lakhs" },
+  { icon: "remember", label: "Memory", text: "Remember I prefer window seats" },
+  { icon: "math", label: "Quick math", text: "What's 18% of 240?" },
 ];
 
 function titleOf(filename: string): string {
@@ -34,10 +34,10 @@ function suggestionsFor(docs: Doc[]): Suggestion[] {
   if (!docs.length) return RESTING;
   const title = titleOf(docs[0].name);
   return [
-    { icon: "doc", text: `Summarize ${title}`, accent: true },
-    { icon: "search", text: `What does ${title} say about…?` },
-    { icon: "web", text: "Research this topic and write it up" },
-    { icon: "recall", text: "What have I asked you to remember?" },
+    { icon: "doc", label: "Summarize", text: `Summarize ${title}`, accent: true },
+    { icon: "search", label: "Ask", text: `What does ${title} say about…?` },
+    { icon: "web", label: "Research", text: "Research this topic and write it up" },
+    { icon: "recall", label: "Recall", text: "What have I asked you to remember?" },
   ];
 }
 
@@ -106,6 +106,7 @@ export default function Board({ docs, uploading, receded }: BoardProps) {
             <button key={s.text} className={`card${s.accent ? " accent" : ""}`}>
               <span className="card-icon">
                 <Icon name={s.icon} />
+                {s.label}
               </span>
               <span className="card-say">{s.text}</span>
             </button>

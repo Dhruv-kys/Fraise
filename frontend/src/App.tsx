@@ -364,21 +364,13 @@ export default function App() {
   return (
     <div className={`stage ${orbState}`}>
       <div className="window" data-screen-label="Fraise — voice assistant">
-        {/* ---------- sidebar ---------- */}
+        {/* ---------- sidebar: the history drawer, not a persistent rail ---------- */}
         {menuOpen && <button className="scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
         <aside className={`sidebar${menuOpen ? " open" : ""}`}>
-          <button className="brand" onClick={() => setEnteredApp(false)} title="Back to the front door">
-            <div className="brand-mark"><FraiseMark /></div>
-            <div>
-              <div className="brand-name">Fraise</div>
-              <div className="brand-sub">Voice assistant</div>
-            </div>
-          </button>
-
-          <button className="new-conv" onClick={() => { toggle(); setMenuOpen(false); }}>
-            <span className="plus">+</span>
-            New conversation
-          </button>
+          <div className="drawer-head">
+            <span className="drawer-title">History &amp; memory</span>
+            <button className="drawer-close" aria-label="Close" onClick={() => setMenuOpen(false)}>✕</button>
+          </div>
 
           {/* Past research, straight from the DB — so it survives a reload, unlike
               the spoken turns, which only ever lived in this tab's memory. */}
@@ -530,10 +522,16 @@ export default function App() {
             <div className="header-left">
               <button
                 className="icon-btn menu"
-                aria-label="Open menu"
+                aria-label="History, memory, and account"
+                title="History, memory, and account"
                 onClick={() => setMenuOpen(true)}
               >
                 <MenuIcon />
+              </button>
+              <button className="nav-brand" onClick={() => setEnteredApp(false)} title="Back to the front door">
+                <span className="nav-brand-mark"><FraiseMark /></span>
+                <span className="nav-brand-name">Fraise</span>
+                <span className="nav-brand-slash">/workspace</span>
               </button>
               <div className="status-pill">
                 <span className="dot" style={{ background: pill.color }} />
@@ -587,6 +585,10 @@ export default function App() {
               >
                 {theme === "dark" ? <SunIcon /> : <MoonIcon />}
               </button>
+              <button className="new-conv nav-cta" onClick={() => toggle()}>
+                <span className="plus">+</span>
+                <span className="cta-label">New conversation</span>
+              </button>
             </div>
           </header>
 
@@ -611,6 +613,7 @@ export default function App() {
                 running — at that point the work *is* the answer, and a 340px orb
                 would push the deck below the fold. */}
             <div className={`hero${run || artifact ? " compact" : ""}`}>
+              <span className="hero-eyebrow">Talking with {active.avatar} {active.name}</span>
               <Orb state={orbState} onClick={toggle} inputLevelRef={levelRef} outputLevelRef={outLevelRef} />
 
               <div className="caption-wrap">

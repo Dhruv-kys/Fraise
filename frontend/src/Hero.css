@@ -1,7 +1,9 @@
-/* Obsidian & Signal Blue — the front door. Always dark: the ASCII→photo reveal
-   needs a black ground, and this is the brand's home. Self-contained under .hx. */
+/* Obsidian & Signal Blue — the front door. Always dark; plain photography, no
+   ASCII anywhere. .hx-page holds the shared tokens since the hero (.hx, one
+   fixed screen) and the showcase section below it are siblings, both reading
+   off the same palette. */
 
-.hx {
+.hx-page {
   --ink: #07080B;
   --panel: #0D0F16;
   --line: rgba(150, 170, 255, 0.12);
@@ -15,32 +17,24 @@
   --faint: #565C70;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  position: relative;
-  /* One screen, never scrolls — everything is sized to fit inside the viewport. */
-  height: 100vh;
-  height: 100dvh;
-  width: 100%;
   background: var(--ink);
   color: var(--ivory);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
   font-family: "Hanken Grotesk", system-ui, sans-serif;
 }
 
-/* The full-canvas living ASCII matrix — the Razorpay ground. Sits at the very
-   back, faint, behind every other layer. */
-.hx-matrix {
-  position: absolute;
-  inset: 0;
+.hx {
+  position: relative;
+  /* The hero itself is exactly one screen; the showcase section is a sibling
+     below it, which is what makes the page scrollable past the fold. */
+  height: 100vh;
+  height: 100dvh;
   width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-  display: block;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-/* faint technical grid over the matrix, softening its centre */
+/* faint technical grid — the hero's only background texture now */
 .hx-grid {
   position: absolute;
   inset: 0;
@@ -53,20 +47,6 @@
   -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 42%, #000 30%, transparent 82%);
 }
 
-/* Electric-blue accent squares — the reference's graphic punctuation. Flat,
-   saturated, a couple with a soft glow; they hover-drift very slowly. */
-.hx-sq {
-  position: absolute;
-  z-index: 1;
-  pointer-events: none;
-  background: #1F44FF;
-  box-shadow: 0 0 40px rgba(31, 68, 255, 0.35);
-  animation: hxFloat 9s ease-in-out infinite;
-}
-.hx-sq-1 { width: 46px; height: 46px; left: 11%; top: 64%; opacity: 0.9; }
-.hx-sq-2 { width: 28px; height: 28px; left: 22%; top: 34%; opacity: 0.75; animation-delay: -3s; }
-.hx-sq-3 { width: 60px; height: 60px; right: 12%; top: 64%; opacity: 0.85; animation-delay: -6s; }
-@keyframes hxFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 /* a signal-blue aurora seated behind the figure */
 .hx::before {
   content: "";
@@ -175,46 +155,14 @@
   margin: clamp(4px, 1.2vh, 14px) auto;
   cursor: default;
 }
-/* Photo and ASCII occupy the exact same box and simply cross-fade — no scale,
-   no blur, no movement of any kind, so nothing shifts on hover. Both are
-   pinned identically; only opacity animates. */
-.hx-photo,
-.hx-ascii-frame {
+.hx-photo {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  backface-visibility: hidden;
-  will-change: opacity;
-  transition: opacity 0.55s ease;
-}
-.hx-photo {
   object-fit: contain;
-  opacity: 1;
+  backface-visibility: hidden;
 }
-/* Centers the ASCII grid within the frame — glyph size is computed in JS from
-   the frame's real box (see AsciiField), so it fills without spilling. */
-.hx-ascii-frame {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  opacity: 0;
-}
-.hx-ascii {
-  margin: 0;
-  white-space: pre;
-  font-family: var(--mono);
-  font-weight: 500;
-  line-height: 1.235;
-  letter-spacing: 0;
-  color: #8FA6FF;
-  user-select: none;
-}
-.hx-reveal:hover .hx-photo,
-.hx-reveal:focus-within .hx-photo { opacity: 0; }
-.hx-reveal:hover .hx-ascii-frame,
-.hx-reveal:focus-within .hx-ascii-frame { opacity: 1; }
 
 /* the orb, held where the vinyl was */
 .hx-orb-slot {
@@ -313,6 +261,8 @@
 @keyframes hxBar { 0%, 100% { transform: scaleY(0.5); } 50% { transform: scaleY(2.1); } }
 
 .hx-composer-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-bottom: 4px; }
+/* Voice only — read-only, so no blinking caret or text-input cursor implies
+   a keyboard is welcome here. The mic is the only way in. */
 .hx-textarea {
   width: 100%;
   resize: none;
@@ -325,8 +275,10 @@
   line-height: 1.5;
   padding: 10px 4px 0;
   max-height: 200px;
+  cursor: default;
+  caret-color: transparent;
 }
-.hx-textarea::placeholder { color: var(--faint); }
+.hx-textarea::placeholder { color: var(--faint); transition: opacity .3s ease; }
 .hx-composer-hint { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--go); padding-left: 4px; text-transform: uppercase; }
 
 .hx-process {
@@ -433,8 +385,97 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hx-scanline, .hx-mic-wave span, .hx-task-bar.on span, .hx-pulse { animation: none !important; }
-  .hx-photo, .hx-ascii-frame { transition: opacity 0.3s ease !important; }
-  .hx-photo { transform: none !important; filter: brightness(1) saturate(1) !important; }
-  .hx-reveal:hover .hx-ascii-frame, .hx-reveal:focus-within .hx-ascii-frame { transform: none !important; filter: none !important; }
+  .hx-mic-wave span, .hx-task-bar.on span, .hx-pulse { animation: none !important; }
+  .hx-showcase-card { transition: none !important; }
+}
+
+/* ---------- showcase ----------
+   Below the hero's one fixed screen — scrolling into it is what makes the
+   page taller than 100vh. A horizontal, snap-scrolling strip: cards start
+   pulled inward and small, and land at full size in a stagger (each one
+   delayed a beat past the last, via inline transitionDelay) the first time
+   the section enters view — dense, not a plain fade. */
+.hx-showcase {
+  position: relative;
+  padding: clamp(64px, 12vh, 140px) 0 clamp(80px, 14vh, 160px);
+  text-align: center;
+}
+.hx-showcase-title {
+  margin: 10px clamp(20px, 6vw, 80px) 0;
+  font-family: "Instrument Serif", serif;
+  font-weight: 400;
+  font-size: clamp(30px, 4.2vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: #D9DCE6;
+}
+.hx-showcase-track {
+  margin: clamp(36px, 6vh, 64px) 0 0;
+  padding: 4px clamp(20px, 6vw, 80px) 20px;
+  display: flex;
+  gap: clamp(12px, 2vw, 24px);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-left: clamp(20px, 6vw, 80px);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+.hx-showcase-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: min(78vw, 380px);
+  aspect-ratio: 4 / 5;
+  scroll-snap-align: start;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hx-showcase.in .hx-showcase-card { opacity: 1; transform: scale(1); }
+.hx-showcase-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Cutout with transparent background — sits whole inside the frame instead of
+   cropping, on a soft glow so it doesn't look like it's floating on nothing. */
+.hx-showcase-card-contain {
+  background: radial-gradient(circle at 50% 55%, rgba(91, 108, 255, 0.14) 0%, transparent 65%), var(--panel);
+}
+.hx-showcase-card-contain img {
+  object-fit: contain;
+  padding: 28px;
+}
+.hx-showcase-card figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 28px 18px 16px;
+  background: linear-gradient(0deg, rgba(7, 8, 11, 0.85) 0%, transparent 100%);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ivory);
+  text-align: left;
+}
+.hx-showcase-card-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, rgba(91, 108, 255, 0.16) 0%, transparent 70%), var(--panel);
+}
+.hx-showcase-card-empty span {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--faint);
 }
