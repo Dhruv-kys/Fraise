@@ -1,23 +1,17 @@
 // The front door — Obsidian & Signal Blue.
 //
 // A classical figure holds the orb aloft where a vinyl once was — a plain
-// photo, no ASCII. Below it, a dictation composer: speak your whole day in
-// one breath and it's split into tasks, each fanned out to its own lane
-// agent (see useDay). Scrolling past the first screen reveals a showcase
-// section (see Showcase) — dense, side-by-side imagery that scales inward
-// into place as it enters view.
+// photo, no ASCII. Scrolling past the first screen reveals a showcase section
+// (see Showcase) — dense, side-by-side imagery that scales inward into place
+// as it enters view.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Orb from "./Orb";
 import { FraiseMark, GitHubMark } from "./icons";
 import { HERO_ASPECT, HERO_ORB_X, HERO_ORB_Y, HERO_ORB_W } from "./heroAscii";
 import type { Day, DayTask, Lane } from "./useDay";
 import type { OrbState } from "./useVoiceAgent";
 import "./Hero.css";
-
-const SpeechRecognition: any =
-  (typeof window !== "undefined" && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) ||
-  null;
 
 // Scramble-decode: the word cycles through random glyphs and resolves left to
 // right, then re-runs whenever `playKey` changes. Punctuation and spaces are
@@ -89,60 +83,6 @@ function Headline() {
       </em>
     </h1>
   );
-}
-
-// Live dictation via the Web Speech API — the right tool for a long monologue you
-// then edit, and it stays clear of the conversational Deepgram loop the orb uses.
-function useDictation(onFinal: (text: string) => void) {
-  const [dictating, setDictating] = useState(false);
-  const [interim, setInterim] = useState("");
-  const recRef = useRef<any>(null);
-  const onFinalRef = useRef(onFinal);
-  onFinalRef.current = onFinal;
-
-  const stop = useCallback(() => {
-    recRef.current?.stop();
-    recRef.current = null;
-    setDictating(false);
-    setInterim("");
-  }, []);
-
-  const start = useCallback(() => {
-    if (!SpeechRecognition) return;
-    const rec = new SpeechRecognition();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = "en-US";
-    rec.onresult = (e: any) => {
-      let live = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) onFinalRef.current(r[0].transcript.trim() + " ");
-        else live += r[0].transcript;
-      }
-      setInterim(live);
-    };
-    rec.onend = () => {
-      // Chrome ends the session after a pause; if the user is still dictating,
-      // restart it so a long, thoughtful day doesn't get cut off mid-sentence.
-      if (recRef.current === rec) {
-        try {
-          rec.start();
-        } catch {
-          setDictating(false);
-        }
-      }
-    };
-    rec.onerror = () => {};
-    recRef.current = rec;
-    rec.start();
-    setDictating(true);
-  }, []);
-
-  const toggle = useCallback(() => (dictating ? stop() : start()), [dictating, start, stop]);
-  useEffect(() => () => recRef.current?.stop(), []);
-
-  return { dictating, interim, toggle, stop, supported: !!SpeechRecognition };
 }
 
 // ---- the figure holding the orb where the vinyl was ----
@@ -285,100 +225,6 @@ function DayBoard({ day, onDismiss }: { day: Day; onDismiss: () => void }) {
   );
 }
 
-// ---- the composer ----
-
-// Voice only — no keyboard fallback. The field just shows what you're
-// dictating; when it's empty, it cycles through examples of things to say,
-// the same "try saying" pattern the workspace uses, instead of one static
-// placeholder sentence.
-const TRY_SAYING = [
-  "Email Sarah the Q3 deck, book a dentist Tuesday afternoon, and remind me to call mom…",
-  "Find me the best noise-cancelling headphones under 300 and make me a deck…",
-  "Remember I prefer window seats, then compare electric cars under 20 lakhs…",
-  "Research the best SDE internships and write it up…",
-];
-
-function useCycle(items: string[], everyMs = 4200): string {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setI((n) => (n + 1) % items.length), everyMs);
-    return () => window.clearInterval(id);
-  }, [items, everyMs]);
-  return items[i];
-}
-
-function Composer({
-  onProcess,
-  busy,
-}: {
-  onProcess: (text: string) => void;
-  busy: boolean;
-}) {
-  const [text, setText] = useState("");
-  const areaRef = useRef<HTMLTextAreaElement>(null);
-  const { dictating, interim, toggle, stop, supported } = useDictation((chunk) =>
-    setText((t) => (t ? t.replace(/\s*$/, " ") : "") + chunk),
-  );
-  const example = useCycle(TRY_SAYING);
-
-  const submit = () => {
-    if (!text.trim() || busy) return;
-    stop();
-    onProcess(text.trim());
-    setText("");
-  };
-
-  useEffect(() => {
-    const el = areaRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 200) + "px";
-    }
-  }, [text, interim]);
-
-  return (
-    <div className={`hx-composer${dictating ? " live" : ""}`}>
-      <button
-        className={`hx-mic${dictating ? " on" : ""}`}
-        onClick={toggle}
-        disabled={!supported}
-        title={supported ? (dictating ? "Stop dictating" : "Dictate your day") : "Dictation needs Chrome or Edge"}
-        aria-label="Dictate"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="9" y="3" width="6" height="11" rx="3" />
-          <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" />
-        </svg>
-        {dictating && (
-          <span className="hx-mic-wave" aria-hidden="true">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <span key={i} />
-            ))}
-          </span>
-        )}
-      </button>
-
-      <div className="hx-composer-field">
-        <textarea
-          ref={areaRef}
-          className="hx-textarea"
-          value={text + (interim ? (text ? " " : "") + interim : "")}
-          placeholder={`Try saying: “${example}”`}
-          rows={1}
-          readOnly
-          aria-readonly="true"
-        />
-        {dictating && <span className="hx-composer-hint">Listening — speak your whole day, then hit process</span>}
-      </div>
-
-      <button className="hx-process" onClick={submit} disabled={!text.trim() || busy}>
-        {busy ? "Working…" : "Process my day"}
-        <span className="hx-process-arrow">→</span>
-      </button>
-    </div>
-  );
-}
-
 // ---- the showcase: dense, side-by-side imagery below the fold ----
 //
 // Fires once, the first time the section is a quarter into view, then leaves
@@ -456,7 +302,6 @@ export interface HeroProps {
   inputLevelRef?: React.RefObject<number>;
   outputLevelRef?: React.RefObject<number>;
   day: Day | null;
-  onProcess: (text: string) => void;
   onDismissDay: () => void;
   onEnterApp: () => void;
 }
@@ -467,7 +312,6 @@ export default function Hero({
   inputLevelRef,
   outputLevelRef,
   day,
-  onProcess,
   onDismissDay,
   onEnterApp,
 }: HeroProps) {
@@ -516,8 +360,6 @@ export default function Hero({
               outputLevelRef={outputLevelRef}
             />
           )}
-
-          <Composer onProcess={onProcess} busy={active && day!.status !== "done"} />
         </main>
       </div>
       <Showcase />

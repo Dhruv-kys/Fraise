@@ -10,11 +10,14 @@
 // never stores it; it only receives the active assistant's id + config per
 // connection.
 
+import { DEFAULT_VOICE } from "./voices";
+
 export interface Assistant {
   id: string;
   name: string;
   avatar: string; // a single emoji
   instructions: string;
+  voice: string; // Deepgram Aura-2 model id, see voices.ts
 }
 
 const LIST_KEY = "fraise-assistants";
@@ -34,7 +37,10 @@ function read(): Assistant[] {
     const raw = localStorage.getItem(LIST_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (Array.isArray(parsed) && parsed.length) {
+        // Backfill `voice` for assistants saved before it existed.
+        return parsed.map((a) => (a.voice ? a : { ...a, voice: DEFAULT_VOICE }));
+      }
     }
   } catch {
     /* fall through to migration */
@@ -52,6 +58,7 @@ function migrate(): Assistant[] {
     name: "Fraise",
     avatar: "🍓",
     instructions: "",
+    voice: DEFAULT_VOICE,
   };
   const list = [def];
   localStorage.setItem(LIST_KEY, JSON.stringify(list));
@@ -95,6 +102,7 @@ export function createAssistant(partial: Partial<Assistant> = {}): Assistant {
     name: partial.name?.trim() || "New assistant",
     avatar,
     instructions: partial.instructions ?? "",
+    voice: partial.voice || DEFAULT_VOICE,
   };
   write([...list, assistant]);
   return assistant;

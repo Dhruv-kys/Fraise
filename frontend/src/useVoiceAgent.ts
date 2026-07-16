@@ -45,6 +45,9 @@ function wsUrlWithSession(): string {
   if (active.instructions.trim()) {
     url.searchParams.set("instructions", active.instructions.trim());
   }
+  if (active.voice) {
+    url.searchParams.set("voice", active.voice);
+  }
   // Other assistants' names, for voice-native switching ("switch to Work").
   const others = listAssistants()
     .filter((a) => a.id !== active.id)

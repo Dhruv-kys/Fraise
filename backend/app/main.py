@@ -200,8 +200,9 @@ async def voice_socket(ws: WebSocket) -> None:
     assistant_name = ws.query_params.get("persona") or ""
     instructions = ws.query_params.get("instructions") or ""
     personas = ws.query_params.get("personas") or ""
+    voice = ws.query_params.get("voice") or ""
     try:
-        await bridge(ws, session_id, user_name, greet, assistant_name, instructions, personas)
+        await bridge(ws, session_id, user_name, greet, assistant_name, instructions, personas, voice)
     except WebSocketDisconnect:
         pass
     except Exception:

@@ -10,6 +10,7 @@ import {
   updateAssistant,
   type Assistant,
 } from "./assistants";
+import { DEFAULT_VOICE, VOICES, sampleUrl, type VoiceOption } from "./voices";
 import Orb from "./Orb";
 import Board from "./Board";
 import Hero from "./Hero";
@@ -168,7 +169,7 @@ export default function App() {
 
   // The dictated day: one brain-dump split into tasks, fanned out to lane agents.
   // Lives on the hero (the front door); the workspace is a second way in.
-  const { day, process: processDay, dismiss: dismissDay } = useDay(activeId);
+  const { day, dismiss: dismissDay } = useDay(activeId);
   const [enteredApp, setEnteredApp] = useState(false);
 
   // Conversation + remembered facts, from the server. Refreshed whenever a turn
@@ -187,7 +188,7 @@ export default function App() {
   }, [activeId, listening, reconnect]);
 
   const saveAssistant = useCallback(
-    (data: { name: string; avatar: string; instructions: string }, id?: string) => {
+    (data: { name: string; avatar: string; instructions: string; voice: string }, id?: string) => {
       if (id) {
         setAssistants(updateAssistant(id, data));
         // Editing the active persona's vibe mid-session: reopen the socket so the
@@ -352,7 +353,6 @@ export default function App() {
           inputLevelRef={levelRef}
           outputLevelRef={outLevelRef}
           day={day}
-          onProcess={processDay}
           onDismissDay={dismissDay}
           onEnterApp={() => setEnteredApp(true)}
         />
@@ -739,13 +739,14 @@ function AssistantEditor({
 }: {
   assistant: Assistant | null;
   canDelete: boolean;
-  onSave: (data: { name: string; avatar: string; instructions: string }, id?: string) => void;
+  onSave: (data: { name: string; avatar: string; instructions: string; voice: string }, id?: string) => void;
   onDelete: (id: string) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(assistant?.name ?? "");
   const [avatar, setAvatar] = useState(assistant?.avatar ?? AVATAR_CHOICES[0]);
   const [instructions, setInstructions] = useState(assistant?.instructions ?? "");
+  const [voice, setVoice] = useState(assistant?.voice ?? DEFAULT_VOICE);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -762,18 +763,20 @@ function AssistantEditor({
         onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => {
           e.preventDefault();
-          onSave({ name: name.trim() || "New assistant", avatar, instructions }, assistant?.id);
+          onSave({ name: name.trim() || "New assistant", avatar, instructions, voice }, assistant?.id);
         }}
       >
         <div className="editor-avatar-preview">{avatar}</div>
         <h2 className="name-title">{assistant ? "Edit assistant" : "New assistant"}</h2>
         <p className="name-sub">A separate name, look, and memory of its own.</p>
 
+        <label className="editor-label">Voice</label>
+        <VoicePicker value={voice} onChange={setVoice} />
+
         <label className="editor-label">Name</label>
         <input
           className="name-input"
           type="text"
-          autoFocus
           placeholder="Work, Personal, Coach…"
           value={name}
           maxLength={40}
@@ -820,6 +823,74 @@ function AssistantEditor({
           Cancel
         </button>
       </form>
+    </div>
+  );
+}
+
+// A generated monogram avatar per voice (hue + first letter) — these are
+// synthetic TTS voices with no real person behind them, so no stock photos.
+function VoiceAvatar({ voice }: { voice: VoiceOption }) {
+  return (
+    <div
+      className="voice-avatar"
+      style={{
+        background: `linear-gradient(135deg, hsl(${voice.hue} 70% 42%), hsl(${voice.hue + 40} 65% 28%))`,
+      }}
+      aria-hidden="true"
+    >
+      {voice.name[0]}
+    </div>
+  );
+}
+
+function VoicePicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+
+  const play = (id: string) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playingId === id) {
+      audio.pause();
+      setPlayingId(null);
+      return;
+    }
+    audio.src = sampleUrl(id);
+    audio.play().catch(() => setPlayingId(null));
+    setPlayingId(id);
+  };
+
+  return (
+    <div className="voice-grid">
+      <audio
+        ref={audioRef}
+        onEnded={() => setPlayingId(null)}
+        onError={() => setPlayingId(null)}
+      />
+      {VOICES.map((v) => (
+        <div
+          key={v.id}
+          className={`voice-card${v.id === value ? " active" : ""}`}
+          onClick={() => onChange(v.id)}
+        >
+          <VoiceAvatar voice={v} />
+          <div className="voice-info">
+            <span className="voice-name">{v.name}</span>
+            <span className="voice-meta">{v.accent} · {v.traits.slice(0, 2).join(", ")}</span>
+          </div>
+          <button
+            type="button"
+            className={`voice-play${playingId === v.id ? " on" : ""}`}
+            title={`Hear ${v.name} say "Hi, I'm Fraise."`}
+            onClick={(e) => {
+              e.stopPropagation();
+              play(v.id);
+            }}
+          >
+            {playingId === v.id ? "❚❚" : "▶"}
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

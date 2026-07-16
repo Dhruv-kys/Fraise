@@ -151,6 +151,7 @@ async def _build_settings(
     assistant_name: str = "",
     instructions: str = "",
     personas: str = "",
+    voice: str = "",
 ) -> dict:
     name = _clean_name(user_name)
     persona = _clean_name(assistant_name)
@@ -236,7 +237,7 @@ async def _build_settings(
             "version": "v2",
             "model": os.environ.get("DEEPGRAM_LISTEN_MODEL", "flux-general-en"),
             "eot_threshold": float(os.environ.get("DEEPGRAM_EOT_THRESHOLD", "0.7")),
-            "eot_timeout_ms": int(os.environ.get("DEEPGRAM_EOT_TIMEOUT_MS", "5000")),
+            "eot_timeout_ms": int(os.environ.get("DEEPGRAM_EOT_TIMEOUT_MS", "15000")),
         }},
         "think": {
             "provider": {
@@ -246,7 +247,7 @@ async def _build_settings(
             "prompt": prompt,
             "functions": manager.functions(),
         },
-        "speak": {"provider": {"type": "deepgram", "model": os.environ.get("DEEPGRAM_VOICE", "aura-2-thalia-en")}},
+        "speak": {"provider": {"type": "deepgram", "model": voice or os.environ.get("DEEPGRAM_VOICE", "aura-2-thalia-en")}},
     }
     # Only the first connection in a browser tab speaks the greeting; reconnects
     # (reload, a dropped socket auto-recovering) omit it so Fraise doesn't
@@ -381,6 +382,7 @@ async def bridge(
     assistant_name: str = "",
     instructions: str = "",
     personas: str = "",
+    voice: str = "",
 ) -> None:
     api_key = os.environ.get("DEEPGRAM_API_KEY")
     if not api_key:
@@ -389,7 +391,7 @@ async def bridge(
 
     async with websockets.connect(DG_URL, additional_headers={"Authorization": f"Token {api_key}"}) as dg:
         await dg.send(json.dumps(await _build_settings(
-            session_id, user_name, greet, assistant_name, instructions, personas
+            session_id, user_name, greet, assistant_name, instructions, personas, voice
         )))
 
         async def browser_to_dg() -> None:
