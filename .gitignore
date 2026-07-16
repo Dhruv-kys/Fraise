@@ -17,6 +17,9 @@ deploy
 backend/app/data/
 *.db
 
+# HuggingFace model cache (HF_HOME, set by the systemd unit)
+backend/.cache/
+
 # Local Netlify folder
 .netlify
 HANDOFF.md
