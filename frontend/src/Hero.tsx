@@ -343,6 +343,12 @@ export default function Hero({
           <div className="hx-headline">
             <span className="hx-eyebrow">Dictate once — agents do the rest</span>
             <Headline />
+            {/* The floating side annotations need room they don't have on a
+                phone screen (.hx-annos is hidden there) — this inline summary
+                carries the same three points instead of just dropping them. */}
+            <p className="hx-annos-inline" aria-hidden="true">
+              {ANNOTATIONS.map((a) => a.lines.join(" ")).join("   ·   ")}
+            </p>
           </div>
 
           {active ? (
