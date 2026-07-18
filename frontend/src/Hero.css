@@ -210,10 +210,10 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  opacity: 0.9;
+  opacity: 0.62;
   transition: opacity 0.5s ease;
 }
-.hx-reveal:hover .hx-anno { opacity: 1; }
+.hx-reveal:hover .hx-anno { opacity: 0.9; }
 .hx-anno-r { right: 0; flex-direction: row; text-align: right; }
 .hx-anno-l { left: 0; flex-direction: row-reverse; text-align: left; }
 .hx-anno-line { width: clamp(40px, 7.5vw, 110px); height: 1px; background: linear-gradient(90deg, var(--blue-2), transparent); flex-shrink: 0; }
@@ -223,11 +223,13 @@
   display: flex;
   flex-direction: column;
   font-family: var(--mono);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   letter-spacing: 0.1em;
   line-height: 1.45;
-  color: var(--ivory);
+  /* Quieter than the ivory headline on purpose — a technical aside, not a
+     second headline competing for the same attention. */
+  color: var(--muted);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -327,7 +329,22 @@
   }
   .hx-nav-link { display: none; }
   .hx-nav-right .hx-cta { display: inline-flex; }
-  .hx-reveal { height: clamp(280px, 44vh, 440px); }
+
+  /* The "exactly one screen, orb centered in whatever's left over" hero is a
+     desktop trick — on a phone the leftover is enormous (there's so little
+     else on screen) and it reads as a dead, unstyled gap before the quote.
+     Below 720px the hero just flows: headline, then the orb sized to its own
+     content, done — no forced full-height box, no centering slack to fill. */
+  .hx {
+    height: auto;
+    overflow: visible;
+  }
+  .hx-stage { flex: none; padding-bottom: 28px; }
+  .hx-reveal {
+    flex: none;
+    height: clamp(240px, 62vw, 340px);
+    margin: 18px auto 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -344,7 +361,11 @@
   position: relative;
   max-width: 900px;
   margin: 0 auto;
-  padding: clamp(48px, 9vh, 100px) clamp(20px, 6vw, 80px) 0;
+  /* The hero above already leaves its own slack below the orb before the
+     100vh edge — stacking a second, larger pad here on top of that is what
+     read as a dead, unstyled gap. This only needs to clear the showcase
+     eyebrow that follows, not restate the same breathing room twice. */
+  padding: clamp(8px, 2vh, 32px) clamp(20px, 6vw, 80px) 0;
   text-align: center;
   opacity: 0;
   transform: translateY(16px);
