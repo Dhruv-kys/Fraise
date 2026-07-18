@@ -1,9 +1,37 @@
-/* Obsidian & Signal Blue — the front door. Always dark; plain photography, no
-   ASCII anywhere. .hx-page holds the shared tokens since the hero (.hx, one
-   fixed screen) and the showcase section below it are siblings, both reading
-   off the same palette. */
+/* Obsidian & Signal Blue — the front door. Follows the same light/dark switch
+   as the workspace (the `.dark` class on <html>), so it reads as one product
+   instead of a page frozen in whichever mode the app happens to be in.
+   .hx-page holds the shared tokens since the hero (.hx, one fixed screen) and
+   the showcase section below it are siblings, both reading off the same
+   palette. Light is the default here; .dark overrides to Obsidian. */
 
 .hx-page {
+  --ink: #F3F4F8;
+  --panel: #FFFFFF;
+  --line: rgba(30, 45, 110, 0.09);
+  --line-2: rgba(30, 45, 110, 0.16);
+  --blue: #3D4EE6;
+  --blue-2: #5B6CFF;
+  --cyan: #0EA5B7;
+  --go: #17A673;
+  --ivory: #0D1017;
+  --head: #2A2E3D;
+  --body: #3B4150;
+  --muted: #5A6072;
+  --faint: #7E8598;
+  --dot: rgba(60, 70, 140, 0.14);
+  --on-photo: #ECEEF4;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  background:
+    radial-gradient(circle at center, var(--dot) 1.6px, transparent 1.9px) 0 0 / 28px 28px,
+    var(--ink);
+  color: var(--ivory);
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  transition: background-color .4s ease, color .4s ease;
+}
+
+.dark .hx-page {
   --ink: #07080B;
   --panel: #0D0F16;
   --line: rgba(150, 170, 255, 0.12);
@@ -13,13 +41,11 @@
   --cyan: #63E6FF;
   --go: #3FE0A0;
   --ivory: #ECEEF4;
+  --head: #D9DCE6;
+  --body: #C3C8D6;
   --muted: #8A90A4;
   --faint: #565C70;
-  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  background: var(--ink);
-  color: var(--ivory);
-  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  --dot: rgba(140, 160, 255, 0.22);
 }
 
 .hx {
@@ -34,31 +60,20 @@
   flex-direction: column;
 }
 
-/* faint technical grid — the hero's only background texture now */
-.hx-grid {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    radial-gradient(circle at center, rgba(120, 140, 255, 0.05) 0.5px, transparent 0.6px);
-  background-size: 26px 26px;
-  mask-image: radial-gradient(ellipse 80% 70% at 50% 42%, #000 30%, transparent 82%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 42%, #000 30%, transparent 82%);
-}
-
-/* a signal-blue aurora seated behind the figure */
-.hx::before {
+/* a quiet signal-blue wash seated behind the orb — a hint of depth, not the
+   giant center-screen glow blob every AI-startup page leads with. Dark-mode
+   only, same as the workspace's aurora: the light surface stays flat. */
+.dark .hx::before {
   content: "";
   position: absolute;
   left: 50%;
   top: 46%;
-  width: 60vw;
-  height: 60vw;
-  max-width: 720px;
-  max-height: 720px;
+  width: 46vw;
+  height: 46vw;
+  max-width: 560px;
+  max-height: 560px;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(61, 90, 255, 0.20) 0%, rgba(61, 90, 255, 0.06) 38%, transparent 68%);
+  background: radial-gradient(circle, rgba(61, 90, 255, 0.13) 0%, rgba(61, 90, 255, 0.04) 38%, transparent 68%);
   filter: blur(30px);
   pointer-events: none;
 }
@@ -86,16 +101,28 @@
   transition: color 0.18s ease;
 }
 .hx-nav-link:hover { color: var(--ivory); }
+
+.hx-theme-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; flex-shrink: 0;
+  border: none; border-radius: 8px; background: none; cursor: pointer;
+  color: var(--muted);
+  transition: color 0.18s ease;
+}
+.hx-theme-toggle:hover { color: var(--ivory); }
+.hx-theme-toggle svg { width: 17px; height: 17px; display: block; }
+
 .hx-cta {
   background: var(--blue); color: #fff;
   border: none; cursor: pointer;
   padding: 9px 18px; border-radius: 9px;
   font: inherit; font-size: 14px; font-weight: 600;
-  box-shadow: 0 4px 18px rgba(61, 90, 255, 0.35);
   transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
-.hx-cta:hover { background: #6B7BFF; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(61, 90, 255, 0.45); }
+.hx-cta:hover { background: var(--blue-2); transform: translateY(-1px); }
 .hx-cta:active { transform: translateY(0); }
+.dark .hx-cta { box-shadow: 0 4px 18px rgba(61, 90, 255, 0.35); }
+.dark .hx-cta:hover { box-shadow: 0 6px 24px rgba(61, 90, 255, 0.45); }
 
 /* ---------- stage ----------
    A fixed-height column: headline pinned top, composer pinned bottom, and the
@@ -130,7 +157,7 @@
   font-size: clamp(34px, 5.4vw, 78px);
   line-height: 0.98;
   letter-spacing: -0.015em;
-  color: #D9DCE6;
+  color: var(--head);
 }
 .hx-head em {
   font-style: italic;
@@ -141,55 +168,42 @@
   -webkit-text-fill-color: transparent;
 }
 
-/* ---------- the reveal figure ---------- */
+/* ---------- the orb reveal ---------- */
 .hx-reveal {
   position: relative;
-  container-type: inline-size;
-  /* Flex-grows to fill all the vertical space between headline and composer;
-     its width follows from the inline aspect-ratio (the cutout's real
-     proportions). Height is driven by the flexbox, so the figure is always as
-     large as the viewport allows — no scroll, no fixed guess. */
+  /* Flex-grows to fill all the vertical space between headline and composer,
+     so the orb is always as large as the viewport allows — no scroll, no
+     fixed guess. */
   flex: 1 1 0;
   min-height: 0;
-  width: auto;
+  width: 100%;
   margin: clamp(4px, 1.2vh, 14px) auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: default;
 }
-.hx-photo {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  backface-visibility: hidden;
-}
 
-/* the orb, held where the vinyl was */
+/* The orb itself, and the frame the annotation lines are drawn relative to —
+   a square exactly the orb's size, so "flush against the edge" always means
+   flush against the glow, on any screen. */
 .hx-orb-slot {
-  position: absolute;   /* left / top / width set inline from the cutout geometry */
+  position: relative;
+  width: min(52vh, 42vw, 400px);
   aspect-ratio: 1;
-  transform: translate(-50%, -50%);
   z-index: 4;
-  pointer-events: auto;
 }
 .hx-orb-slot .orb-stage { width: 100%; height: 100%; max-width: none; max-height: none; }
-.hx-orb-slot .orb { width: 100%; height: 100%; max-width: none; max-height: none; }
-.hx-orb-slot .orb-bloom-a { max-width: none; max-height: none; opacity: 0.85; }
-/* No lift, no puddle — the orb reads as sitting flush on the record, not
-   floating above it. */
+.hx-orb-slot .orb { width: 90%; height: 90%; max-width: none; max-height: none; }
+.hx-orb-slot .orb-bloom-a { max-width: none; max-height: none; }
 .hx-orb-slot .orb-shadow { display: none; }
-.hx-orb-slot .orb-gl,
-.hx-orb-slot .orb-fallback { filter: none; }
 
 /* ---------- technical annotations ----------
-   Reads outward from the figure: a lead-line runs from the subject out
-   through open space, and the label lands at the outer edge where there's
-   nothing behind it to fight for attention. No index tags — just the line
-   and the label. */
-/* The figure is narrow, so the labels are thrown well out into the empty space
-   on either side — the container extends far past the figure so no label ever
-   sits on top of it. */
-.hx-annos { position: absolute; inset: -4% -155% -2%; pointer-events: none; z-index: 5; }
+   Each line starts flush against the orb-slot's own edge — inside the bloom
+   halo — and runs outward into the empty space beside it, so the callout
+   visibly emanates from the one concrete object on screen. No index tags —
+   just the line and the label. */
+.hx-annos { position: absolute; inset: 0 -70% 0 -70%; pointer-events: none; z-index: 5; }
 .hx-anno {
   position: absolute;
   display: flex;
@@ -214,9 +228,9 @@
   line-height: 1.45;
   color: var(--ivory);
   text-transform: uppercase;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 14px rgba(7, 8, 11, 0.9);
   white-space: nowrap;
 }
+.dark .hx-anno-text { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 14px rgba(7, 8, 11, 0.9); }
 
 /* ---------- day board ---------- */
 .hx-stage.compact .hx-head { font-size: clamp(28px, 3.6vw, 44px); }
@@ -238,7 +252,7 @@
 }
 .hx-board-progress { color: var(--muted); font-size: 14px; margin-right: auto; }
 .hx-board-close {
-  background: #12141C; border: 1px solid var(--line); color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line); color: var(--muted);
   width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 13px;
   transition: all 0.16s ease;
 }
@@ -289,7 +303,7 @@
 @keyframes hxSlide { 0% { left: -40%; } 100% { left: 100%; } }
 
 .hx-task-note { margin: 0; font-size: 13px; color: var(--muted); }
-.hx-task-result { margin: 0; font-size: 13.5px; line-height: 1.5; color: #C3C8D6; white-space: pre-line; }
+.hx-task-result { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--body); white-space: pre-line; }
 .hx-task-error { margin: 0; font-size: 13px; color: #E06B7E; }
 .hx-task-sources { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
 .hx-task-sources a { font-size: 12px; color: var(--faint); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.15s ease; }
@@ -326,13 +340,14 @@
   font-size: clamp(30px, 4.2vw, 56px);
   line-height: 1.05;
   letter-spacing: -0.01em;
-  color: #D9DCE6;
+  color: var(--head);
 }
 .hx-showcase-track {
   margin: clamp(36px, 6vh, 64px) 0 0;
   padding: 4px clamp(20px, 6vw, 80px) 20px;
   display: flex;
-  gap: clamp(12px, 2vw, 24px);
+  justify-content: center;
+  gap: clamp(20px, 3vw, 40px);
   overflow-x: auto;
   scroll-snap-type: x proximity;
   scroll-padding-left: clamp(20px, 6vw, 80px);
@@ -360,15 +375,6 @@
   height: 100%;
   object-fit: cover;
 }
-/* Cutout with transparent background — sits whole inside the frame instead of
-   cropping, on a soft glow so it doesn't look like it's floating on nothing. */
-.hx-showcase-card-contain {
-  background: radial-gradient(circle at 50% 55%, rgba(91, 108, 255, 0.14) 0%, transparent 65%), var(--panel);
-}
-.hx-showcase-card-contain img {
-  object-fit: contain;
-  padding: 28px;
-}
 .hx-showcase-card figcaption {
   position: absolute;
   left: 0;
@@ -381,20 +387,8 @@
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ivory);
+  /* Always light — it's captioning a photo's own dark scrim, not the page,
+     so it doesn't flip with the site's theme. */
+  color: var(--on-photo);
   text-align: left;
-}
-.hx-showcase-card-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at 50% 50%, rgba(91, 108, 255, 0.16) 0%, transparent 70%), var(--panel);
-}
-.hx-showcase-card-empty span {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--faint);
 }

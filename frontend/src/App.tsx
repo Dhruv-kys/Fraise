@@ -18,7 +18,7 @@ import { AgentPanel, ArtifactView } from "./Agents";
 import { useAgents } from "./useAgents";
 import { useDay } from "./useDay";
 import { useHistory } from "./useHistory";
-import { FraiseMark, GitHubMark } from "./icons";
+import { FraiseMark, GitHubMark, SunIcon, MoonIcon } from "./icons";
 import "./App.css";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
@@ -44,7 +44,7 @@ const DOCK_HINT: Record<OrbState, string> = {
   speaking: "Speaking…",
 };
 
-type Theme = "light" | "dark";
+export type Theme = "light" | "dark";
 
 // Theme lives on <html class="dark"> — the WebGL orb watches that class to
 // invert its palette, so the toggle just flips the class and persists it.
@@ -98,17 +98,6 @@ function useTypewriter(text: string, enabled: boolean, cps = 48): string {
   return text.slice(0, count);
 }
 
-const SunIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <circle cx="12" cy="12" r="4.2" />
-    <path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" />
-  </svg>
-);
-const MoonIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M20 14.2A8 8 0 0 1 9.8 4a.6.6 0 0 0-.82-.74A9.2 9.2 0 1 0 20.7 15a.6.6 0 0 0-.7-.8z" />
-  </svg>
-);
 const MenuIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <path d="M4 7h16M4 12h16M4 17h16" />
@@ -350,6 +339,8 @@ export default function App() {
           day={day}
           onDismissDay={dismissDay}
           onEnterApp={() => setEnteredApp(true)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
         <SpeedInsights />
       </>

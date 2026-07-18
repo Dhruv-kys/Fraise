@@ -66,6 +66,23 @@ export function Icon({ name }: { name: IconName }) {
 
 export type { IconName };
 
+export function SunIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" />
+    </svg>
+  );
+}
+
+export function MoonIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M20 14.2A8 8 0 0 1 9.8 4a.6.6 0 0 0-.82-.74A9.2 9.2 0 1 0 20.7 15a.6.6 0 0 0-.7-.8z" />
+    </svg>
+  );
+}
+
 export function GitHubMark({ className = "" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="15" height="15">

@@ -1,16 +1,16 @@
 // The front door — Obsidian & Signal Blue.
 //
-// A classical figure holds the orb aloft where a vinyl once was — a plain
-// photo, no ASCII. Scrolling past the first screen reveals a showcase section
-// (see Showcase) — dense, side-by-side imagery that scales inward into place
-// as it enters view.
+// The orb is the centerpiece — the same live identity element used once you're
+// in the workspace, not a stock photo standing in for it. Scrolling past the
+// first screen reveals a showcase section (see Showcase) — dense, side-by-side
+// imagery that scales inward into place as it enters view.
 
 import { useEffect, useRef, useState } from "react";
 import Orb from "./Orb";
-import { FraiseMark, GitHubMark } from "./icons";
-import { HERO_ASPECT, HERO_ORB_X, HERO_ORB_Y, HERO_ORB_W } from "./heroAscii";
+import { FraiseMark, GitHubMark, SunIcon, MoonIcon } from "./icons";
 import type { Day, DayTask, Lane } from "./useDay";
 import type { OrbState } from "./useVoiceAgent";
+import type { Theme } from "./App";
 import "./Hero.css";
 
 // Scramble-decode: the word cycles through random glyphs and resolves left to
@@ -85,15 +85,19 @@ function Headline() {
   );
 }
 
-// ---- the figure holding the orb where the vinyl was ----
+// ---- the orb, at the center of the front door ----
+//
+// Three technical callouts read off the orb itself — each line starts flush
+// against the orb's glow and runs outward, so they visibly belong to the one
+// concrete thing on screen instead of floating in empty space.
 
 const ANNOTATIONS: { side: "l" | "r"; top: string; lines: string[] }[] = [
-  { side: "r", top: "20%", lines: ["SPLITS YOUR DAY", "INTO TASKS"] },
+  { side: "r", top: "10%", lines: ["SPLITS YOUR DAY", "INTO TASKS"] },
   { side: "l", top: "46%", lines: ["ROUTES EACH TO", "ITS OWN AGENT"] },
-  { side: "r", top: "72%", lines: ["REMEMBERS", "WHAT MATTERS"] },
+  { side: "r", top: "82%", lines: ["REMEMBERS", "WHAT MATTERS"] },
 ];
 
-function RevealFigure({
+function HeroOrb({
   orbState,
   onOrbClick,
   inputLevelRef,
@@ -105,29 +109,24 @@ function RevealFigure({
   outputLevelRef?: React.RefObject<number>;
 }) {
   return (
-    <figure className="hx-reveal" style={{ aspectRatio: String(HERO_ASPECT) }}>
-      <img className="hx-photo" src="/hero-atlas-cut.png" alt="A figure holding the orb aloft" loading="eager" />
-
-      <div
-        className="hx-orb-slot"
-        style={{ left: `${HERO_ORB_X}%`, top: `${HERO_ORB_Y}%`, width: `${HERO_ORB_W}%` }}
-      >
+    <div className="hx-reveal">
+      <div className="hx-orb-slot">
         <Orb state={orbState} onClick={onOrbClick} inputLevelRef={inputLevelRef} outputLevelRef={outputLevelRef} />
-      </div>
 
-      <div className="hx-annos" aria-hidden="true">
-        {ANNOTATIONS.map((a, i) => (
-          <div key={i} className={`hx-anno hx-anno-${a.side}`} style={{ top: a.top }}>
-            <span className="hx-anno-line" />
-            <span className="hx-anno-text">
-              {a.lines.map((l, k) => (
-                <span key={k}>{l}</span>
-              ))}
-            </span>
-          </div>
-        ))}
+        <div className="hx-annos" aria-hidden="true">
+          {ANNOTATIONS.map((a, i) => (
+            <div key={i} className={`hx-anno hx-anno-${a.side}`} style={{ top: a.top }}>
+              <span className="hx-anno-line" />
+              <span className="hx-anno-text">
+                {a.lines.map((l, k) => (
+                  <span key={k}>{l}</span>
+                ))}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-    </figure>
+    </div>
   );
 }
 
@@ -251,25 +250,14 @@ function useInView<T extends HTMLElement>() {
 }
 
 interface ShowcaseItem {
-  src?: string;
+  src: string;
   alt: string;
   label: string;
-  // Full-bleed photos crop to fill the card (cover). The philosopher shot is
-  // a background-removed cutout with a wide, sideways composition — cropping
-  // it to a portrait card would cut off the head or feet, so it gets to sit
-  // whole inside the frame instead (contain).
-  fit?: "cover" | "contain";
 }
 
 const SHOWCASE_ITEMS: ShowcaseItem[] = [
   { src: "/mic-accent.jpg", alt: "A studio microphone", label: "Every word, captured" },
   { src: "/vinyl-disc.jpg", alt: "A chrome vinyl record", label: "Pressed like vinyl" },
-  {
-    src: "/philosopher-laptop.png",
-    alt: "A classical statue working at a laptop",
-    label: "Thought, at work",
-    fit: "contain",
-  },
 ];
 
 function Showcase() {
@@ -280,12 +268,8 @@ function Showcase() {
       <h2 className="hx-showcase-title">Every detail, mastered.</h2>
       <div className="hx-showcase-track">
         {SHOWCASE_ITEMS.map((item, i) => (
-          <figure
-            key={i}
-            className={`hx-showcase-card${item.src ? "" : " hx-showcase-card-empty"}${item.fit === "contain" ? " hx-showcase-card-contain" : ""}`}
-            style={{ transitionDelay: `${i * 90}ms` }}
-          >
-            {item.src ? <img src={item.src} alt={item.alt} /> : <span>More coming</span>}
+          <figure key={i} className="hx-showcase-card" style={{ transitionDelay: `${i * 90}ms` }}>
+            <img src={item.src} alt={item.alt} />
             <figcaption>{item.label}</figcaption>
           </figure>
         ))}
@@ -304,6 +288,8 @@ export interface HeroProps {
   day: Day | null;
   onDismissDay: () => void;
   onEnterApp: () => void;
+  theme: Theme;
+  onToggleTheme: () => void;
 }
 
 export default function Hero({
@@ -314,13 +300,14 @@ export default function Hero({
   day,
   onDismissDay,
   onEnterApp,
+  theme,
+  onToggleTheme,
 }: HeroProps) {
   const active = !!day && day.status !== "failed";
 
   return (
     <div className="hx-page">
       <div className="hx" data-active={active}>
-        <div className="hx-grid" aria-hidden="true" />
 
         <nav className="hx-nav">
           <div className="hx-brand">
@@ -338,6 +325,14 @@ export default function Hero({
               <GitHubMark />
               Source
             </a>
+            <button
+              className="hx-theme-toggle"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-pressed={theme === "dark"}
+              onClick={onToggleTheme}
+            >
+              {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+            </button>
             <button className="hx-cta" onClick={onOrbClick}>
               Talk to Fraise
             </button>
@@ -353,7 +348,7 @@ export default function Hero({
           {active ? (
             <DayBoard day={day!} onDismiss={onDismissDay} />
           ) : (
-            <RevealFigure
+            <HeroOrb
               orbState={orbState}
               onOrbClick={onOrbClick}
               inputLevelRef={inputLevelRef}
