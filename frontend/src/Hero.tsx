@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import Orb from "./Orb";
 import { FraiseMark, GitHubMark, SunIcon, MoonIcon } from "./icons";
+import { QUOTE } from "./Board";
 import type { Day, DayTask, Lane } from "./useDay";
 import type { OrbState } from "./useVoiceAgent";
 import type { Theme } from "./App";
@@ -249,6 +250,17 @@ function useInView<T extends HTMLElement>() {
   return [ref, inView] as const;
 }
 
+// ---- the quote: the product's thesis, said once, plainly ----
+function Quote() {
+  const [ref, inView] = useInView<HTMLElement>();
+  return (
+    <section className={`hx-quote${inView ? " in" : ""}`} ref={ref}>
+      <span className="hx-quote-mark" aria-hidden="true">&ldquo;</span>
+      <p className="hx-quote-text">{QUOTE}</p>
+    </section>
+  );
+}
+
 interface ShowcaseItem {
   src: string;
   alt: string;
@@ -363,6 +375,7 @@ export default function Hero({
           )}
         </main>
       </div>
+      <Quote />
       <Showcase />
     </div>
   );

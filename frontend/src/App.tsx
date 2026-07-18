@@ -330,10 +330,11 @@ export default function App() {
       <>
         <Hero
           orbState={orbState}
-          onOrbClick={() => {
-            setEnteredApp(true);
-            if (!listening) toggle();
-          }}
+          // Enter idle, not already listening — starting the mic instantly
+          // recedes the workspace's "try saying" board (it fades out the
+          // moment orbState leaves idle) before anyone's had a chance to read
+          // it. A second, explicit tap on the orb starts the conversation.
+          onOrbClick={() => setEnteredApp(true)}
           inputLevelRef={levelRef}
           outputLevelRef={outLevelRef}
           day={day}

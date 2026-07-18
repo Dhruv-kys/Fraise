@@ -11,7 +11,9 @@ type Suggestion = { icon: IconName; label: string; text: string; accent?: boolea
 type Doc = { name: string; chunks: number };
 
 // One line of pure editorial texture — the thesis of the whole product.
-const QUOTE = "The best interface is a conversation you forget you're having.";
+// Shared with the landing page (Hero.tsx), which features it as its own
+// section — one source of truth so the two never drift apart.
+export const QUOTE = "The best interface is a conversation you forget you're having.";
 
 // Research leads, and takes the accent card — it's the thing people don't know
 // they can ask for, and it's the most capable thing here.
