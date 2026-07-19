@@ -248,27 +248,30 @@
   .hx-annos { display: none; }
   .hx-annos-inline {
     display: block;
-    margin: 10px auto 0;
-    max-width: 300px;
+    margin: 14px auto 0;
+    max-width: 320px;
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 11.5px;
     font-weight: 500;
     letter-spacing: 0.07em;
-    line-height: 1.7;
+    line-height: 1.8;
     text-transform: uppercase;
     color: var(--muted);
   }
+  .hx-eyebrow { font-size: 12.5px; letter-spacing: 0.14em; }
+  .hx-head { font-size: clamp(40px, 9vw, 78px); }
   .hx-nav-link { display: none; }
   .hx-nav-right .hx-cta { display: inline-flex; }
+  .hx-cta { padding: 10px 20px; font-size: 15px; }
   .hx {
     height: auto;
     overflow: visible;
   }
-  .hx-stage { flex: none; padding-bottom: 28px; }
+  .hx-stage { flex: none; padding-bottom: 36px; }
   .hx-reveal {
     flex: none;
-    height: clamp(240px, 62vw, 340px);
-    margin: 18px auto 0;
+    height: clamp(280px, 74vw, 380px);
+    margin: 28px auto 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -84,5 +84,8 @@
   .orb-bloom-a { animation: none !important; }
 }
 @media (max-width: 720px) {
+  :root { --orb: 260px; }
+  .orb-stage { max-width: 68vw; max-height: 68vw; }
+  .orb { max-width: 62vw; max-height: 62vw; }
   .orb-bloom-a { animation: none; filter: blur(16px); }
 }

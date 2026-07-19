@@ -7,64 +7,12 @@ import type { OrbState } from "./useVoiceAgent";
 import type { Theme } from "./App";
 import "./Hero.css";
 
-const SCRAMBLE_GLYPHS = "ABCDEFGHKMNPRSTVXZ0123456789$#%&?/\\<>=+*";
-const isLetter = (c: string) => c >= "a" && c <= "z" || c >= "A" && c <= "Z" || c >= "0" && c <= "9";
-
-function useScramble(text: string, playKey: number, speed = 1.5, settle = 9): string {
-  const [out, setOut] = useState(text);
-  const reduce = useRef(
-    typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
-  ).current;
-
-  useEffect(() => {
-    if (reduce) {
-      setOut(text);
-      return;
-    }
-    let frame = 0;
-    let timer = 0;
-    const tick = () => {
-      let done = true;
-      let s = "";
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (!isLetter(ch)) {
-          s += ch;
-          continue;
-        }
-        const startAt = i * speed;
-        if (frame >= startAt + settle) {
-          s += ch;
-        } else {
-          s += SCRAMBLE_GLYPHS[(Math.random() * SCRAMBLE_GLYPHS.length) | 0];
-          done = false;
-        }
-      }
-      setOut(s);
-      frame++;
-      if (!done) timer = window.setTimeout(tick, 34);
-      else setOut(text);
-    };
-    tick();
-    return () => window.clearTimeout(timer);
-  }, [text, playKey, speed, settle, reduce]);
-
-  return out;
-}
-
-function Scramble({ text, playKey, speed, settle }: { text: string; playKey: number; speed?: number; settle?: number }) {
-  const out = useScramble(text, playKey, speed, settle);
-  return <span aria-label={text}>{out}</span>;
-}
-
 function Headline() {
   return (
     <h1 className="hx-head">
-      <Scramble text="Say your whole day." playKey={0} speed={1.3} settle={8} />
+      Say your whole day.
       <br />
-      <em>
-        It&rsquo;s <Scramble text="handled." playKey={0} speed={2.2} settle={12} />
-      </em>
+      <em>It&rsquo;s handled.</em>
     </h1>
   );
 }
