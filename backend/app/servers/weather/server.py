@@ -14,7 +14,6 @@ _GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 _TIMEOUT = 8.0
 
-# WMO weather-interpretation codes, collapsed to plain English.
 _CONDITIONS = {
     0: "clear skies", 1: "mostly clear", 2: "partly cloudy", 3: "overcast",
     45: "foggy", 48: "foggy with frost",
@@ -28,7 +27,6 @@ _CONDITIONS = {
     95: "thunderstorms", 96: "thunderstorms with hail", 99: "severe thunderstorms with hail",
 }
 
-
 async def _geocode(location: str) -> dict | None:
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.get(
@@ -37,7 +35,6 @@ async def _geocode(location: str) -> dict | None:
         resp.raise_for_status()
         results = resp.json().get("results")
     return results[0] if results else None
-
 
 async def _current_conditions(lat: float, lon: float) -> dict:
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
@@ -52,7 +49,6 @@ async def _current_conditions(lat: float, lon: float) -> dict:
         resp.raise_for_status()
         return resp.json()["current"]
 
-
 @mcp.tool()
 async def get_weather(location: str) -> str:
     """Get the current weather for a place.
@@ -62,9 +58,6 @@ async def get_weather(location: str) -> str:
     """
     try:
         place = await _geocode(location)
-        # The geocoder only matches bare place names — "Austin, TX" or "Paris,
-        # France" (how people actually say locations) returns zero results, so
-        # fall back to just the part before the first comma.
         if not place and "," in location:
             place = await _geocode(location.split(",", 1)[0].strip())
     except httpx.HTTPError:

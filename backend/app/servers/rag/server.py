@@ -16,7 +16,6 @@ from . import store
 
 mcp = FastMCP("rag", streamable_http_path="/")
 
-
 @mcp.tool()
 async def ask(question: str, session_id: str = "") -> str:
     """Answer a question using the user's uploaded documents.
@@ -31,7 +30,6 @@ async def ask(question: str, session_id: str = "") -> str:
         return "I couldn't find anything about that in your documents."
     return "Here's what your documents say: " + " … ".join(passages)
 
-
 @mcp.tool()
 async def summarize(filename: str = "", session_id: str = "") -> str:
     """Summarize an uploaded document.
@@ -45,7 +43,6 @@ async def summarize(filename: str = "", session_id: str = "") -> str:
         return "I don't have that document to summarize."
     return "Here's the document — summarize it for the user: " + text
 
-
 @mcp.tool()
 async def list_documents(session_id: str = "") -> str:
     """List the documents the user has uploaded."""
@@ -54,6 +51,5 @@ async def list_documents(session_id: str = "") -> str:
     names = await anyio.to_thread.run_sync(store.list_documents, session_id)
     if not names:
         return "You haven't uploaded any documents yet."
-    # Speak without the extension — TTS reads ".txt" as "dot t x t" otherwise.
     spoken = [Path(n).stem for n in names]
     return "You've uploaded: " + ", ".join(spoken) + "."

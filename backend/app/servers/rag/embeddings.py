@@ -17,11 +17,6 @@ from huggingface_hub import hf_hub_download
 from transformers import AutoTokenizer
 
 _REPO = "jinaai/jina-embeddings-v2-small-en"
-# The encoder uses full O(n²) attention, so one pass over the model's whole 8192
-# context spikes memory enough to OOM a small VM. We encode the document in
-# bounded segments instead: memory stays flat, late chunking still shares context
-# within each segment, and we can index past 8192 tokens. MAX_DOC_TOKENS caps
-# pathologically long uploads.
 _SEGMENT_TOKENS = 512
 _MAX_DOC_TOKENS = 30000
 _MAX_QUERY_TOKENS = 512
@@ -31,7 +26,6 @@ _session: ort.InferenceSession | None = None
 _tokenizer = None
 _input_names: set[str] = set()
 
-
 def _load() -> None:
     global _session, _tokenizer, _input_names
     if _session is not None:
@@ -39,25 +33,21 @@ def _load() -> None:
     with _lock:
         if _session is not None:
             return
-        # Raw (non-pooled) ONNX: late chunking does its own per-span pooling.
         model_path = hf_hub_download(_REPO, "model.onnx")
         session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
         _input_names = {i.name for i in session.get_inputs()}
         _tokenizer = AutoTokenizer.from_pretrained(_REPO)
         _session = session
 
-
 def warm() -> None:
     _load()
     encode_query("warm up")
-
 
 def _run(input_ids: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
     feeds = {"input_ids": input_ids, "attention_mask": attention_mask}
     if "token_type_ids" in _input_names:
         feeds["token_type_ids"] = np.zeros_like(input_ids)
-    return _session.run(None, feeds)[0]  # (batch, seq, dim)
-
+    return _session.run(None, feeds)[0]
 
 def encode_tokens(text: str) -> tuple[np.ndarray, list[tuple[int, int]]]:
     """Encode a document into per-token vectors plus each token's char offsets.
@@ -68,9 +58,6 @@ def encode_tokens(text: str) -> tuple[np.ndarray, list[tuple[int, int]]]:
     concatenated back into one per-token array aligned with the offsets.
     """
     _load()
-    # The Rust tokenizer mutates its own truncation/padding config on every call,
-    # so two threads calling it at once (e.g. startup warm-up racing a real
-    # upload) crash with "RuntimeError: Already borrowed". Serialize on _lock.
     with _lock:
         enc = _tokenizer(
             text,
@@ -89,12 +76,11 @@ def encode_tokens(text: str) -> tuple[np.ndarray, list[tuple[int, int]]]:
             seg = ids[start:start + _SEGMENT_TOKENS]
             wrapped = np.array([[cls, *seg, sep]], dtype=ids.dtype)
             hidden = _run(wrapped, np.ones_like(wrapped))[0]
-            parts.append(hidden[1:-1])  # drop the CLS/SEP positions
+            parts.append(hidden[1:-1])
         vectors = np.concatenate(parts, axis=0) if parts else np.zeros((0, 512), np.float32)
 
     spans = [(int(a), int(b)) for a, b in offsets]
     return vectors, spans
-
 
 def encode_query(text: str) -> np.ndarray:
     _load()
@@ -104,16 +90,13 @@ def encode_query(text: str) -> np.ndarray:
     mask = enc["attention_mask"][0].astype(np.float32)
     return _normalize(_mean_pool(hidden, mask))
 
-
 def _mean_pool(hidden: np.ndarray, mask: np.ndarray) -> np.ndarray:
     weighted = (hidden * mask[:, None]).sum(axis=0)
     return weighted / max(mask.sum(), 1.0)
 
-
 def _normalize(vec: np.ndarray) -> np.ndarray:
     norm = np.linalg.norm(vec)
     return vec / norm if norm else vec
-
 
 def pool_span(token_vectors: np.ndarray) -> np.ndarray:
     """Mean-pool the token vectors of one chunk into a normalized embedding."""

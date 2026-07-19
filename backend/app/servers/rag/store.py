@@ -15,8 +15,7 @@ import sqlite_vec
 from app.storage.db import connect
 from . import chunk, embeddings, reranker
 
-_RRF_K = 60  # rank-fusion damping; standard default from the RRF paper
-
+_RRF_K = 60
 
 def _match_query(text: str) -> str:
     """Quote each word as an FTS5 phrase so user text can't be read as operators.
@@ -28,7 +27,6 @@ def _match_query(text: str) -> str:
     """
     terms = re.findall(r"\w+", text)
     return " OR ".join(f'"{t}"' for t in terms)
-
 
 def add_document(session_id: str, filename: str, text: str) -> dict:
     token_vectors, spans = embeddings.encode_tokens(text)
@@ -54,7 +52,6 @@ def add_document(session_id: str, filename: str, text: str) -> dict:
             )
             n_chunks = ordinal + 1
     return {"filename": filename, "chunks": n_chunks}
-
 
 def search(session_id: str, query: str, k: int = 5, n: int = 30) -> list[str]:
     qvec = embeddings.encode_query(query)
@@ -90,14 +87,12 @@ def search(session_id: str, query: str, k: int = 5, n: int = 30) -> list[str]:
     order = reranker.rerank(query, passages)
     return [passages[i] for i in order[:k]]
 
-
 def _rrf_fuse(*ranked_lists: list[int]) -> list[int]:
     scores: dict[int, float] = {}
     for ids in ranked_lists:
         for rank, chunk_id in enumerate(ids):
             scores[chunk_id] = scores.get(chunk_id, 0.0) + 1.0 / (_RRF_K + rank + 1)
     return sorted(scores, key=scores.get, reverse=True)
-
 
 def list_documents(session_id: str) -> list[str]:
     with closing(connect()) as conn:
@@ -106,7 +101,6 @@ def list_documents(session_id: str) -> list[str]:
             (session_id,),
         ).fetchall()
     return [r["filename"] for r in rows]
-
 
 def get_document_text(session_id: str, filename: str = "", budget: int = 6000) -> str:
     with closing(connect()) as conn:
@@ -121,9 +115,6 @@ def get_document_text(session_id: str, filename: str = "", budget: int = 6000) -
             "SELECT filename, text FROM documents WHERE session_id = ? ORDER BY id DESC",
             (session_id,),
         ).fetchall()
-    # The LLM only ever heard the extension-less name we speak (see
-    # list_documents), so match on stem — an exact match on the stored
-    # filename would silently miss whenever it echoes that name back.
     target = Path(filename).stem.lower()
     match = next(
         (r for r in rows if r["filename"] == filename or Path(r["filename"]).stem.lower() == target),

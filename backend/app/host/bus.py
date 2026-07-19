@@ -15,17 +15,14 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-# Bounded so a browser tab that stopped reading can't grow a queue without limit.
 _QUEUE_MAX = 256
 
 _subscribers: dict[str, set[asyncio.Queue]] = defaultdict(set)
-
 
 def subscribe(session_id: str) -> asyncio.Queue:
     q: asyncio.Queue = asyncio.Queue(maxsize=_QUEUE_MAX)
     _subscribers[session_id].add(q)
     return q
-
 
 def unsubscribe(session_id: str, q: asyncio.Queue) -> None:
     subs = _subscribers.get(session_id)
@@ -34,7 +31,6 @@ def unsubscribe(session_id: str, q: asyncio.Queue) -> None:
     subs.discard(q)
     if not subs:
         _subscribers.pop(session_id, None)
-
 
 def publish(session_id: str, event: dict) -> None:
     """Non-blocking by design — the agents must never wait on a UI consumer."""

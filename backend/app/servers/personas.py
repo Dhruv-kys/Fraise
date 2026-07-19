@@ -15,7 +15,6 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("personas", streamable_http_path="/")
 
-
 @mcp.tool()
 def switch_assistant(name: str) -> str:
     """Switch the active voice assistant to the one the user names.

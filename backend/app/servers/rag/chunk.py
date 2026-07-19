@@ -9,7 +9,6 @@ boundary still lands whole in one neighbouring chunk.
 CHUNK_TOKENS = 320
 OVERLAP_TOKENS = 48
 
-
 def windows(n_tokens: int) -> list[tuple[int, int]]:
     """Return [start, end) token-index ranges covering n_tokens with overlap."""
     if n_tokens <= 0:

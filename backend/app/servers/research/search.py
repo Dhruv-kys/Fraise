@@ -8,13 +8,10 @@ logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
-
 class SearchUnavailable(RuntimeError):
     pass
 
-
 _VALID_TIME_RANGES = {"day", "week", "month", "year"}
-
 
 async def search(
     query: str, domains: list[str], max_results: int = 5, time_range: str | None = None

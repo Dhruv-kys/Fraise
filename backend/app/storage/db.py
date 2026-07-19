@@ -17,10 +17,7 @@ logger = logging.getLogger(__name__)
 
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "fraise.db"
 
-# Ordered, forward-only. Index i runs to reach user_version i+1.
 _MIGRATIONS = [
-    # 1 — memory store. FTS5 gives full-text recall; session_id scopes each row
-    # to one user, created_at is carried for recency ordering.
     """
     CREATE VIRTUAL TABLE memories USING fts5(
         content,
@@ -28,9 +25,6 @@ _MIGRATIONS = [
         created_at UNINDEXED
     );
     """,
-    # 2 — RAG store. `chunks` (FTS5) doubles as the chunk text store and the
-    # BM25 lexical index; its rowid is the chunk id that `vec_chunks` keys on for
-    # dense search. session_id is a vec0 metadata column so KNN stays per-user.
     """
     CREATE TABLE documents (
         id INTEGER PRIMARY KEY,
@@ -52,9 +46,6 @@ _MIGRATIONS = [
         embedding float[512]
     );
     """,
-    # 3 — conversation transcript, so a new connection (reload, reconnect, a
-    # returning session days later) can be handed recent context instead of
-    # starting cold. Plain table, not FTS: this needs recency order, not search.
     """
     CREATE TABLE conversation_turns (
         id INTEGER PRIMARY KEY,
@@ -64,9 +55,6 @@ _MIGRATIONS = [
         created_at TEXT
     );
     """,
-    # 4 — research artifacts. `body` is the whole rendered artifact as JSON
-    # (sections, citations, which agents contributed); it's write-once per run,
-    # so there's nothing to gain from normalizing it into tables.
     """
     CREATE TABLE artifacts (
         id TEXT PRIMARY KEY,
@@ -80,7 +68,6 @@ _MIGRATIONS = [
     """,
 ]
 
-
 def connect() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
@@ -91,7 +78,6 @@ def connect() -> sqlite3.Connection:
     _migrate(conn)
     return conn
 
-
 def _migrate(conn: sqlite3.Connection) -> None:
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     for i in range(version, len(_MIGRATIONS)):
@@ -99,12 +85,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute(f"PRAGMA user_version = {i + 1}")
         conn.commit()
 
-
-# ---------- artifacts ----------
-
 def new_id() -> str:
     return uuid4().hex
-
 
 def save_artifact(artifact_id: str, session_id: str, title: str, fmt: str, body: str) -> None:
     conn = connect()
@@ -118,7 +100,6 @@ def save_artifact(artifact_id: str, session_id: str, title: str, fmt: str, body:
     finally:
         conn.close()
 
-
 def _artifact_body(raw: str) -> dict | None:
     """Read stored artifact JSON without turning one bad row into a 500."""
     try:
@@ -129,7 +110,6 @@ def _artifact_body(raw: str) -> dict | None:
     if not isinstance(body, dict) or not body.get("sections"):
         return None
     return body
-
 
 def get_artifact(artifact_id: str, session_id: str) -> dict | None:
     """Scoped by session_id as well as id — an artifact id is a guessable handle,
@@ -146,8 +126,6 @@ def get_artifact(artifact_id: str, session_id: str) -> dict | None:
     if not row:
         return None
     body = _artifact_body(row["body"])
-    # Older versions saved an artifact even when every provider call failed.
-    # Those records have no content, so don't surface a blank document to users.
     if not body:
         return None
     return {
@@ -157,7 +135,6 @@ def get_artifact(artifact_id: str, session_id: str) -> dict | None:
         "created_at": row["created_at"],
         **body,
     }
-
 
 def list_artifacts(session_id: str, limit: int = 20) -> list[dict]:
     conn = connect()
@@ -169,7 +146,6 @@ def list_artifacts(session_id: str, limit: int = 20) -> list[dict]:
         ).fetchall()
     finally:
         conn.close()
-    # Filter the historical empty artifacts created by the old failure path.
     valid: list[dict] = []
     for row in rows:
         if _artifact_body(row["body"]):

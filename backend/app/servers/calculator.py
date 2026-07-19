@@ -13,14 +13,11 @@ import operator
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
-# streamable_http_path="/" so mounting at "/mcp" yields the endpoint "/mcp".
 mcp = FastMCP("calculator", streamable_http_path="/")
-
 
 class CalcResult(BaseModel):
     expression: str
     result: float
-
 
 _BIN_OPS = {
     ast.Add: operator.add,
@@ -33,7 +30,6 @@ _BIN_OPS = {
 }
 _UNARY_OPS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
 
-
 def _eval(node: ast.AST) -> float:
     if isinstance(node, ast.Expression):
         return _eval(node.body)
@@ -44,7 +40,6 @@ def _eval(node: ast.AST) -> float:
     if isinstance(node, ast.UnaryOp) and type(node.op) in _UNARY_OPS:
         return _UNARY_OPS[type(node.op)](_eval(node.operand))
     raise ValueError("unsupported expression")
-
 
 @mcp.tool()
 def calculate(expression: str) -> CalcResult:

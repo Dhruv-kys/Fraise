@@ -21,12 +21,11 @@ SCOPES = ["https://www.googleapis.com/auth/calendar"]
 CREDS_PATH = Path(__file__).resolve().parents[2] / "google_credentials.json"
 TOKEN_PATH  = Path(__file__).resolve().parents[1] / "calendar_token.json"
 
-_pending_states: set[str] = set()  # outstanding OAuth state tokens; single-user, in-memory is fine
+_pending_states: set[str] = set()
 
 REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/calendar/callback"
 )
-
 
 def _build_flow() -> Flow:
     if CREDS_PATH.exists():
@@ -57,7 +56,6 @@ def _build_flow() -> Flow:
         redirect_uri=REDIRECT_URI,
     )
 
-
 @router.get("")
 async def start_auth() -> RedirectResponse:
     flow = _build_flow()
@@ -70,7 +68,6 @@ async def start_auth() -> RedirectResponse:
     )
     _pending_states.add(state)
     return RedirectResponse(auth_url)
-
 
 @router.get("/callback")
 async def callback(code: str, state: str = "") -> HTMLResponse:

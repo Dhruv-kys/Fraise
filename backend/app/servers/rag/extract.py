@@ -6,7 +6,6 @@ from pypdf import PdfReader
 
 SUPPORTED = {".txt", ".md", ".pdf"}
 
-
 def extract_text(filename: str, raw: bytes) -> str:
     ext = Path(filename).suffix.lower()
     if ext not in SUPPORTED:

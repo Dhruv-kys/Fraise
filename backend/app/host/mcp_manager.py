@@ -28,9 +28,7 @@ CONFIG_PATH = Path(__file__).resolve().parents[2] / "mcp_servers.json"
 _UNSAFE = re.compile(r"[^a-zA-Z0-9_-]")
 _VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
-# Tool params the host fills from the connection — never exposed to the LLM.
 _INJECTED_PARAMS = ("session_id",)
-
 
 def _expand_env(value: Any) -> Any:
     """Resolve ${VAR} references against the process environment.
@@ -54,7 +52,6 @@ def _expand_env(value: Any) -> Any:
         return [_expand_env(v) for v in value]
     return value
 
-
 def _flatten_structured(structured: dict | None) -> str | None:
     """Unwrap FastMCP's auto structured-output envelope, or pass a real dict through as JSON.
 
@@ -71,7 +68,6 @@ def _flatten_structured(structured: dict | None) -> str | None:
         return result if isinstance(result, str) else json.dumps(result)
     return json.dumps(structured)
 
-
 def _hide_injected(schema: dict) -> dict:
     """Return a copy of an input schema with host-injected params removed."""
     props = schema.get("properties")
@@ -83,17 +79,11 @@ def _hide_injected(schema: dict) -> dict:
         out["required"] = [r for r in out["required"] if r not in _INJECTED_PARAMS]
     return out
 
-
 class MCPManager:
     def __init__(self) -> None:
         self._stack = AsyncExitStack()
-        # server_name -> {"handle": FastMCP | ClientSession, "tools": list, "builtin": bool}
         self._servers: dict[str, dict] = {}
-        # exposed function name -> (server_name, real tool name)
         self._route: dict[str, tuple[str, str]] = {}
-        # Deepgram function declarations, built once in _build_routes since
-        # _route is static for the process lifetime — no need to redo this
-        # work on every new /ws connection.
         self._functions_cache: list[dict] | None = None
         self._functions_by_server_cache: dict[str, list[dict]] | None = None
 
@@ -130,15 +120,12 @@ class MCPManager:
             handle = getattr(module, spec.get("attr", "mcp"))
             self._register(name, handle, await handle.list_tools(), builtin=True)
         else:
-            # Scope the connection to a local stack so a failed handshake unwinds its
-            # subprocess/socket immediately; ownership moves to the long-lived stack
-            # only once the server is fully connected.
             async with AsyncExitStack() as scoped:
                 if kind == "http":
                     read, write, _ = await scoped.enter_async_context(
                         streamablehttp_client(spec["url"], headers=spec.get("headers"))
                     )
-                else:  # stdio
+                else:
                     params = StdioServerParameters(
                         command=spec["command"],
                         args=spec.get("args", []),
@@ -157,7 +144,6 @@ class MCPManager:
         logger.info("connected %r (%s) — %d tool(s)", name, kind, count)
 
     def _build_routes(self) -> None:
-        # Count how many servers expose each tool name to detect collisions.
         counts: dict[str, int] = {}
         for s in self._servers.values():
             for t in s["tools"]:
@@ -166,7 +152,6 @@ class MCPManager:
         self._route.clear()
         for sname, s in self._servers.items():
             for t in s["tools"]:
-                # Prefix with server name only when the name collides.
                 public = t.name if counts[t.name] == 1 else f"{sname}_{t.name}"
                 public = _UNSAFE.sub("_", public)[:64]
                 self._route[public] = (sname, t.name)
@@ -239,6 +224,5 @@ class MCPManager:
         self._route.clear()
         self._functions_cache = None
         self._functions_by_server_cache = None
-
 
 manager = MCPManager()

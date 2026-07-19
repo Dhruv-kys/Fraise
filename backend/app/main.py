@@ -22,10 +22,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-# Load configuration before importing application modules. Several modules read
-# their settings at import time (for example the voice-agent endpoint), so doing
-# this below those imports made a local .env ineffective unless systemd also set
-# the same variables in its environment.
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from app.servers.calendar_auth import router as calendar_auth_router
@@ -48,21 +44,16 @@ CORS_ORIGINS = list(dict.fromkeys([
     *(o.strip() for o in _configured_cors_origins if o.strip()),
 ]))
 
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     async with mcp.session_manager.run():
         await manager.connect_all()
-        # Load the RAG models off the event loop so the first query is fast and
-        # startup isn't blocked on the download/warm pass.
         warm_task = asyncio.create_task(anyio.to_thread.run_sync(_warm_rag))
         yield
-        # Can't interrupt the worker thread itself; this just avoids an orphaned task.
         warm_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await warm_task
     await manager.aclose()
-
 
 def _warm_rag() -> None:
     try:
@@ -70,7 +61,6 @@ def _warm_rag() -> None:
         reranker.warm()
     except Exception:
         logger.exception("RAG warm-up failed — first query will be slow")
-
 
 app = FastAPI(title="fraise", lifespan=lifespan)
 app.add_middleware(
@@ -81,11 +71,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/health")
 async def health() -> dict:
     return {"ok": True}
-
 
 @app.get("/agents/stream")
 async def agents_stream(sid: str = Query(...)) -> StreamingResponse:
@@ -93,13 +81,12 @@ async def agents_stream(sid: str = Query(...)) -> StreamingResponse:
 
     async def events():
         try:
-            # Flush a comment immediately so proxies don't sit on the response.
             yield ": connected\n\n"
             while True:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=20)
                 except asyncio.TimeoutError:
-                    yield ": keep-alive\n\n"  # keeps idle proxies from closing us
+                    yield ": keep-alive\n\n"
                     continue
                 yield f"data: {json.dumps(event)}\n\n"
         finally:
@@ -110,7 +97,6 @@ async def agents_stream(sid: str = Query(...)) -> StreamingResponse:
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )
-
 
 @app.get("/history")
 async def history(sid: str = Query(...), limit: int = Query(40)) -> dict:
@@ -128,11 +114,9 @@ async def history(sid: str = Query(...), limit: int = Query(40)) -> dict:
         "memories": facts,
     }
 
-
 @app.get("/artifacts")
 async def artifacts(sid: str = Query(...)) -> list[dict]:
     return await anyio.to_thread.run_sync(db.list_artifacts, sid)
-
 
 @app.get("/artifacts/{artifact_id}")
 async def artifact(artifact_id: str, sid: str = Query(...)) -> dict:
@@ -140,7 +124,6 @@ async def artifact(artifact_id: str, sid: str = Query(...)) -> dict:
     if not found:
         raise HTTPException(status_code=404, detail="no such artifact")
     return found
-
 
 @app.post("/dictate")
 async def dictate(sid: str = Query(...), body: dict = Body(...)) -> dict:
@@ -150,8 +133,6 @@ async def dictate(sid: str = Query(...), body: dict = Body(...)) -> dict:
     text = (body.get("text") or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="nothing was dictated")
-    # ~2 hours of continuous speech at normal pace. Segmentation chunks and
-    # scales with length, so this is an abuse/cost guard, not a quality limit.
     if len(text) > 120_000:
         raise HTTPException(status_code=400, detail="that dictation is too long — try splitting it up")
     try:
@@ -160,7 +141,6 @@ async def dictate(sid: str = Query(...), body: dict = Body(...)) -> dict:
         tz_offset_min = 0
     day_id = daily.start(text, sid, tz_offset_min)
     return {"day_id": day_id}
-
 
 @app.post("/upload")
 async def upload(sid: str = Query(...), file: UploadFile = ...) -> dict:
@@ -175,16 +155,12 @@ async def upload(sid: str = Query(...), file: UploadFile = ...) -> dict:
         rag_store.add_document, sid, file.filename, text
     )
 
-
 @app.websocket("/ws")
 async def voice_socket(ws: WebSocket) -> None:
     await ws.accept()
     session_id = ws.query_params.get("sid") or uuid4().hex
     user_name = ws.query_params.get("name") or ""
     greet = ws.query_params.get("greet") != "0"
-    # Per-assistant persona config (Phase 11): the active assistant's display
-    # name, its custom instructions, and the names of the user's other assistants
-    # (for voice-native switching). All live in the browser; the sid is the scope.
     assistant_name = ws.query_params.get("persona") or ""
     instructions = ws.query_params.get("instructions") or ""
     personas = ws.query_params.get("personas") or ""
@@ -197,7 +173,6 @@ async def voice_socket(ws: WebSocket) -> None:
         logger.exception("voice bridge failed")
         with contextlib.suppress(Exception):
             await ws.send_json({"type": "error", "message": "Voice connection failed. Please try again."})
-
 
 app.include_router(calendar_auth_router)
 app.mount("/mcp", mcp.streamable_http_app())

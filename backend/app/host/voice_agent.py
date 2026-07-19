@@ -21,24 +21,17 @@ from fastapi import WebSocket, WebSocketDisconnect
 from app.host.mcp_manager import manager
 from app.servers.memory import store as memory_store
 
-# A tool may return an {"_action": {...}} envelope to ask the host to perform an
-# out-of-band step (e.g. an OAuth redirect) and re-run the tool once it's done.
-# The host stays capability-agnostic: it forwards the action to the browser and
-# polls the same tool until it stops asking. _ACTION_TIMEOUT bounds that wait.
-_ACTION_TIMEOUT = 90  # seconds
+_ACTION_TIMEOUT = 90
 
-# Bounds a single tool call so one wedged server (a hung http/stdio session, a
-# stuck thread) can't stall the dg_to_browser loop and silence the whole session.
-# Kept under the frontend's 20s watchdog so the LLM can still speak the error.
-_TOOL_TIMEOUT = 15  # seconds
+_TOOL_TIMEOUT = 15
 
 logger = logging.getLogger(__name__)
 
 DG_URL = os.environ.get("DEEPGRAM_AGENT_URL", "wss://agent.deepgram.com/v1/agent/converse")
-MAX_TOOL_STEPS = 10  # per conversational turn; guards against runaway LLM loops
+MAX_TOOL_STEPS = 10
 
-INPUT_RATE = 16_000   # mic → agent
-OUTPUT_RATE = 24_000  # agent → speaker
+INPUT_RATE = 16_000
+OUTPUT_RATE = 24_000
 
 PROMPT = (
     "You are Fraise, an intelligent voice assistant. You can chat naturally and do "
@@ -103,13 +96,11 @@ PROMPT = (
     "results, and never claim you did something you didn't."
 )
 
-
 def _clean_name(raw: str) -> str:
     """Keep the name safe to drop into a prompt: printable chars, single line,
     capped length. Guards against prompt-injection via the query string."""
     name = "".join(ch for ch in raw if ch.isprintable() and ch not in "{}").strip()
     return name[:40]
-
 
 def _clean_instructions(raw: str) -> str:
     """Per-assistant custom instructions folded into the system prompt. Unlike a
@@ -117,7 +108,6 @@ def _clean_instructions(raw: str) -> str:
     length is capped since this is user-authored persona config, not trusted input."""
     text = "".join(ch for ch in raw if ch.isprintable() or ch == "\n").strip()
     return text[:1500]
-
 
 def _describe_capabilities() -> str:
     """Build a per-server capability summary from whatever's actually connected,
@@ -129,7 +119,6 @@ def _describe_capabilities() -> str:
         if bullets:
             lines.append(f"- {sname}: {bullets}")
     return "\n".join(lines)
-
 
 async def _recent_context(session_id: str) -> str:
     """Recent turns from this session_id, across reconnects and even prior
@@ -143,7 +132,6 @@ async def _recent_context(session_id: str) -> str:
         return ""
     return "\n".join(f"{'User' if role == 'user' else 'Fraise'}: {content}" for role, content in turns)
 
-
 async def _build_settings(
     session_id: str = "",
     user_name: str = "",
@@ -155,7 +143,6 @@ async def _build_settings(
 ) -> dict:
     name = _clean_name(user_name)
     persona = _clean_name(assistant_name)
-    # A persona is a rename only when it isn't the default "Fraise".
     speaker = persona if persona and persona.lower() != "fraise" else "Fraise"
 
     prompt = PROMPT
@@ -166,8 +153,6 @@ async def _build_settings(
             "overuse it or start every sentence with it.\n\n"
         ) + prompt
 
-    # Persona identity + custom instructions lead the prompt so they set the tone
-    # for everything after — the same folding pattern as user_name above.
     custom = _clean_instructions(instructions)
     if custom:
         prompt = (
@@ -203,9 +188,6 @@ async def _build_settings(
             "verbatim.\n" + capabilities
         )
 
-    # The user's other assistants (names only) — enough for the model to know it
-    # can switch and what to pass to switch_assistant. Each has its own separate
-    # memory, so a switch is a real change of context, not a cosmetic relabel.
     other = [
         p for p in (_clean_name(x) for x in personas.split(",") if x.strip())
         if p and p.lower() != speaker.lower()
@@ -230,8 +212,6 @@ async def _build_settings(
         )
 
     agent: dict = {
-        # Flux (v2) does real end-of-turn detection, so a mid-sentence pause no
-        # longer finalizes as its own utterance — one turn becomes one transcript.
         "listen": {"provider": {
             "type": "deepgram",
             "version": "v2",
@@ -249,9 +229,6 @@ async def _build_settings(
         },
         "speak": {"provider": {"type": "deepgram", "model": voice or os.environ.get("DEEPGRAM_VOICE", "aura-2-thalia-en")}},
     }
-    # Only the first connection in a browser tab speaks the greeting; reconnects
-    # (reload, a dropped socket auto-recovering) omit it so Fraise doesn't
-    # re-introduce herself mid-conversation. See useVoiceAgent's `greet` param.
     if greet:
         agent["greeting"] = greeting
 
@@ -264,7 +241,6 @@ async def _build_settings(
         "agent": agent,
     }
 
-
 def _translate(text: str) -> str:
     """Map a browser 'document_uploaded' signal to a Deepgram user turn that makes
     Fraise summarize the new document via RAG. Everything else passes through."""
@@ -275,8 +251,6 @@ def _translate(text: str) -> str:
     if event.get("type") != "document_uploaded":
         return text
     raw_filename = event.get("filename") or ""
-    # Drop the extension — this text becomes a conversation turn the LLM can see
-    # and echo back, and TTS reads ".txt" as "dot t x t" if it does.
     name = Path(raw_filename).stem if raw_filename else "the document"
     return json.dumps({
         "type": "InjectUserMessage",
@@ -284,21 +258,16 @@ def _translate(text: str) -> str:
                    "Give me a short summary of what it's about.",
     })
 
-
 async def _run_tool(fn: dict, session_id: str) -> str:
     try:
         args = json.loads(fn.get("arguments") or "{}")
         return await asyncio.wait_for(manager.call(fn["name"], args, session_id), _TOOL_TIMEOUT)
     except asyncio.TimeoutError:
-        # wait_for cancels the inner task, freeing the dg_to_browser loop for a real
-        # asyncio hang (stuck socket read). A thread wedged in anyio.to_thread.run_sync
-        # on a non-cooperative blocking call leaks, but the session still recovers.
         logger.warning("tool %r timed out after %ds", fn.get("name"), _TOOL_TIMEOUT)
         return json.dumps({"error": "That took too long, so I stopped. Please try again."})
     except Exception as exc:
         logger.exception("tool %r failed", fn.get("name"))
         return json.dumps({"error": str(exc)})
-
 
 def _extract_action(content: str) -> dict | None:
     try:
@@ -306,7 +275,6 @@ def _extract_action(content: str) -> dict | None:
     except (json.JSONDecodeError, TypeError):
         return None
     return data.get("_action") if isinstance(data, dict) else None
-
 
 def _strip_action(content: str) -> str:
     """Drop the `_action` envelope, leaving the rest for the LLM to speak from."""
@@ -317,7 +285,6 @@ def _strip_action(content: str) -> str:
     if isinstance(data, dict):
         data.pop("_action", None)
     return json.dumps(data)
-
 
 async def _resolve_action(fn: dict, session_id: str, browser: WebSocket, action: dict) -> str:
     await browser.send_text(json.dumps(action))
@@ -331,7 +298,6 @@ async def _resolve_action(fn: dict, session_id: str, browser: WebSocket, action:
             return content
     return json.dumps({"error": "The action timed out. Please try again."})
 
-
 async def _run_one_function_call(dg, browser: WebSocket, fn: dict, session_id: str) -> None:
     fn_id = fn.get("id")
     fn_name = fn.get("name", "")
@@ -339,19 +305,12 @@ async def _run_one_function_call(dg, browser: WebSocket, fn: dict, session_id: s
         content = await _run_tool(fn, session_id)
         action = _extract_action(content)
         if action:
-            # `once` actions are fire-and-forget (e.g. a persona switch that
-            # reconnects the socket): tell the browser and return right away.
-            # Everything else — like OAuth — is re-polled until it resolves.
             if action.get("once"):
                 await browser.send_text(json.dumps(action))
                 content = _strip_action(content)
             else:
                 content = await _resolve_action(fn, session_id, browser, action)
     except Exception as exc:
-        # _run_tool already guards the tool call itself; this covers everything
-        # else (e.g. _resolve_action hitting a browser socket that just closed).
-        # Without this, Deepgram never gets a FunctionCallResponse for this id
-        # and the whole turn — sometimes the whole session — goes silent.
         logger.exception("function call %r crashed outside the tool's own error handling", fn_name)
         content = json.dumps({"error": str(exc)})
 
@@ -365,14 +324,9 @@ async def _run_one_function_call(dg, browser: WebSocket, fn: dict, session_id: s
         "content": content,
     }))
 
-
 async def _handle_function_call(dg, browser: WebSocket, message: dict, session_id: str) -> None:
-    # A single FunctionCallRequest can carry several independent tool calls (the
-    # LLM asking for more than one at once) — run them concurrently so total
-    # turn latency is the slowest call, not the sum of all of them.
     functions = message.get("functions", [])
     await asyncio.gather(*(_run_one_function_call(dg, browser, fn, session_id) for fn in functions))
-
 
 async def bridge(
     browser: WebSocket,
@@ -417,7 +371,6 @@ async def bridge(
 
                 event_type = event.get("type")
 
-                # A new user utterance starts a fresh tool chain.
                 if event_type in ("UserStartedSpeaking", "ConversationText"):
                     step_count = 0
 
@@ -448,10 +401,6 @@ async def bridge(
             done, pending = await asyncio.wait({b2d, d2b}, return_when=asyncio.FIRST_COMPLETED)
             for task in pending:
                 task.cancel()
-            # asyncio.wait swallows exceptions from finished tasks — without this,
-            # a crash in either direction went completely silent: the socket stayed
-            # open but nothing was ever sent to the browser again. Re-raising lets
-            # main.py's handler report a real error instead of dead air.
             for task in done:
                 exc = task.exception()
                 if exc is not None:

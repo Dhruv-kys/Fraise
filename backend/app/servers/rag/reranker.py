@@ -14,7 +14,6 @@ _MODEL = "jinaai/jina-reranker-v1-tiny-en"
 _lock = threading.Lock()
 _encoder: TextCrossEncoder | None = None
 
-
 def _load() -> TextCrossEncoder:
     global _encoder
     if _encoder is None:
@@ -23,10 +22,8 @@ def _load() -> TextCrossEncoder:
                 _encoder = TextCrossEncoder(model_name=_MODEL)
     return _encoder
 
-
 def warm() -> None:
     rerank("warm up", ["warm up"])
-
 
 def rerank(query: str, passages: list[str]) -> list[int]:
     """Return passage indices ordered best-first by cross-encoder relevance."""

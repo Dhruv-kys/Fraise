@@ -31,25 +31,14 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP("research")
 
-# Bounded fan-out. Every agent is a search + an LLM call inside the same minute,
-# so this is a tokens-per-minute budget as much as a latency one.
 MIN_AGENTS = 2
 MAX_AGENTS = 4
-_AGENT_BUDGET = 60  # seconds for one agent's search + summarize
+_AGENT_BUDGET = 60
 
-# asyncio only holds a *weak* reference to a running task. A fire-and-forget
-# create_task() whose handle we drop can be garbage-collected mid-flight — the
-# agents would silently vanish partway through. Hold the handle until it's done.
 _running: set[asyncio.Task] = set()
 
-
 def _today_line() -> str:
-    # Without this, "best SDE internships" and "best SDE internships 2026" are the
-    # same query to the planner, and Tavily's relevance ranking happily returns a
-    # well-optimized listicle from 2024 over anything current — the model has no
-    # notion of "current" without being told what day it is.
     return datetime.now(timezone.utc).strftime("Today's date is %B %-d, %Y.")
-
 
 _PLANNER_SYSTEM = (
     "You plan a parallel research team. Given one question, design the agents that "
@@ -81,18 +70,11 @@ _PLANNER_SYSTEM = (
     "- If the user names sources, those must be among the agents."
 )
 
-
 def _slug(text: str, i: int) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return s or f"agent-{i}"
 
-
-# The planner is asked for domains and sometimes answers with prose — observed:
-# ["mouthshut.com", "Mouthshut is an Indian review site"]. Passed to Tavily's
-# include_domains, that quietly narrows the search to nothing and the agent comes
-# back empty for no visible reason. Keep only things shaped like a hostname.
 _DOMAIN_RE = re.compile(r"^(?:https?://)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)/?$", re.I)
-
 
 def _clean_domains(raw) -> list[str]:
     if not isinstance(raw, list):
@@ -106,7 +88,6 @@ def _clean_domains(raw) -> list[str]:
             logger.info("planner emitted a non-domain, dropping: %r", str(d)[:60])
     return out[:4]
 
-
 def _fallback_plan(query: str) -> list[dict]:
     """The planner is an LLM call, and LLM calls fail. A run must still happen."""
     return [
@@ -117,12 +98,8 @@ def _fallback_plan(query: str) -> list[dict]:
          "recency": "year"},
     ]
 
-
 async def _plan(query: str, hint: str) -> list[dict]:
     """Decide who goes looking. This is what makes the team fit the question."""
-    # Built fresh per call, not baked into the system prompt constant — that
-    # constant is built once at import and would freeze "today" at whenever
-    # the server last started.
     ask = f"{_today_line()}\n\nQuestion: {query}"
     if hint:
         ask += f"\nThe user specifically asked for these sources: {hint}"
@@ -147,10 +124,6 @@ async def _plan(query: str, hint: str) -> list[dict]:
         if not label:
             continue
 
-        # The id is derived from the label, and the planner happily returns two
-        # agents both called "News". Colliding ids mean their progress events
-        # overwrite each other and the UI renders duplicate React keys — the cards
-        # visibly break. Ids must be unique even when labels aren't.
         base = _slug(label, i)
         agent_id = base
         n = 2
@@ -161,10 +134,6 @@ async def _plan(query: str, hint: str) -> list[dict]:
 
         recency = str(a.get("recency") or "").strip().lower()
         if recency not in ("day", "week", "month", "year", "none"):
-            # A missing/malformed recency is more likely a topic the planner
-            # didn't think to date-bound than a deliberately evergreen one —
-            # default to filtering rather than silently letting stale results
-            # back in.
             recency = "year"
 
         agents.append({
@@ -180,14 +149,12 @@ async def _plan(query: str, hint: str) -> list[dict]:
         return _fallback_plan(query)
     return agents
 
-
 _PLAIN_TEXT_RULE = (
     "Write PLAIN TEXT ONLY. No markdown of any kind: no asterisks, no bold, no "
     "square brackets, no links, no headings, no backticks. Never write a URL — the "
     "sources are listed separately, and a URL read aloud is unusable. Every line is "
     "an ordinary English sentence."
 )
-
 
 def _agent_system(label: str, angle: str) -> str:
     return (
@@ -200,7 +167,6 @@ def _agent_system(label: str, angle: str) -> str:
         f"than reporting both as current.\n\n{_today_line()}\n\n"
         + _PLAIN_TEXT_RULE
     )
-
 
 async def _run_agent(spec: dict, run_id: str, session_id: str) -> dict:
     """One agent: search its angle, summarize its slice. Never raises — a failed
@@ -228,18 +194,12 @@ async def _run_agent(spec: dict, run_id: str, session_id: str) -> dict:
         results = await asyncio.wait_for(
             search.search(spec["query"], spec["domains"], time_range=recency), _AGENT_BUDGET
         )
-        # An over-narrow domain list returns nothing at all — which looks like "there
-        # is no answer" when it really means "we looked in too small a place". Widen
-        # once to the open web before giving up.
         if not results and spec["domains"]:
             step("searching", "Nothing there — widening to the open web")
             results = await asyncio.wait_for(
                 search.search(spec["query"], [], time_range=recency), _AGENT_BUDGET
             )
 
-        # A tight freshness window can also be the reason a search comes back
-        # empty (there just isn't anything from the last week yet) — better to
-        # fall back to older-but-real results than to report nothing at all.
         if not results and recency != "none":
             step("searching", "Nothing that recent — widening the date range")
             results = await asyncio.wait_for(
@@ -267,7 +227,6 @@ async def _run_agent(spec: dict, run_id: str, session_id: str) -> dict:
             ),
             _AGENT_BUDGET,
         )
-        # Plain text from here on: this feeds a TTS voice and a verbatim renderer.
         findings = "\n".join(
             line for line in (llm.strip_markdown(l) for l in raw.splitlines()) if line
         )
@@ -276,11 +235,10 @@ async def _run_agent(spec: dict, run_id: str, session_id: str) -> dict:
              found=len(results), titles=titles, summary=findings, elapsed=elapsed)
         return {"agent": name, "label": label, "findings": findings, "sources": results}
 
-    except Exception as exc:  # a dead agent must not kill the other ones
+    except Exception as exc:
         logger.warning("agent %s failed: %s", name, exc)
         step("failed", "Couldn't finish", error=str(exc)[:160])
         return {"agent": name, "label": label, "findings": "", "sources": [], "error": str(exc)}
-
 
 _SYNTH_SYSTEM = (
     "You merge findings from several research agents into one artifact.\n"
@@ -298,7 +256,6 @@ _SYNTH_SYSTEM = (
     "Each bullet is one concrete, specific sentence.\n\n"
     + _PLAIN_TEXT_RULE
 )
-
 
 async def _synthesize(query: str, agent_results: list[dict]) -> dict:
     usable = [a for a in agent_results if a.get("findings")]
@@ -319,16 +276,12 @@ async def _synthesize(query: str, agent_results: list[dict]) -> dict:
 
     sections = data.get("sections")
     if not isinstance(sections, list) or not sections:
-        # A model that drops the structure shouldn't lose the work — fall back to
-        # the agents' own findings as the sections.
         sections = [
             {"heading": a["label"],
              "bullets": [l for l in a["findings"].splitlines() if l.strip()]}
             for a in usable
         ]
 
-    # Scrub every string the user will see or hear. The model is told not to emit
-    # markdown; it does anyway, and one stray "**" becomes "star star" out loud.
     clean: list[dict] = []
     for s in sections:
         if not isinstance(s, dict):
@@ -348,7 +301,6 @@ async def _synthesize(query: str, agent_results: list[dict]) -> dict:
         "sections": clean,
     }
 
-
 async def _run(run_id: str, query: str, hint: str, fmt: str, session_id: str) -> None:
     """Run a research job without ever leaving the browser waiting forever.
 
@@ -365,7 +317,6 @@ async def _run(run_id: str, query: str, hint: str, fmt: str, session_id: str) ->
         bus.publish(session_id, {
             "type": "run", "run_id": run_id, "status": "failed", "error": str(exc)[:160],
         })
-
 
 async def _run_impl(run_id: str, query: str, hint: str, fmt: str, session_id: str) -> None:
     """The background job: plan the team, fan out, synthesize, store, announce."""
@@ -387,14 +338,8 @@ async def _run_impl(run_id: str, query: str, hint: str, fmt: str, session_id: st
         ],
     })
 
-    # The whole point: every agent runs at once, so the run costs the slowest agent
-    # rather than the sum of them.
     results = await asyncio.gather(*(_run_agent(a, run_id, session_id) for a in plan))
 
-    # An empty team result is not an artifact. In particular, missing provider
-    # credentials make every search agent fail; previously that was synthesized as
-    # a successful, empty "No results" document and persisted to the sidebar.
-    # Leave the failures visible on the live cards and end the run honestly instead.
     if not any(result.get("findings") for result in results):
         errors = [str(result["error"]) for result in results if result.get("error")]
         error = errors[0] if errors else "No sources returned results. Try a different query."
@@ -440,10 +385,6 @@ async def _run_impl(run_id: str, query: str, hint: str, fmt: str, session_id: st
         "artifact": body, "spoken": artifact["spoken"],
     })
 
-
-# Named `deep_research`, not `research`: the Tavily MCP server already exposes a
-# `tavily_research`, and an LLM choosing between two tools called "research" picks
-# the wrong one about half the time. The name has to win on its own.
 @mcp.tool()
 async def deep_research(
     query: str,
@@ -471,9 +412,6 @@ async def deep_research(
     """
     run_id = db.new_id()
 
-    # Fire and forget: the fan-out takes far longer than the host's per-tool timeout,
-    # and holding the voice turn hostage for 30s of searching would be the worst
-    # possible UX. Speak now, deliver the artifact when it lands.
     task = asyncio.create_task(_run(run_id, query, sources, format, session_id))
     _running.add(task)
     task.add_done_callback(_running.discard)

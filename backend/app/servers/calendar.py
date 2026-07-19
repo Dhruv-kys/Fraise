@@ -23,31 +23,21 @@ SCOPES = ["https://www.googleapis.com/auth/calendar"]
 TOKEN_PATH = Path(__file__).resolve().parents[1] / "calendar_token.json"
 AUTH_URL = "/auth/calendar"
 
-
 class CalendarAuthRequired(RuntimeError):
     """Raised when the user needs to (re)connect Google Calendar."""
 
-
 def _auth_needed_response() -> str:
-    # The host forwards `_action` to the browser (an OAuth redirect) and re-runs
-    # the tool once auth completes. `message` is spoken if the action times out.
     return json.dumps({
         "_action": {"type": "auth_redirect", "url": AUTH_URL},
         "message": "Google Calendar isn't connected yet.",
     })
 
 TZ_NAME = os.getenv("CALENDAR_TIMEZONE", "America/New_York")
-WORK_START = int(os.getenv("CALENDAR_WORK_START", "9"))   # hour, 24h
-WORK_END   = int(os.getenv("CALENDAR_WORK_END",   "18"))  # hour, 24h
-
-
-# ---------------------------------------------------------------------------
-# Auth / service
-# ---------------------------------------------------------------------------
+WORK_START = int(os.getenv("CALENDAR_WORK_START", "9"))
+WORK_END   = int(os.getenv("CALENDAR_WORK_END",   "18"))
 
 def _tz() -> ZoneInfo:
     return ZoneInfo(TZ_NAME)
-
 
 def _service():
     if not TOKEN_PATH.exists():
@@ -61,25 +51,17 @@ def _service():
             raise CalendarAuthRequired("Calendar credentials expired.")
     return build("calendar", "v3", credentials=creds, cache_discovery=False)
 
-
-# ---------------------------------------------------------------------------
-# Formatting helpers
-# ---------------------------------------------------------------------------
-
 def _today() -> date:
     return datetime.now(tz=_tz()).date()
 
-
 def _parse_date(s: str) -> date:
     return date.today() if not s.strip() else date.fromisoformat(s.strip())
-
 
 def _parse_event_dt(event_time: dict) -> datetime | None:
     """Parse a Google Calendar event start/end dict; returns None for all-day."""
     if "dateTime" in event_time:
         return datetime.fromisoformat(event_time["dateTime"])
-    return None  # all-day event: only has "date"
-
+    return None
 
 def _speak_date(d: date) -> str:
     today = _today()
@@ -91,7 +73,6 @@ def _speak_date(d: date) -> str:
         return "yesterday"
     return d.strftime("%A, %B %-d")
 
-
 def _speak_time(dt: datetime) -> str:
     local = dt.astimezone(_tz())
     h, m = local.hour, local.minute
@@ -99,16 +80,13 @@ def _speak_time(dt: datetime) -> str:
     h12 = h % 12 or 12
     return f"{h12}:{m:02d} {suffix}" if m else f"{h12} {suffix}"
 
-
 def _speak_range(start: datetime, end: datetime) -> str:
     s, e = _speak_time(start), _speak_time(end)
-    # If same AM/PM suffix, drop it from the start
     if s.endswith("AM") and e.endswith("AM"):
         s = s[:-3]
     elif s.endswith("PM") and e.endswith("PM"):
         s = s[:-3]
     return f"{s.strip()} to {e}"
-
 
 def _find_event_by_title(svc, title: str, on_date: date) -> dict | None:
     tz = _tz()
@@ -126,11 +104,6 @@ def _find_event_by_title(svc, title: str, on_date: date) -> dict | None:
         if query in ev.get("summary", "").lower():
             return ev
     return None
-
-
-# ---------------------------------------------------------------------------
-# Tools
-# ---------------------------------------------------------------------------
 
 @mcp.tool()
 def list_events(date: str = "") -> str:
@@ -177,7 +150,6 @@ def list_events(date: str = "") -> str:
     listing = ", ".join(parts[:-1]) + f", and {parts[-1]}"
     return f"{day} you have {len(parts)} events: {listing}."
 
-
 @mcp.tool()
 def find_free_slot(date: str, duration_minutes: int = 60) -> str:
     """Find open time slots on a given date within working hours.
@@ -208,7 +180,6 @@ def find_free_slot(date: str, duration_minutes: int = 60) -> str:
     ]
     busy.sort(key=lambda x: x[0])
 
-    # Walk working hours and collect gaps >= duration_minutes.
     duration = timedelta(minutes=duration_minutes)
     slots = []
     cursor = day_start
@@ -230,7 +201,6 @@ def find_free_slot(date: str, duration_minutes: int = 60) -> str:
         return f"On {day} you're free from {spoken[0]}."
     listing = ", ".join(spoken[:-1]) + f", and {spoken[-1]}"
     return f"On {day} you have open slots at {listing}."
-
 
 @mcp.tool()
 def create_event(
@@ -270,7 +240,6 @@ def create_event(
         f"Done. I've added \"{title}\" on {_speak_date(d)} "
         f"from {_speak_range(start_dt, end_dt)}."
     )
-
 
 @mcp.tool()
 def move_event(

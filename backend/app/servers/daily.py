@@ -26,15 +26,9 @@ from app.storage import db
 
 logger = logging.getLogger(__name__)
 
-# LLM-bound lanes fired at once can clip Groq's per-minute token ceiling. Cap the
-# concurrency so a busy day degrades to slightly-slower rather than 429s.
 _LANE_LIMIT = 3
-_TASK_BUDGET = 55  # seconds for one task's search + summarize
+_TASK_BUDGET = 55
 
-# A long dictation (many minutes of continuous speech) is split into
-# sentence-bounded chunks before segmentation. One giant call risks losing
-# tasks mentioned late in the transcript to model attention limits and to the
-# output token cap; several smaller calls each stay comfortably inside both.
 _CHUNK_CHARS = 4000
 _MAX_TASKS_PER_CHUNK = 16
 _MAX_TASKS_TOTAL = 48
@@ -44,7 +38,6 @@ _SEGMENT_MAX_TOKENS = 4096
 LANES = ("research", "remember", "reminder", "calendar", "email", "note", "answer")
 
 _running: set[asyncio.Task] = set()
-
 
 _SEGMENT_SYSTEM = (
     "You turn a spoken brain-dump of someone's day into a list of separate, atomic "
@@ -73,22 +66,14 @@ _SEGMENT_SYSTEM = (
     "- Keep the tasks in the order they were spoken."
 )
 
-
 def _today_line(tz_offset_min: int) -> str:
-    # The browser sends its UTC offset so "Tuesday"/"tomorrow" resolve to the
-    # user's local calendar, not the server's.
     now = datetime.now(timezone.utc)
     local = now.timestamp() - tz_offset_min * 60
     d = datetime.fromtimestamp(local, tz=timezone.utc)
     return d.strftime("Today is %A, %B %-d, %Y, local time %-I:%M %p.")
 
-
 _SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
-# Salvages individual task objects out of a possibly-truncated JSON body — if
-# generation got cut off mid-array, the earlier complete objects still match
-# even though the overall document never closes.
 _TASK_OBJ = re.compile(r'\{[^{}]*"title"[^{}]*\}', re.S)
-
 
 def _split_into_chunks(text: str, max_chars: int = _CHUNK_CHARS) -> list[str]:
     """Sentence-bounded chunks so no sentence — and no task inside it — is ever
@@ -108,7 +93,6 @@ def _split_into_chunks(text: str, max_chars: int = _CHUNK_CHARS) -> list[str]:
         chunks.append(current.strip())
     return chunks or [text]
 
-
 def _context_block(session_id: str) -> str:
     """Recent remembered facts + conversation, folded into the segmentation
     prompt so references in the dictation ("email her again", "same place as
@@ -126,7 +110,6 @@ def _context_block(session_id: str) -> str:
         parts.append(f"Recent conversation, for resolving pronouns/references only:\n{recent}")
     return "\n\n".join(parts)
 
-
 def _parse_segment_response(raw: str) -> list[dict]:
     try:
         data = json.loads(raw)
@@ -135,8 +118,6 @@ def _parse_segment_response(raw: str) -> list[dict]:
     if isinstance(data, dict) and isinstance(data.get("tasks"), list):
         return [t for t in data["tasks"] if isinstance(t, dict)]
 
-    # Hit the output token cap mid-generation, or wrapped the object in prose —
-    # pull out whatever complete task objects exist rather than losing the chunk.
     tasks = []
     for m in _TASK_OBJ.finditer(raw):
         try:
@@ -146,7 +127,6 @@ def _parse_segment_response(raw: str) -> list[dict]:
         if isinstance(d, dict):
             tasks.append(d)
     return tasks
-
 
 async def _segment_chunk(text: str, tz_offset_min: int, context: str) -> list[dict]:
     parts = [_today_line(tz_offset_min)]
@@ -180,7 +160,6 @@ async def _segment_chunk(text: str, tz_offset_min: int, context: str) -> list[di
         tasks.append({"title": title or detail[:60], "lane": lane, "detail": detail or title})
     return tasks or [_fallback_task(text)]
 
-
 async def _segment(text: str, tz_offset_min: int, session_id: str) -> list[dict]:
     context = await asyncio.to_thread(_context_block, session_id)
     chunks = _split_into_chunks(text)
@@ -194,27 +173,20 @@ async def _segment(text: str, tz_offset_min: int, session_id: str) -> list[dict]
             async with sem:
                 return await _segment_chunk(c, tz_offset_min, context)
 
-        # Each chunk is its own independent LLM call — gather preserves the
-        # spoken order across chunks regardless of which call finishes first.
         results = await asyncio.gather(*(guarded(c) for c in chunks))
         merged = [t for chunk_tasks in results for t in chunk_tasks]
 
     merged = merged[:_MAX_TASKS_TOTAL] or [_fallback_task(text)]
     return [{**t, "id": f"t{i}-{db.new_id()[:6]}"} for i, t in enumerate(merged)]
 
-
 def _fallback_task(text: str) -> dict:
     return {"title": text.strip()[:60] or "Your note", "lane": "note", "detail": text.strip()}
-
-
-# ---- lane handlers: each returns (status, note, result, sources) ----
 
 _RESEARCH_SYSTEM = (
     "You are a research agent. From these search results, answer the request in "
     "2-3 tight, specific sentences — concrete names, numbers, and picks, never "
     "invented. Plain text only: no markdown, no URLs."
 )
-
 
 async def _lane_research(detail: str) -> tuple[str, str, str, list]:
     results = await asyncio.wait_for(search.search(detail, [], max_results=5), _TASK_BUDGET)
@@ -228,7 +200,6 @@ async def _lane_research(detail: str) -> tuple[str, str, str, list]:
     sources = [{"title": r["title"], "url": r["url"]} for r in results[:3] if r.get("title")]
     return "done", f"Read {len(results)} sources.", summary, sources
 
-
 async def _lane_answer(detail: str) -> tuple[str, str, str, list]:
     system = (
         "Answer the question directly in 1-3 sentences. Plain text, no markdown. "
@@ -236,7 +207,6 @@ async def _lane_answer(detail: str) -> tuple[str, str, str, list]:
     )
     raw = await asyncio.wait_for(llm.complete(system, detail), _TASK_BUDGET)
     return "done", "Answered.", llm.strip_markdown(raw) or "Done.", []
-
 
 async def _lane_email(detail: str) -> tuple[str, str, str, list]:
     system = (
@@ -246,7 +216,6 @@ async def _lane_email(detail: str) -> tuple[str, str, str, list]:
     )
     raw = await asyncio.wait_for(llm.complete(system, detail), _TASK_BUDGET)
     return "proposed", "Draft ready to review.", llm.strip_markdown(raw) or detail, []
-
 
 async def _run_task(task: dict, day_id: str, session_id: str) -> dict:
     """One task, one lane, never raises — a failed task is reported, not fatal."""
@@ -284,7 +253,7 @@ async def _run_task(task: dict, day_id: str, session_id: str) -> dict:
             status, note, result, sources = (
                 "proposed", "Ready to schedule.",
                 f"I can add this once your calendar is connected: {detail}", [])
-        else:  # note
+        else:
             await asyncio.to_thread(memory_store.remember, session_id, f"To do: {detail}")
             status, note, result, sources = "done", "Noted.", detail, []
 
@@ -292,11 +261,10 @@ async def _run_task(task: dict, day_id: str, session_id: str) -> dict:
         emit(status, note, result=result, sources=sources, elapsed=elapsed)
         return {**task, "status": status, "result": result}
 
-    except Exception as exc:  # a dead task must not kill the day
+    except Exception as exc:
         logger.warning("day task %s (%s) failed: %s", tid, lane, exc)
         emit("failed", "Couldn't finish this one.", error=str(exc)[:160])
         return {**task, "status": "failed"}
-
 
 async def _run(day_id: str, text: str, session_id: str, tz_offset_min: int) -> None:
     try:
@@ -333,7 +301,6 @@ async def _run(day_id: str, text: str, session_id: str, tz_offset_min: int) -> N
         bus.publish(session_id, {
             "type": "day", "day_id": day_id, "status": "failed", "error": str(exc)[:160],
         })
-
 
 def start(text: str, session_id: str, tz_offset_min: int = 0) -> str:
     """Kick off a day run in the background; return its id immediately.

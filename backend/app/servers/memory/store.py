@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 
 from app.storage.db import connect
 
-
 def _match_query(text: str) -> str:
     """Turn free text into a safe FTS5 MATCH expression.
 
@@ -19,7 +18,6 @@ def _match_query(text: str) -> str:
     terms = re.findall(r"\w+", text)
     return " ".join(f'"{t}"' for t in terms)
 
-
 def remember(session_id: str, content: str) -> None:
     now = datetime.now(timezone.utc).isoformat()
     with closing(connect()) as conn, conn:
@@ -27,7 +25,6 @@ def remember(session_id: str, content: str) -> None:
             "INSERT INTO memories (content, session_id, created_at) VALUES (?, ?, ?)",
             (content, session_id, now),
         )
-
 
 def recall(session_id: str, query: str = "", limit: int = 10) -> list[str]:
     with closing(connect()) as conn:
@@ -46,7 +43,6 @@ def recall(session_id: str, query: str = "", limit: int = 10) -> list[str]:
             ).fetchall()
     return [r["content"] for r in rows]
 
-
 def log_turn(session_id: str, role: str, content: str) -> None:
     now = datetime.now(timezone.utc).isoformat()
     with closing(connect()) as conn, conn:
@@ -54,7 +50,6 @@ def log_turn(session_id: str, role: str, content: str) -> None:
             "INSERT INTO conversation_turns (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
             (session_id, role, content, now),
         )
-
 
 def recent_turns(session_id: str, limit: int = 12) -> list[tuple[str, str]]:
     with closing(connect()) as conn:
@@ -64,7 +59,6 @@ def recent_turns(session_id: str, limit: int = 12) -> list[tuple[str, str]]:
             (session_id, limit),
         ).fetchall()
     return [(r["role"], r["content"]) for r in reversed(rows)]
-
 
 def forget(session_id: str, query: str) -> int:
     match = _match_query(query)

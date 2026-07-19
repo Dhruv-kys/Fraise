@@ -19,7 +19,6 @@ import os
 ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT / ".env")
 
-# Keep this list in sync with the VOICES array in frontend/src/voices.ts.
 VOICE_IDS = [
     "aura-2-thalia-en",
     "aura-2-apollo-en",
@@ -35,7 +34,6 @@ VOICE_IDS = [
 
 SAMPLE_LINE = "Hi, I'm Fraise."
 OUT_DIR = ROOT / "frontend" / "public" / "voices"
-
 
 def main() -> None:
     api_key = os.environ.get("DEEPGRAM_API_KEY")
@@ -60,7 +58,6 @@ def main() -> None:
                 continue
             out_path.write_bytes(resp.content)
             print(f"wrote {out_path.relative_to(ROOT)} ({len(resp.content)} bytes)")
-
 
 if __name__ == "__main__":
     main()
