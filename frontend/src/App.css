@@ -959,6 +959,9 @@
   .new-conv.nav-cta .cta-label { display: none; }
   .assistant-stage { padding: 6px 16px 0; }
   .dock { padding: 0 16px 26px; }
+  /* Same tradeoff as the landing page: a big blurred layer sitting over the
+     scrolling stage is unnecessary weight on a phone GPU. */
+  .dark .main::after { width: min(50vw, 260px); filter: blur(20px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

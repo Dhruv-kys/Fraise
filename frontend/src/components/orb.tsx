@@ -21,6 +21,21 @@ type OrbProps = {
   className?: string
 }
 
+// A phone GPU rendering this shader at full retina resolution with MSAA is
+// the single biggest source of the scroll jank on mobile — the canvas keeps
+// rendering every frame (there's no on/off switch for that here) regardless
+// of whether it's even on screen, so the per-pixel cost is what has to give.
+// Capped once at mount, not reactive to resize: DPR doesn't change mid-session.
+function useMobileGlSettings() {
+  return useMemo(() => {
+    const narrow = typeof window !== "undefined" && window.innerWidth < 700
+    return {
+      dpr: narrow ? (Math.min(window.devicePixelRatio || 1, 1.5) as number) : ([1, 2] as [number, number]),
+      antialias: !narrow,
+    }
+  }, [])
+}
+
 export function Orb({
   colors = ["#CADCFC", "#A0B9D1"],
   colorsRef,
@@ -36,13 +51,15 @@ export function Orb({
   getOutputVolume,
   className,
 }: OrbProps) {
+  const { dpr, antialias } = useMobileGlSettings()
   return (
     <div className={className ?? "relative h-full w-full"}>
       <Canvas
+        dpr={dpr}
         resize={{ debounce: resizeDebounce }}
         gl={{
           alpha: true,
-          antialias: true,
+          antialias,
           premultipliedAlpha: true,
         }}
       >

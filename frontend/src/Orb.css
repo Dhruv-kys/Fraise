@@ -102,3 +102,13 @@
 @media (prefers-reduced-motion: reduce) {
   .orb-bloom-a { animation: none !important; }
 }
+
+/* A blurred layer has to be rerasterized on every frame it animates — combined
+   with the WebGL canvas underneath, that's real jank on a phone GPU. The
+   pulse is a nice-to-have on a big desktop hero; on mobile it just competes
+   with scroll compositing for the same budget, so it's cheaper to hold it
+   still and let opacity (compositor-only, no repaint) keep carrying the
+   listening/speaking feedback. */
+@media (max-width: 720px) {
+  .orb-bloom-a { animation: none; filter: blur(16px); }
+}

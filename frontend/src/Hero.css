@@ -345,6 +345,10 @@
     height: clamp(240px, 62vw, 340px);
     margin: 18px auto 0;
   }
+  /* A 30px blur over a 560px box is a lot of pixels for a phone GPU to
+     rasterize; it's a static layer so it's not the main jank source, but it's
+     easy weight to cut. Smaller and softer scales fine at this size anyway. */
+  .dark .hx::before { width: 60vw; height: 60vw; max-width: 320px; max-height: 320px; filter: blur(18px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
