@@ -18,6 +18,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
@@ -42,6 +43,14 @@ _AGENT_BUDGET = 60  # seconds for one agent's search + summarize
 _running: set[asyncio.Task] = set()
 
 
+def _today_line() -> str:
+    # Without this, "best SDE internships" and "best SDE internships 2026" are the
+    # same query to the planner, and Tavily's relevance ranking happily returns a
+    # well-optimized listicle from 2024 over anything current — the model has no
+    # notion of "current" without being told what day it is.
+    return datetime.now(timezone.utc).strftime("Today's date is %B %-d, %Y.")
+
+
 _PLANNER_SYSTEM = (
     "You plan a parallel research team. Given one question, design the agents that "
     "should go and look — each on a genuinely different angle, all at the same time.\n\n"
@@ -49,11 +58,19 @@ _PLANNER_SYSTEM = (
     '  "label": 1-2 words naming what this agent IS — either the site it searches, or '
     "the angle it covers.\n"
     '  "query": the search query THIS agent runs. Specific to its angle, and different '
-    "from every other agent's — never repeat a query.\n"
+    "from every other agent's — never repeat a query. For anything time-sensitive "
+    "(jobs, internships, prices, rankings, versions, current events), include the "
+    "current year in the query text so search engines don't hand back old results.\n"
     '  "domains": bare hostnames to restrict this agent to, like "example.com". Use them '
     "only when a site is genuinely the natural home for that information, and only for "
     "sites you are confident exist and cover this topic. Use [] to search the open web.\n"
-    '  "angle": one line telling the agent what to extract.\n\n'
+    '  "angle": one line telling the agent what to extract.\n'
+    '  "recency": how fresh results must be — one of "day", "week", "month", "year", '
+    '"none". Use a tight window ("week"/"month") for things that change constantly '
+    "(job postings, prices, news), \"year\" for things that update annually or "
+    "seasonally (rankings, buying guides), and \"none\" only for genuinely evergreen "
+    "topics (how something works, historical facts) where restricting by date would "
+    "throw away the best source.\n\n"
     "Hard rules:\n"
     "- EVERY agent must be relevant to THIS question. Derive the sources from the "
     "question itself. Never reach for a site because it is famous or because it fits "
@@ -94,15 +111,19 @@ def _fallback_plan(query: str) -> list[dict]:
     """The planner is an LLM call, and LLM calls fail. A run must still happen."""
     return [
         {"id": "web", "label": "Web", "query": query, "domains": [],
-         "angle": "anything that directly answers the question"},
+         "angle": "anything that directly answers the question", "recency": "year"},
         {"id": "background", "label": "Background", "query": f"{query} guide overview",
-         "domains": [], "angle": "context, comparisons, and things worth knowing"},
+         "domains": [], "angle": "context, comparisons, and things worth knowing",
+         "recency": "year"},
     ]
 
 
 async def _plan(query: str, hint: str) -> list[dict]:
     """Decide who goes looking. This is what makes the team fit the question."""
-    ask = f"Question: {query}"
+    # Built fresh per call, not baked into the system prompt constant — that
+    # constant is built once at import and would freeze "today" at whenever
+    # the server last started.
+    ask = f"{_today_line()}\n\nQuestion: {query}"
     if hint:
         ask += f"\nThe user specifically asked for these sources: {hint}"
 
@@ -138,12 +159,21 @@ async def _plan(query: str, hint: str) -> list[dict]:
             n += 1
         seen.add(agent_id)
 
+        recency = str(a.get("recency") or "").strip().lower()
+        if recency not in ("day", "week", "month", "year", "none"):
+            # A missing/malformed recency is more likely a topic the planner
+            # didn't think to date-bound than a deliberately evergreen one —
+            # default to filtering rather than silently letting stale results
+            # back in.
+            recency = "year"
+
         agents.append({
             "id": agent_id,
             "label": label,
             "query": q,
             "domains": _clean_domains(a.get("domains")),
             "angle": str(a.get("angle") or "what answers the question")[:200],
+            "recency": recency,
         })
 
     if len(agents) < MIN_AGENTS:
@@ -164,7 +194,10 @@ def _agent_system(label: str, angle: str) -> str:
         f"You are the {label} research agent. You are given search results. "
         f"Focus on: {angle}. Extract only what the results actually say — never invent "
         "a fact, company, price, salary, or link. Reply with 3-6 tight bullet points, "
-        "each concrete and specific. If the results are thin or irrelevant, say so.\n\n"
+        "each concrete and specific. If the results are thin or irrelevant, say so. If "
+        "a result is visibly outdated (an old year, a past cycle or season) and fresher "
+        "results are also present, prefer the fresher ones and skip the stale one rather "
+        f"than reporting both as current.\n\n{_today_line()}\n\n"
         + _PLAIN_TEXT_RULE
     )
 
@@ -189,16 +222,29 @@ async def _run_agent(spec: dict, run_id: str, session_id: str) -> dict:
     scope = ", ".join(spec["domains"]) if spec["domains"] else "the open web"
     step("searching", f"Searching {scope} for “{spec['query']}”")
 
+    recency = spec.get("recency", "year")
+
     try:
         results = await asyncio.wait_for(
-            search.search(spec["query"], spec["domains"]), _AGENT_BUDGET
+            search.search(spec["query"], spec["domains"], time_range=recency), _AGENT_BUDGET
         )
         # An over-narrow domain list returns nothing at all — which looks like "there
         # is no answer" when it really means "we looked in too small a place". Widen
         # once to the open web before giving up.
         if not results and spec["domains"]:
             step("searching", "Nothing there — widening to the open web")
-            results = await asyncio.wait_for(search.search(spec["query"], []), _AGENT_BUDGET)
+            results = await asyncio.wait_for(
+                search.search(spec["query"], [], time_range=recency), _AGENT_BUDGET
+            )
+
+        # A tight freshness window can also be the reason a search comes back
+        # empty (there just isn't anything from the last week yet) — better to
+        # fall back to older-but-real results than to report nothing at all.
+        if not results and recency != "none":
+            step("searching", "Nothing that recent — widening the date range")
+            results = await asyncio.wait_for(
+                search.search(spec["query"], spec["domains"], time_range=None), _AGENT_BUDGET
+            )
 
         if not results:
             step("done", f"Nothing matched {label}.", found=0, summary="")
@@ -240,7 +286,9 @@ _SYNTH_SYSTEM = (
     "You merge findings from several research agents into one artifact.\n"
     "Rules: use ONLY what the agents reported — never invent a fact, company, "
     "number, or link. Where agents agree, say it once. Where they conflict or a "
-    "source found nothing, note it honestly.\n\n"
+    "source found nothing, note it honestly. You are told today's date below — if "
+    "the agents' findings mix old and current information, lead with what's current "
+    "and only mention outdated figures if there's nothing fresher to replace them.\n\n"
     "Return JSON with exactly these keys:\n"
     '  "title": a short headline (max 8 words)\n'
     '  "spoken": ONE or TWO sentences a voice assistant reads aloud. Natural English, '
@@ -264,7 +312,9 @@ async def _synthesize(query: str, agent_results: list[dict]) -> dict:
 
     report = "\n\n".join(f"### {a['label']} agent\n{a['findings']}" for a in usable)
     data = await llm.complete_json(
-        _SYNTH_SYSTEM, f"Original request: {query}\n\n{report}", model=llm.SYNTH_MODEL
+        _SYNTH_SYSTEM,
+        f"{_today_line()}\n\nOriginal request: {query}\n\n{report}",
+        model=llm.SYNTH_MODEL
     )
 
     sections = data.get("sections")
