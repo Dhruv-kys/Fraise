@@ -1,207 +1,78 @@
 # Fraise 🍓
 
-**A voice-first AI assistant you talk to out loud, and it actually does things.** Ask it a question, tell it to add a calendar event, or drop in a PDF and ask about it. Fraise routes every request through the Model Context Protocol (MCP), so its skills are pluggable servers, not hard-coded features. Everything document-related runs on-device.
+A voice-first AI assistant you talk to out loud. Say what you need — a calendar event, a question, a whole day's worth of tasks, a document to search — and it does it.
 
-**Live :** [fraise.vercel.app](https://fraise.vercel.app)
-
----
-
-## What it is
-
-Fraise is a full-stack voice agent. You speak, it listens in real time, decides whether it can answer directly or needs a tool, calls the right tool, and speaks the answer back. The interesting part is the architecture:
-
-- **Voice runs over a single WebSocket** to Deepgram's Voice Agent, so speech-to-text, the language model, and text-to-speech share one low-latency stream instead of three round-trips.
-- **Skills are MCP servers.** A router discovers every tool at startup from one JSON config. Adding a new capability is one config entry, no changes to the agent.
-- **Document Q&A is fully on-device.** No PyTorch, no embedding API, nothing about your files leaves the machine.
-
----
-
-## Architecture
-
-```mermaid
-flowchart LR
-    Mic["Microphone<br/>(PCM audio)"] -->|WebSocket| Backend
-    Backend -->|audio stream| Voice["Deepgram Voice Agent<br/>STT + LLM + TTS"]
-    Voice -->|tool call| Router["MCPManager<br/>(tool router)"]
-    Router --> Cal["Calendar<br/>MCP server"]
-    Router --> Mem["Memory<br/>MCP server"]
-    Router --> RAG["RAG<br/>MCP server"]
-    Router --> Calc["Calculator<br/>MCP server"]
-    RAG --> Store[("SQLite<br/>vectors + FTS5")]
-    Mem --> Store
-    Voice -->|spoken answer| Mic
-```
-
-**Request lifecycle:** microphone PCM streams over the WebSocket to the FastAPI backend, which relays it to the Deepgram Voice Agent. When the model decides it needs a tool, the call goes to the `MCPManager` router, which dispatches to the correct MCP server (calendar, memory, RAG, or calculator). The result flows back into the live conversation and Fraise speaks the answer, all in one continuous stream.
-
----
-
-## How document search works (the on-device RAG pipeline)
-
-When you upload a `.txt`, `.md`, or `.pdf`, questions about it are answered by a retrieval pipeline that runs entirely on your machine — no PyTorch, no embedding API, nothing about your files leaves the box. There are two halves: **ingestion** (upload → searchable chunks) and **query** (question → spoken answer). Everything is scoped to your browser session id, so one user's documents are never visible to another's.
-
-### Ingestion — turning an upload into searchable chunks
-
-The key trick is **late chunking**: the whole document is embedded *first*, then split. Because every token is encoded while it can still see the text around it, each chunk's vector carries the context of the passage it came from instead of being embedded in isolation.
-
-```mermaid
-flowchart TD
-    Up["POST /upload<br/>.txt / .md / .pdf"] --> Ext["Extract text"]
-    Ext --> Enc["ONNX encoder — jina-embeddings-v2-small-en<br/>encode the WHOLE doc first, in 512-token segments"]
-    Enc --> Tok["Per-token vectors + character offsets"]
-    Tok --> Win["Late chunking — 320-token windows, 48-token overlap"]
-    Win --> Pool["Mean-pool each window's token vectors<br/>→ one normalized 512-dim chunk vector"]
-    Win --> Slice["Slice chunk text by the window's char span"]
-    Pool --> V[("vec_chunks<br/>sqlite-vec — dense vectors")]
-    Slice --> F[("chunks<br/>SQLite FTS5 — keyword index")]
-```
-
-Each chunk lands in the store twice: its **vector** in `vec_chunks` (for semantic search) and its **text** in the `chunks` FTS5 table (for keyword search). Both rows are tagged with the session id.
-
-### Query — turning a question into a spoken answer
-
-Retrieval is **hybrid**: dense and keyword search run in parallel, get fused by rank, and a cross-encoder makes the final precision call. Only the top few passages reach the language model.
-
-```mermaid
-flowchart TD
-    Q["Question (from the ask tool)"] --> QE["encode_query → one 512-dim vector"]
-    QE --> D["Dense KNN over vec_chunks<br/>top 30 by cosine similarity"]
-    Q --> L["Keyword BM25 over chunks FTS5<br/>top 30 (terms OR-joined)"]
-    D --> RRF["Reciprocal Rank Fusion (k = 60)"]
-    L --> RRF
-    RRF --> C["~30 fused candidates"]
-    C --> RR["Cross-encoder rerank<br/>jina-reranker-v1-tiny-en"]
-    RR --> Top["Top 5 passages"]
-    Top --> LLM["Handed to the live voice LLM,<br/>which speaks the grounded answer"]
-```
-
-Why each stage earns its place:
-
-| Stage | What happens | Why it matters |
-| --- | --- | --- |
-| **1. Late chunking** | The whole document is embedded first, then split into chunks. | Each chunk keeps the context of the text around it instead of being embedded in isolation. |
-| **2. Local embeddings** | `jina-embeddings-v2-small-en` runs through ONNX Runtime. | No PyTorch and no external API. Fast, private, and dependency-light. |
-| **3. Hybrid search** | Semantic vector search (`sqlite-vec`) and keyword search (SQLite FTS5 / BM25) run together and are fused with Reciprocal Rank Fusion. | Passages that both meaning *and* exact terms agree on rank highest, catching what either method alone would miss. |
-| **4. Reranking** | A cross-encoder scores the question against each top candidate and keeps only the best five. | A bi-encoder scores query and passage separately; a cross-encoder reads the pair *together* and is far more precise, but too slow to run over a whole corpus — so it only rescores the shortlist hybrid search already surfaced. |
-
-The winning passages are handed to the voice model already mid-conversation (the RAG tools do retrieval *only* — there's no second generation model), so Fraise speaks the answer directly.
-
----
+**Live:** [fraise.vercel.app](https://fraise.vercel.app)
 
 ## Features
 
-- **Real-time voice** over a single WebSocket (low-latency STT to LLM to TTS).
-- **Pluggable skills via MCP** — capabilities are servers discovered from config, not baked-in code.
-- **On-device document Q&A** — upload a PDF/txt/md and ask about it; nothing leaves your machine.
-- **Calendar actions** with Google OAuth (create and read events by voice).
-- **Persistent memory** so the assistant remembers things across a session.
-- **Reactive 3D orb** (React Three Fiber) that responds to the conversation.
-- **Spoken confirmation for destructive actions** so the agent can't do something irreversible on a mishearing.
+- Real-time voice over a single WebSocket (Deepgram Voice Agent: STT + LLM + TTS in one stream).
+- Skills are MCP servers — calculator, calendar, memory, weather, web research, on-device document Q&A.
+- Dictate your whole day and it gets split into tasks, fanned out to parallel agents, and handled.
+- Multi-agent research: ask a question, a team of agents searches different sources in parallel and writes up a doc or deck.
+- On-device document Q&A — upload a PDF/txt/md and ask about it; nothing leaves your machine.
+- Persistent memory across a session, and spoken confirmation before anything destructive.
 
----
+## How document search works
+
+Upload triggers **late chunking**: the whole document is embedded first, then split, so each chunk's vector keeps the context of the passage around it. A question runs dense (vector) and keyword (BM25) search in parallel, fuses the results, and a cross-encoder reranks the top candidates before they reach the voice model. All local — no PyTorch, no embedding API.
 
 ## Tech stack
 
-**Frontend:** React 19, TypeScript, Vite, React Three Fiber (Three.js), an AudioWorklet (`pcm-worklet.js`) for raw microphone PCM.
+- **Frontend:** React 19, TypeScript, Vite, React Three Fiber (the orb).
+- **Backend:** Python, FastAPI, WebSockets, the MCP Python SDK.
+- **Voice:** Deepgram Voice Agent.
+- **Retrieval:** ONNX Runtime + local embeddings, sqlite-vec, SQLite FTS5, a cross-encoder reranker — no PyTorch, no embedding API.
+- **Storage:** SQLite.
 
-**Backend:** Python, FastAPI, WebSockets, the MCP Python SDK.
+## Getting started
 
-**Voice:** Deepgram Voice Agent (STT + LLM + TTS over one connection).
+Prerequisites: Python 3.11+, Node 18+, a Deepgram API key.
 
-**Retrieval:** ONNX Runtime, `jina-embeddings-v2-small-en`, `sqlite-vec`, SQLite FTS5, a cross-encoder reranker.
+```bash
+# .env at the repo root: DEEPGRAM_API_KEY, GROQ_API_KEY, TAVILY_API_KEY
 
-**Storage:** SQLite (documents, vectors, and memory).
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m app.main          # http://localhost:8000
 
----
+cd frontend
+npm install
+npm run dev                 # http://localhost:5173
+```
+
+Open the frontend, allow microphone access, and start talking.
 
 ## Project layout
 
 ```
 backend/
   app/
-    main.py                 # FastAPI app, WebSocket + upload routes
-    host/
-      voice_agent.py        # Deepgram Voice Agent session
-      mcp_manager.py        # discovers + routes MCP tools
-    servers/
-      calculator.py         # MCP server: arithmetic
-      calendar.py           # MCP server: Google Calendar
-      memory/               # MCP server: persistent memory
-      rag/                  # MCP server: chunk, embeddings, rerank, store
-    storage/db.py           # SQLite access
-  mcp_servers.json          # one entry per skill; edit this to add tools
+    main.py            # FastAPI app: WebSocket, upload, dictate, research routes
+    host/               # voice session + MCP tool router
+    servers/            # one folder/file per MCP skill
+  mcp_servers.json      # one entry per skill; edit this to add tools
 frontend/
   src/
-    useVoiceAgent.ts        # WebSocket + audio streaming hook
-    Orb.tsx                 # reactive 3D orb
-    App.tsx
-    public/pcm-worklet.js   # microphone PCM capture
+    useVoiceAgent.ts    # WebSocket + audio streaming hook
+    Hero.tsx            # landing page
+    App.tsx             # workspace
 ```
 
----
+## Adding a skill
+
+Write an MCP server (see `backend/app/servers/calculator.py`), add one entry to `mcp_servers.json`, restart. No changes to the agent itself.
 
 ## API
 
-The backend is a single FastAPI process. Base URL in development is `http://localhost:8000`.
-
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/health` | Liveness check. Returns `{"ok": true}`. |
-| `WS` | `/ws?sid=<id>` | Voice session. Microphone PCM in; audio and JSON events out. |
-| `POST` | `/upload?sid=<id>` | Add a document (`.txt`, `.md`, `.pdf`). Returns `400` if no readable text. |
-| `GET` | `/auth/calendar` | Begins the Google Calendar OAuth flow. |
+| `GET` | `/health` | Liveness check. |
+| `WS` | `/ws?sid=<id>` | Voice session. |
+| `POST` | `/upload?sid=<id>` | Add a document. |
+| `POST` | `/dictate?sid=<id>` | Segment a day's dictation into tasks. |
+| `GET` | `/agents/stream?sid=<id>` | SSE progress for research/dictate runs. |
+| `GET` | `/auth/calendar` | Google Calendar OAuth. |
 
----
-
-## Getting started
-
-### Prerequisites
-
-- Python 3.11+
-- Node 18+
-- A Deepgram API key
-- (Optional) Google OAuth credentials for the calendar server
-
-### Backend
-
-```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env        # add DEEPGRAM_API_KEY (and Google creds if using calendar)
-python -m app.main          # serves on http://localhost:8000
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev                 # serves on http://localhost:5173
-```
-
-Open the frontend, allow microphone access, and start talking.
-
----
-
-## Adding a new skill
-
-Every skill is an MCP server. To add one:
-
-1. Write a small MCP server (see `backend/app/servers/calculator.py` for the minimal shape).
-2. Add one entry to `backend/mcp_servers.json` pointing at it.
-3. Restart. The `MCPManager` discovers the new tools at startup and the voice agent can use them immediately, with no changes to the agent code.
-
-Name collisions across servers are resolved automatically with server-name prefixes.
-
----
-
-## Roadmap
-
-See [ROADMAP.md](ROADMAP.md).
-
----
-
-## Why I built it
-
-I wanted a voice assistant where adding a skill didn't mean rewriting the assistant, and where asking questions about my own documents didn't mean shipping them to someone else's server. MCP solved the first problem; an on-device retrieval pipeline solved the second. Fraise is the result.
+See [ROADMAP.md](ROADMAP.md) for what's next.
