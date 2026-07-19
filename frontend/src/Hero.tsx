@@ -1,10 +1,3 @@
-// The front door — Obsidian & Signal Blue.
-//
-// The orb is the centerpiece — the same live identity element used once you're
-// in the workspace, not a stock photo standing in for it. Scrolling past the
-// first screen reveals a showcase section (see Showcase) — dense, side-by-side
-// imagery that scales inward into place as it enters view.
-
 import { useEffect, useRef, useState } from "react";
 import Orb from "./Orb";
 import { FraiseMark, GitHubMark, SunIcon, MoonIcon } from "./icons";
@@ -14,9 +7,6 @@ import type { OrbState } from "./useVoiceAgent";
 import type { Theme } from "./App";
 import "./Hero.css";
 
-// Scramble-decode: the word cycles through random glyphs and resolves left to
-// right, then re-runs whenever `playKey` changes. Punctuation and spaces are
-// held so only the letters churn — the "living text" the reference leans on.
 const SCRAMBLE_GLYPHS = "ABCDEFGHKMNPRSTVXZ0123456789$#%&?/\\<>=+*";
 const isLetter = (c: string) => c >= "a" && c <= "z" || c >= "A" && c <= "Z" || c >= "0" && c <= "9";
 
@@ -67,30 +57,17 @@ function Scramble({ text, playKey, speed, settle }: { text: string; playKey: num
   return <span aria-label={text}>{out}</span>;
 }
 
-// The headline: scrambles in on mount, and the italic word re-decodes on a slow
-// loop so the line never sits perfectly still.
 function Headline() {
-  const [loop, setLoop] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setLoop((n) => n + 1), 5200);
-    return () => window.clearInterval(id);
-  }, []);
   return (
     <h1 className="hx-head">
       <Scramble text="Say your whole day." playKey={0} speed={1.3} settle={8} />
       <br />
       <em>
-        It&rsquo;s <Scramble text="handled." playKey={loop} speed={2.2} settle={12} />
+        It&rsquo;s <Scramble text="handled." playKey={0} speed={2.2} settle={12} />
       </em>
     </h1>
   );
 }
-
-// ---- the orb, at the center of the front door ----
-//
-// Three technical callouts read off the orb itself — each line starts flush
-// against the orb's glow and runs outward, so they visibly belong to the one
-// concrete thing on screen instead of floating in empty space.
 
 const ANNOTATIONS: { side: "l" | "r"; top: string; lines: string[] }[] = [
   { side: "r", top: "10%", lines: ["SPLITS YOUR DAY", "INTO TASKS"] },
@@ -130,8 +107,6 @@ function HeroOrb({
     </div>
   );
 }
-
-// ---- the day board: tasks fanning out to their lane agents ----
 
 const LANE_META: Record<Lane, { label: string; glyph: string }> = {
   research: { label: "Research", glyph: "◍" },
@@ -225,10 +200,6 @@ function DayBoard({ day, onDismiss }: { day: Day; onDismiss: () => void }) {
   );
 }
 
-// ---- the showcase: dense, side-by-side imagery below the fold ----
-//
-// Fires once, the first time the section is a quarter into view, then leaves
-// it alone — no re-triggering on scroll-back, no per-frame observer cost.
 function useInView<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const [inView, setInView] = useState(false);
@@ -250,7 +221,6 @@ function useInView<T extends HTMLElement>() {
   return [ref, inView] as const;
 }
 
-// ---- the quote: the product's thesis, said once, plainly ----
 function Quote() {
   const [ref, inView] = useInView<HTMLElement>();
   return (
@@ -260,37 +230,6 @@ function Quote() {
     </section>
   );
 }
-
-interface ShowcaseItem {
-  src: string;
-  alt: string;
-  label: string;
-}
-
-const SHOWCASE_ITEMS: ShowcaseItem[] = [
-  { src: "/mic-accent.jpg", alt: "A studio microphone", label: "Every word, captured" },
-  { src: "/vinyl-disc.jpg", alt: "A chrome vinyl record", label: "Pressed like vinyl" },
-];
-
-function Showcase() {
-  const [ref, inView] = useInView<HTMLElement>();
-  return (
-    <section className={`hx-showcase${inView ? " in" : ""}`} ref={ref}>
-      <span className="hx-eyebrow">Built like a record</span>
-      <h2 className="hx-showcase-title">Every detail, mastered.</h2>
-      <div className="hx-showcase-track">
-        {SHOWCASE_ITEMS.map((item, i) => (
-          <figure key={i} className="hx-showcase-card" style={{ transitionDelay: `${i * 90}ms` }}>
-            <img src={item.src} alt={item.alt} />
-            <figcaption>{item.label}</figcaption>
-          </figure>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// ---- the hero shell ----
 
 export interface HeroProps {
   orbState: OrbState;
@@ -355,9 +294,6 @@ export default function Hero({
           <div className="hx-headline">
             <span className="hx-eyebrow">Dictate once — agents do the rest</span>
             <Headline />
-            {/* The floating side annotations need room they don't have on a
-                phone screen (.hx-annos is hidden there) — this inline summary
-                carries the same three points instead of just dropping them. */}
             <p className="hx-annos-inline" aria-hidden="true">
               {ANNOTATIONS.map((a) => a.lines.join(" ")).join("   ·   ")}
             </p>
@@ -376,7 +312,6 @@ export default function Hero({
         </main>
       </div>
       <Quote />
-      <Showcase />
     </div>
   );
 }

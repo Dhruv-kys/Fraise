@@ -1,13 +1,6 @@
-// Live view of the research agents.
-//
-// The voice socket carries the conversation; this carries the *work*. A tool call
-// answers once, but a fan-out of agents has a story while it runs — so the backend
-// publishes progress and we read it here over SSE. EventSource is deliberate: this
-// is one-way, and it reconnects on its own, which a raw WebSocket wouldn't.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { httpBase } from "./useVoiceAgent";
-
 
 export type AgentPhase = "queued" | "searching" | "reading" | "thinking" | "done" | "failed";
 
@@ -21,8 +14,6 @@ export interface AgentStatus {
   elapsed?: number;
   note?: string;
   titles?: string[];
-  // Every note the agent has emitted, in order — its train of thought, kept so
-  // you can read back what it did rather than only catching the latest line.
   thoughts?: string[];
 }
 
@@ -58,7 +49,6 @@ export interface Run {
   note?: string;
 }
 
-// One row in the history list — the artifact itself is only fetched when opened.
 export interface ArtifactRef {
   id: string;
   title: string;
@@ -74,8 +64,6 @@ export function useAgents(sid: string) {
   const runRef = useRef<Run | null>(null);
   runRef.current = run;
 
-  // Everything the agents ever produced for this assistant, newest first. Scoped
-  // by sid like memory and documents, so each persona keeps its own research.
   const loadHistory = useCallback(async () => {
     if (!sid) return;
     const url = new URL("/artifacts", httpBase());
@@ -84,7 +72,6 @@ export function useAgents(sid: string) {
       const r = await fetch(url);
       if (r.ok) setHistory(await r.json());
     } catch {
-      /* history is a nicety — never break the app over it */
     }
   }, [sid]);
 
@@ -94,9 +81,6 @@ export function useAgents(sid: string) {
     setOpenId(null);
     void loadHistory();
 
-    // SSE is the live experience, but a proxy or a brief network change can
-    // interrupt it. Polling keeps completed documents discoverable regardless
-    // of the stream's state instead of leaving the sidebar permanently stale.
     const interval = window.setInterval(() => void loadHistory(), 5_000);
     return () => window.clearInterval(interval);
   }, [sid, loadHistory]);
@@ -129,8 +113,6 @@ export function useAgents(sid: string) {
       }
 
       if (e.type === "run") {
-        // "planning" opens the run with no agents yet — the planner is still
-        // deciding who to send. "running" then delivers the team it chose.
         if (e.status === "planning") {
           setArtifact(null);
           setRun((r) => ({
@@ -138,9 +120,6 @@ export function useAgents(sid: string) {
             query: e.query ?? r?.query ?? "",
             status: e.status,
             format: e.format ?? r?.format ?? "doc",
-            // Dedupe defensively: colliding ids render duplicate React keys and the
-            // cards break. The backend guarantees uniqueness — this makes a future
-            // regression there a missing card, not a shattered panel.
             agents: e.agents?.length
               ? (e.agents as AgentStatus[]).filter(
                   (a, i, all) => all.findIndex((b) => b.agent === a.agent) === i,
@@ -155,8 +134,6 @@ export function useAgents(sid: string) {
         if (e.status === "running") {
           setArtifact(null);
           setRun((r) => {
-            // A second request may begin while the first is still finishing.
-            // Never let an older run replace the panel for the current one.
             if (r && r.runId !== e.run_id) return r;
             return {
               runId: e.run_id,
@@ -177,14 +154,12 @@ export function useAgents(sid: string) {
         if (e.status === "done" && e.artifact) {
           setArtifact(e.artifact as Artifact);
           setOpenId(e.run_id);
-          void loadHistory(); // the new answer joins the list immediately
+          void loadHistory();
         }
         return;
       }
 
       if (e.type === "agent") {
-        // Merge by agent name — events arrive per phase transition, and an agent
-        // we never saw queued (a source added mid-flight) should still appear.
         setRun((r) => {
           if (!r || r.runId !== e.run_id) return r;
           const next = [...r.agents];
@@ -192,7 +167,6 @@ export function useAgents(sid: string) {
           const prev = i >= 0 ? next[i] : undefined;
           const merged: AgentStatus = { ...(prev ?? {}), ...e };
           delete (merged as any).type;
-          // Append rather than overwrite: the notes accumulate into a trail.
           const trail = prev?.thoughts ?? [];
           merged.thoughts = e.note && e.note !== trail.at(-1) ? [...trail, e.note] : trail;
           if (i >= 0) next[i] = merged;
@@ -202,7 +176,6 @@ export function useAgents(sid: string) {
       }
     };
 
-    // EventSource retries on its own; don't tear the run down on a blip.
     es.onerror = () => {};
 
     return () => es.close();

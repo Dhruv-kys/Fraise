@@ -1,15 +1,11 @@
-// A curated shortlist of Deepgram Aura-2 voices (of ~40 English options) for the
-// assistant editor's voice picker. Each gets an abstract, generated avatar (a hue
-// + monogram) rather than a photo — these are synthetic TTS voices with no real
-// person behind them, so a stock photo would misrepresent whose voice it is.
 
 export interface VoiceOption {
-  id: string; // Deepgram model id, e.g. "aura-2-thalia-en"
+  id: string;
   name: string;
   gender: "Feminine" | "Masculine";
   accent: string;
   traits: string[];
-  hue: number; // 0-360, drives the generated avatar's gradient
+  hue: number;
 }
 
 export const DEFAULT_VOICE = "aura-2-thalia-en";

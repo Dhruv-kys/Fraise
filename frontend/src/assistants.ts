@@ -1,28 +1,17 @@
-// Phase 11 — Profiles & personas.
-//
-// Multiple named assistants in one browser. Each carries a stable `id` that is
-// used exactly where the old single `fraise_sid` was: as the `?sid=` scope key
-// for memory, RAG documents, and conversation history. So each assistant
-// accumulates its own remembered facts, files, and continuity in isolation —
-// no server-side change, the scoping already keys on the session id.
-//
-// The list lives entirely in localStorage (like the first-run name). The host
-// never stores it; it only receives the active assistant's id + config per
-// connection.
 
 import { DEFAULT_VOICE } from "./voices";
 
 export interface Assistant {
   id: string;
   name: string;
-  avatar: string; // a single emoji
+  avatar: string;
   instructions: string;
-  voice: string; // Deepgram Aura-2 model id, see voices.ts
+  voice: string;
 }
 
 const LIST_KEY = "fraise-assistants";
 const ACTIVE_KEY = "fraise-active-assistant";
-const LEGACY_SID_KEY = "fraise_sid"; // the pre-Phase-11 single session id
+const LEGACY_SID_KEY = "fraise_sid";
 
 export const AVATAR_CHOICES = [
   "🍓", "💼", "🏡", "🎨", "📚", "🎧", "🧪", "🌙", "⚡", "🌿", "🔮", "🦊",
@@ -38,19 +27,14 @@ function read(): Assistant[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length) {
-        // Backfill `voice` for assistants saved before it existed.
         return parsed.map((a) => (a.voice ? a : { ...a, voice: DEFAULT_VOICE }));
       }
     }
   } catch {
-    /* fall through to migration */
   }
   return migrate();
 }
 
-// First run under Phase 11: seed a single default assistant. Its id reuses any
-// existing `fraise_sid` so a returning user's memory and documents carry over
-// into the default persona instead of being orphaned under a fresh id.
 function migrate(): Assistant[] {
   const legacyId = localStorage.getItem(LEGACY_SID_KEY);
   const def: Assistant = {
@@ -122,9 +106,6 @@ export function updateAssistant(id: string, patch: Partial<Assistant>): Assistan
   return list;
 }
 
-// Deleting an assistant leaves its memory/documents on the backend untouched
-// (they're keyed by id); we just drop the local pointer to it. Never delete the
-// last one — there must always be somewhere to talk.
 export function deleteAssistant(id: string): Assistant[] {
   const list = read();
   if (list.length <= 1) return list;

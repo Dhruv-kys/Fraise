@@ -1,7 +1,3 @@
-// The dictated day: one brain-dump, split into tasks, each handled by its own
-// lane agent. We POST the transcript to /dictate and then watch the tasks resolve
-// over the same SSE channel the research agents use — a tool call answers once,
-// but a day being handled has a story while it runs.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { httpBase } from "./useVoiceAgent";
@@ -56,7 +52,6 @@ export function useDay(sid: string) {
     async (text: string): Promise<boolean> => {
       const trimmed = text.trim();
       if (!trimmed) return false;
-      // Show the composer's work landing immediately; the SSE fills in the rest.
       setDay({ dayId: "pending", status: "segmenting", text: trimmed, tasks: [], note: "Splitting your day into tasks…" });
       try {
         const url = new URL("/dictate", httpBase());
@@ -101,9 +96,6 @@ export function useDay(sid: string) {
 
       if (e.type === "day") {
         setDay((d) => {
-          // A brand-new run replaces whatever was on screen; updates to the live
-          // one merge. "pending" is the optimistic id we set before the POST
-          // returned, so adopt the first real day_id onto it.
           const same = d && (d.dayId === e.day_id || d.dayId === "pending");
           const base: Day = same && d
             ? { ...d, dayId: e.day_id }

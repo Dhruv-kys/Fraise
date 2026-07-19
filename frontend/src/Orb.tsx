@@ -3,10 +3,8 @@ import type { AgentState } from "./components/orb";
 import type { OrbState } from "./useVoiceAgent";
 import "./Orb.css";
 
-// Code-split Three.js so the shell paints before the WebGL orb loads.
 const GlOrb = lazy(() => import("./components/orb").then((m) => ({ default: m.Orb })));
 
-// Our voice states -> ElevenLabs orb agent states.
 const AGENT: Record<OrbState, AgentState> = {
   idle: null,
   listening: "listening",

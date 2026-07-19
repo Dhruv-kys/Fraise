@@ -22,7 +22,6 @@ import { FraiseMark, GitHubMark, SunIcon, MoonIcon } from "./icons";
 import "./App.css";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
-// Status pill — connection state wins, otherwise the orb's phase.
 function statusPill(
   status: "connecting" | "online" | "error",
   orbState: OrbState,
@@ -46,36 +45,26 @@ const DOCK_HINT: Record<OrbState, string> = {
 
 export type Theme = "light" | "dark";
 
-// Theme lives on <html class="dark"> — the WebGL orb watches that class to
-// invert its palette, so the toggle just flips the class and persists it.
 function useTheme(): [Theme, () => void] {
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem("fraise-theme");
     if (saved === "light" || saved === "dark") return saved;
-    // Obsidian is the brand's home now — the front door is dark.
-    return "dark";
+    return "light";
   });
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("fraise-theme", theme);
-    // Keep mobile browser chrome (status bar) in step with the theme.
     let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (!meta) {
       meta = document.createElement("meta");
       meta.name = "theme-color";
       document.head.appendChild(meta);
     }
-    meta.content = theme === "dark" ? "#07080B" : "#F5F6F9";
+    meta.content = theme === "dark" ? "#14120E" : "#F7F3E6";
   }, [theme]);
   return [theme, () => setTheme((t) => (t === "dark" ? "light" : "dark"))];
 }
 
-// Reveals `text` one character at a time.
-//
-// The agent's transcript arrives incrementally, so `text` grows mid-type. We
-// only rewind when the new text isn't a continuation of what's already on the
-// page — otherwise the reveal just keeps chasing the longer string, which is
-// what makes it look like the words are being typed as they're spoken.
 function useTypewriter(text: string, enabled: boolean, cps = 48): string {
   const [count, setCount] = useState(0);
   const printed = useRef("");
@@ -103,7 +92,6 @@ const MenuIcon = () => (
     <path d="M4 7h16M4 12h16M4 17h16" />
   </svg>
 );
-// Timestamps come back as UTC ISO from SQLite; show them the way a person says them.
 function timeAgo(iso: string): string {
   const secs = (Date.now() - new Date(iso).getTime()) / 1000;
   if (secs < 60) return "just now";
@@ -121,8 +109,6 @@ function greetingFor(d: Date): string {
 }
 
 export default function App() {
-  // Phase 11 — the row of assistants, and which one is active. The active id is
-  // the scope key: it becomes ?sid= for memory, docs, and history.
   const [assistants, setAssistants] = useState<Assistant[]>(() => listAssistants());
   const [activeId, setActiveIdState] = useState<string>(() => getActiveId());
   const active = assistants.find((a) => a.id === activeId) ?? assistants[0];
@@ -134,7 +120,6 @@ export default function App() {
     setEditing(null);
   }, []);
 
-  // Voice-native switch: the backend named an assistant; match it locally.
   const handleVoiceSwitch = useCallback(
     (name: string) => {
       const target = listAssistants().find(
@@ -147,22 +132,13 @@ export default function App() {
 
   const { messages, status, orbState, levelRef, outLevelRef, speechSupported, toggle, reconnect, notifyUpload, authNeeded, clearAuth, listening } = useVoiceAgent(handleVoiceSwitch);
 
-  // The research agents stream their progress on their own channel, keyed by the
-  // same id as everything else the user owns.
   const { run, artifact, history, openId, openArtifact, dismiss: dismissRun } = useAgents(activeId);
 
-  // The dictated day: one brain-dump split into tasks, fanned out to lane agents.
-  // Lives on the hero (the front door); the workspace is a second way in.
   const { day, dismiss: dismissDay } = useDay(activeId);
   const [enteredApp, setEnteredApp] = useState(false);
 
-  // Conversation + remembered facts, from the server. Refreshed whenever a turn
-  // completes (messages.length changes), so the sidebar tracks the conversation.
   const { turns, memories } = useHistory(activeId, messages.length);
 
-  // When the active assistant changes while a voice session is live, reopen the
-  // socket as the new persona (new sid + config). If idle, the next start picks
-  // it up automatically — nothing to do.
   const prevIdRef = useRef(activeId);
   useEffect(() => {
     if (prevIdRef.current !== activeId) {
@@ -175,9 +151,6 @@ export default function App() {
     (data: { name: string; avatar: string; instructions: string; voice: string }, id?: string) => {
       if (id) {
         setAssistants(updateAssistant(id, data));
-        // Editing the active persona's vibe mid-session: reopen the socket so the
-        // new name/instructions land in the prompt (a new persona is created idle,
-        // so it needs no reconnect).
         if (id === activeId && listening) reconnect();
       } else {
         const created = createAssistant(data);
@@ -199,8 +172,6 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
-  // First-run asks the visitor's name once; the account menu lets them change it
-  // (or their persona's vibe) any time after.
   const [name, setName] = useState<string>(() => localStorage.getItem("fraise-name") ?? "");
   const [askName, setAskName] = useState<boolean>(() => localStorage.getItem("fraise-name") === null);
   const [editingName, setEditingName] = useState(false);
@@ -212,8 +183,6 @@ export default function App() {
     const wasEdit = editingName;
     setAskName(false);
     setEditingName(false);
-    // A live session carries the name in its socket URL (?name=), so a rename
-    // only reaches the backend prompt on reconnect.
     if (wasEdit && listening) reconnect();
   };
   const openRename = () => {
@@ -244,7 +213,6 @@ export default function App() {
     }
   }
 
-  // Live waveform: drive vertical scale from mic amplitude while listening.
   const waveRef = useRef<HTMLDivElement>(null);
   const orbStateRef = useRef(orbState);
   orbStateRef.current = orbState;
@@ -266,7 +234,6 @@ export default function App() {
     return () => cancelAnimationFrame(raf);
   }, [levelRef]);
 
-  // Space toggles the mic (push-to-talk feel); Esc closes the mobile menu.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
@@ -287,7 +254,6 @@ export default function App() {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   const waveOn = orbState === "listening" || orbState === "speaking";
 
-  // Caption — the single line of "speech" the assistant shows.
   let caption: string;
   let captionClass: string;
   if (!speechSupported) {
@@ -309,31 +275,19 @@ export default function App() {
     captionClass = "idle";
   }
 
-  // Type only what Fraise says. A listening caption is the user's own words
-  // coming back off the mic — replaying those a character at a time would lag
-  // behind their voice and feel broken.
   const reduceMotion = useRef(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false).current;
   const types = captionClass === "speaking" || captionClass === "idle";
   const typed = useTypewriter(caption, types && !reduceMotion);
   const caretOn = typed.length < caption.length || waveOn;
 
   const pill = statusPill(status, orbState);
-  // Keep the board mounted while docs exist or a turn is in flight so it can
-  // recede (fade) rather than pop out — a shelf, not a feed.
   const showBoard = speechSupported && (messages.length === 0 || docs.length > 0 || !!uploading);
 
-  // The front door — the Obsidian hero with the dictation composer. Talking or
-  // opening the workspace crosses into the full app below (which keeps captions,
-  // the research panel, memory, and history). The dictated day lives out here.
   if (!enteredApp) {
     return (
       <>
         <Hero
           orbState={orbState}
-          // Enter idle, not already listening — starting the mic instantly
-          // recedes the workspace's "try saying" board (it fades out the
-          // moment orbState leaves idle) before anyone's had a chance to read
-          // it. A second, explicit tap on the orb starts the conversation.
           onOrbClick={() => setEnteredApp(true)}
           inputLevelRef={levelRef}
           outputLevelRef={outLevelRef}
@@ -351,7 +305,6 @@ export default function App() {
   return (
     <div className={`stage ${orbState}`}>
       <div className="window" data-screen-label="Fraise — voice assistant">
-        {/* ---------- sidebar: the history drawer, not a persistent rail ---------- */}
         {menuOpen && <button className="scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
         <aside className={`sidebar${menuOpen ? " open" : ""}`}>
           <div className="drawer-head">
@@ -359,8 +312,6 @@ export default function App() {
             <button className="drawer-close" aria-label="Close" onClick={() => setMenuOpen(false)}>✕</button>
           </div>
 
-          {/* Past research, straight from the DB — so it survives a reload, unlike
-              the spoken turns, which only ever lived in this tab's memory. */}
           <div className="section-label">Research</div>
 
           <div className="recents">
@@ -388,8 +339,6 @@ export default function App() {
             )}
           </div>
 
-          {/* The conversation, read back from the server — so it survives a reload
-              instead of living only in this tab. Same sid as memory and research. */}
           {turns.length > 0 && (
             <>
               <div className="section-label">Conversation</div>
@@ -503,7 +452,6 @@ export default function App() {
           </div>
         </aside>
 
-        {/* ---------- main ---------- */}
         <main className="main">
           <header className="main-header">
             <div className="header-left">
@@ -595,12 +543,7 @@ export default function App() {
           )}
 
           <section className="assistant-stage">
-            {/* The hero is its own plane: it sticks to the top and the board
-                scrolls underneath its frosted scrim. It compacts when agents are
-                running — at that point the work *is* the answer, and a 340px orb
-                would push the deck below the fold. */}
             <div className={`hero${run || artifact ? " compact" : ""}`}>
-              <span className="hero-eyebrow">Talking with {active.avatar} {active.name}</span>
               <Orb state={orbState} onClick={toggle} inputLevelRef={levelRef} outputLevelRef={outLevelRef} />
 
               <div className="caption-wrap">
@@ -611,8 +554,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* The agents and their artifact own the stage while a run is alive —
-                they're the answer, so they don't recede when Fraise speaks. */}
             {artifact ? (
               <ArtifactView artifact={artifact} onClose={dismissRun} />
             ) : run ? (
@@ -640,8 +581,6 @@ export default function App() {
                 {speechSupported ? DOCK_HINT[orbState] : "Voice needs Chrome or Edge"}
                 {speechSupported && orbState === "idle" && <kbd className="kbd">Space</kbd>}
               </span>
-              {/* Small, always-visible upload — lives in the dock (z-4) so it never
-                  recedes with the board while Fraise is talking. */}
               <button
                 className={`dock-upload${docError ? " error" : ""}`}
                 onClick={() => fileInputRef.current?.click()}
@@ -666,7 +605,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* ---------- name prompt: first-run and later renames share this card ---------- */}
       {(askName || editingName) && (
         <div className="name-overlay" onClick={() => editingName && setEditingName(false)}>
           <form
@@ -814,8 +752,6 @@ function AssistantEditor({
   );
 }
 
-// A generated monogram avatar per voice (hue + first letter) — these are
-// synthetic TTS voices with no real person behind them, so no stock photos.
 function VoiceAvatar({ voice }: { voice: VoiceOption }) {
   return (
     <div

@@ -1,9 +1,3 @@
-// The mark and the icon set.
-//
-// Emoji were doing this job before. They render differently on every OS, ignore
-// brand color, and sit at whatever optical weight the vendor chose — which is
-// why a UI full of them never looks designed. These are one family: 24px grid,
-// 1.6 stroke, round caps, currentColor.
 
 type IconName =
   | "math"
@@ -91,8 +85,6 @@ export function GitHubMark({ className = "" }: { className?: string }) {
   );
 }
 
-// Fraise = strawberry. Drawn rather than typed: a calyx of three leaves over a
-// berry, seeds in the page's ivory. Two-tone so it survives both themes.
 export function FraiseMark({ className = "" }: { className?: string }) {
   return (
     <svg className={`fraise-mark ${className}`} viewBox="0 0 32 32" aria-hidden="true">
@@ -118,12 +110,6 @@ export function FraiseMark({ className = "" }: { className?: string }) {
   );
 }
 
-// Deterministic cover art for an uploaded document.
-//
-// This replaced a random picsum.photos image per file — a stock photo of a
-// beach standing in for your tax return is noise pretending to be content, and
-// it cost a network request per card. The motif is derived from the filename,
-// so a given document always wears the same face.
 const FNV_OFFSET = 2166136261;
 
 function hash(s: string): number {

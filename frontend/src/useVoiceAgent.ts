@@ -11,8 +11,6 @@ export interface Message {
 type Status = "connecting" | "online" | "error";
 export type OrbState = "idle" | "listening" | "thinking" | "speaking";
 
-// Prod backend (Caddy + TLS on the VM). Used when no env override is set and
-// we're not on localhost, so the deployed site works without a build-time var.
 const PROD_WS_URL = "wss://100-56-229-165.sslip.io/ws";
 const isLocalHost = ["localhost", "127.0.0.1"].includes(location.hostname);
 const WS_URL =
@@ -20,15 +18,10 @@ const WS_URL =
   (isLocalHost
     ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`
     : PROD_WS_URL);
-// The active assistant's id is the scope key (Phase 11) — memory, documents,
-// and conversation history are all keyed on it, so switching assistants gives a
-// clean, isolated mind. No login: the browser holds the assistants.
 function sessionId(): string {
   return getActiveId();
 }
 
-// Greet the first connection *per assistant* per tab, so switching personas
-// mid-app gets a fresh hello as the new persona but a reload/reconnect doesn't.
 function greetedKey(id: string): string {
   return `fraise-greeted-${id}`;
 }
@@ -48,7 +41,6 @@ function wsUrlWithSession(): string {
   if (active.voice) {
     url.searchParams.set("voice", active.voice);
   }
-  // Other assistants' names, for voice-native switching ("switch to Work").
   const others = listAssistants()
     .filter((a) => a.id !== active.id)
     .map((a) => a.name);
@@ -59,7 +51,6 @@ function wsUrlWithSession(): string {
   return url.toString();
 }
 
-// Same origin as the voice socket, over http(s) — for /upload and /agents/stream.
 export function httpBase(): string {
   const url = new URL(WS_URL, location.href);
   url.protocol = url.protocol === "wss:" ? "https:" : "http:";
@@ -79,15 +70,10 @@ export async function uploadDocument(file: File): Promise<{ filename: string; ch
   return res.json();
 }
 
-const INPUT_RATE = 16_000; // mic → Deepgram (must match backend audio.input)
-const OUTPUT_RATE = 24_000; // Deepgram → speaker (must match backend audio.output)
-const PLAYBACK_LEAD = 0.18; // seconds of jitter cushion before playback starts
+const INPUT_RATE = 16_000;
+const OUTPUT_RATE = 24_000;
+const PLAYBACK_LEAD = 0.18;
 
-/**
- * Streams microphone audio to the backend (which bridges to Deepgram's Voice
- * Agent) and plays the agent's audio back. Orb state and the transcript are
- * driven by the agent's JSON events.
- */
 export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<Status>("online");
@@ -95,11 +81,8 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
   const [listening, setListening] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [authNeeded, setAuthNeeded] = useState<string | null>(null); // auth URL or null
+  const [authNeeded, setAuthNeeded] = useState<string | null>(null);
 
-  // Live audio amplitude (0..1), kept in refs to avoid re-rendering every frame:
-  // levelRef = mic input (drives orb while listening), outLevelRef = agent
-  // output (drives orb while speaking).
   const levelRef = useRef(0);
   const outLevelRef = useRef(0);
 
@@ -108,20 +91,11 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
   const micCtxRef = useRef<AudioContext | null>(null);
   const playCtxRef = useRef<AudioContext | null>(null);
   const workletRef = useRef<AudioWorkletNode | null>(null);
-  const playHeadRef = useRef(0); // next scheduled playback time
+  const playHeadRef = useRef(0);
   const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
-  // Safety net: if "thinking" never resolves (a failed think/function step that
-  // doesn't crash the bridge but also never produces a reply), don't leave the
-  // orb spinning forever — bail back to idle and tell the user.
   const thinkingTimeoutRef = useRef<number | null>(null);
-  // Set on barge-in, cleared when the agent's next turn actually starts. Guards
-  // against trailing audio chunks Deepgram had already generated before it
-  // registered the interruption — those still arrive after UserStartedSpeaking
-  // and would otherwise keep playing over the user.
   const mutedRef = useRef(false);
 
-  // Latest switch handler in a ref so handleEvent can call it without being
-  // rebuilt (and re-subscribing the socket) every render.
   const switchRef = useRef(onRequestSwitch);
   switchRef.current = onRequestSwitch;
 
@@ -130,13 +104,11 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
     setMessages((m) => [...m, { id: crypto.randomUUID(), role, text }]);
   }, []);
 
-  // Stop any agent audio currently playing/scheduled (used for barge-in).
   const stopPlayback = useCallback(() => {
     for (const s of sourcesRef.current) {
       try {
         s.stop();
       } catch {
-        /* already stopped */
       }
     }
     sourcesRef.current = [];
@@ -144,7 +116,6 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
     if (playCtxRef.current) playHeadRef.current = playCtxRef.current.currentTime;
   }, []);
 
-  // Schedule one linear16 chunk for gapless playback.
   const playChunk = useCallback((buf: ArrayBuffer) => {
     const ctx = playCtxRef.current;
     if (!ctx) return;
@@ -165,8 +136,6 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
     src.buffer = audio;
     src.connect(ctx.destination);
 
-    // Lead-in cushion: when starting fresh or after an underrun, schedule a
-    // little in the future so load-time jitter doesn't cause dropouts.
     const now = ctx.currentTime;
     if (playHeadRef.current < now + 0.02) playHeadRef.current = now + PLAYBACK_LEAD;
     src.start(playHeadRef.current);
@@ -184,9 +153,6 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
     }
   }, []);
 
-  // A turn that never resolves (e.g. Deepgram's think/function step fails
-  // without ever closing the socket) would otherwise leave the orb spinning
-  // forever with no feedback. This guarantees it always comes back to idle.
   const armThinkingWatchdog = useCallback(() => {
     clearThinkingWatchdog();
     thinkingTimeoutRef.current = window.setTimeout(() => {
@@ -196,7 +162,6 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
     }, 20_000);
   }, [clearThinkingWatchdog, push]);
 
-  // Map Deepgram Voice Agent events to UI state.
   const handleEvent = useCallback(
     (data: any) => {
       switch (data.type) {
@@ -204,9 +169,9 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
         case "SettingsApplied":
           setStatus("online");
           break;
-        case "UserStartedSpeaking": // barge-in: cut the agent off
+        case "UserStartedSpeaking":
           clearThinkingWatchdog();
-          mutedRef.current = true; // drop any trailing chunks already in flight
+          mutedRef.current = true;
           stopPlayback();
           setSpeaking(false);
           setThinking(false);
@@ -217,13 +182,6 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
             push("user", data.content);
           } else if (data.role === "assistant") {
             push("agent", data.content);
-            // Some Deepgram Voice Agent configs never emit AgentStartedSpeaking
-            // (observed: Flux v2 listen + this think/speak setup). This text
-            // always arrives right before that turn's audio, and — because
-            // socket order is preserved — can't belong to a stale, barged-in
-            // turn once UserStartedSpeaking has already been seen. Without this,
-            // mutedRef never clears and every reply's audio gets silently
-            // dropped after the first barge-in.
             clearThinkingWatchdog();
             mutedRef.current = false;
             setSpeaking(true);
@@ -239,7 +197,7 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
           break;
         case "AgentStartedSpeaking":
           clearThinkingWatchdog();
-          mutedRef.current = false; // a real new turn — safe to play again
+          mutedRef.current = false;
           setSpeaking(true);
           setThinking(false);
           setListening(false);
@@ -252,16 +210,10 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
           setAuthNeeded(data.url as string);
           break;
         case "switch_assistant":
-          // Voice-native switch: the backend tool named an assistant; the App
-          // resolves the name against the local list and reconnects as it.
           if (typeof data.name === "string") switchRef.current?.(data.name);
           break;
         case "Error":
         case "error":
-          // A fatal Deepgram error (or a bridge failure) can arrive while the
-          // orb is still showing "thinking" — without resetting state here it
-          // looks like the agent is still working when the turn has actually
-          // died, which is exactly the "shows working, never replies" symptom.
           clearThinkingWatchdog();
           setThinking(false);
           setSpeaking(false);
@@ -298,8 +250,6 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
     try {
       setStatus("connecting");
 
-      // Playback pipeline first, so the first (greeting) audio chunks are never
-      // dropped while the socket is being set up.
       const playCtx = new AudioContext({ sampleRate: OUTPUT_RATE });
       await playCtx.resume();
       playCtxRef.current = playCtx;
@@ -310,9 +260,6 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
       wsRef.current = ws;
       ws.onopen = () => {
         setStatus("online");
-        // Persist here, not in wsUrlWithSession — a failed first attempt must
-        // still greet on retry, so the flag only sticks once we're really
-        // connected. Keyed per assistant so each persona greets once per tab.
         sessionStorage.setItem(greetedKey(getActiveId()), "1");
       };
       ws.onerror = () => setStatus("error");
@@ -324,7 +271,6 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
           try {
             handleEvent(JSON.parse(ev.data));
           } catch {
-            /* ignore non-JSON */
           }
         } else if (!mutedRef.current) {
           playChunk(ev.data as ArrayBuffer);
@@ -349,7 +295,6 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
       const source = micCtx.createMediaStreamSource(stream);
       const worklet = new AudioWorkletNode(micCtx, "pcm-processor");
       workletRef.current = worklet;
-      // Pull the worklet through a muted sink so it processes without echoing.
       const sink = micCtx.createGain();
       sink.gain.value = 0;
       source.connect(worklet);
@@ -380,18 +325,12 @@ export function useVoiceAgent(onRequestSwitch?: (name: string) => void) {
     else void start();
   }, [active, start, stop]);
 
-  // Reconnect the whole pipeline — used when the active assistant changes so the
-  // socket reopens with the new scope (sid) and persona. getUserMedia won't
-  // re-prompt (permission persists), so a clean stop→start is simplest here.
   const reconnect = useCallback(() => {
-    setMessages([]); // different assistant, different mind — clear the transcript
+    setMessages([]);
     stop();
-    // Let stop() tear down the old contexts/socket before opening new ones.
     setTimeout(() => void start(), 120);
   }, [stop, start]);
 
-  // Tell the live agent a document was just uploaded, so it speaks about it.
-  // No-op if the voice session isn't connected — the doc is still indexed.
   const notifyUpload = useCallback((filename: string) => {
     const ws = wsRef.current;
     if (ws?.readyState === WebSocket.OPEN) {

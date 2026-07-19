@@ -1,19 +1,16 @@
-html, body { margin: 0; padding: 0; height: 100%; background: #F5F6F9; }
+html, body { margin: 0; padding: 0; height: 100%; background: #F7F3E6; }
 html { color-scheme: light; }
 html.dark { color-scheme: dark; }
-html.dark, html.dark body { background: #07080B; }
+html.dark, html.dark body { background: #14120E; }
 
 * { box-sizing: border-box; }
-
 #root { min-height: 100vh; }
-
 body {
   font-family: "Hanken Grotesk", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #0D1017;
+  color: #171410;
   -webkit-font-smoothing: antialiased;
   transition: background .5s ease, color .5s ease;
 }
-html.dark body { color: #ECEEF4; }
-
-::selection { background: #C7CEFF; color: #0D1017; }
-html.dark ::selection { background: #2A3AA8; color: #ECEEF4; }
+html.dark body { color: #FBF6E8; }
+::selection { background: #DCE1FF; color: #171410; }
+html.dark ::selection { background: #33407A; color: #FBF6E8; }

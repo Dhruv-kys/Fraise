@@ -1,17 +1,8 @@
-/* Fraise — voice assistant shell. */
 
-/* ---------- theme tokens ---------- */
-/* Obsidian & Signal Blue — a premium, fintech-grade rebrand. Near-black canvas,
-   one electric blue accent, warm-ivory type, cool blue-tinted borders, a single
-   action-green. Dark is the brand's home (the front door); light is the same
-   world by day. Solid colors, one saturated accent — depth is a surface ladder,
-   not decoration: page → window → panel → card → raised → hover.
-   :root is the light variant; .dark (below) is the default primary look. */
 :root {
-  --grad-app: #EEF0F5;
+  --grad-app: #F7F3E6;
 
-  /* Type scale — a 1.25 ratio off a 13px base. */
-  --t-micro: 10px;   /* kickers, eyebrow labels — always uppercase + tracked */
+  --t-micro: 10px;
   --t-fine: 11px;
   --t-small: 12px;
   --t-base: 13px;
@@ -19,7 +10,6 @@
   --t-title: 19px;
   --t-display: clamp(32px, 4.6vw, 60px);
 
-  /* Space scale — 4px grid. */
   --s-1: 4px;
   --s-2: 8px;
   --s-3: 12px;
@@ -27,7 +17,6 @@
   --s-5: 24px;
   --s-6: 32px;
 
-  /* Radius scale — concentric: an inner corner is outer minus its padding. */
   --r-sm: 8px;
   --r-md: 12px;
   --r-lg: 18px;
@@ -35,89 +24,81 @@
 
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Action green — the one non-blue accent, used only for "go"/live states. */
-  --leaf: #17A673;
-  --seed: #EEF1FF;
+  --leaf: #178A5F;
+  --seed: #EAF0FF;
   --go: #12B981;
 
-  --shadow-1: 0 1px 2px rgba(20, 30, 70, .05), 0 2px 6px rgba(20, 30, 70, .05);
-  --shadow-2: 0 2px 4px rgba(20, 30, 70, .07), 0 10px 24px rgba(20, 30, 70, .10);
-  --shadow-3: 0 4px 8px rgba(20, 30, 70, .08), 0 18px 44px rgba(20, 30, 70, .14);
-  --shadow-ink: 0 2px 4px rgba(20, 30, 70, .14), 0 12px 30px rgba(20, 30, 70, .22);
+  --shadow-1: 0 1px 2px rgba(40, 32, 10, .05), 0 2px 6px rgba(40, 32, 10, .05);
+  --shadow-2: 0 2px 4px rgba(40, 32, 10, .06), 0 10px 24px rgba(40, 32, 10, .08);
+  --shadow-3: 0 4px 8px rgba(40, 32, 10, .07), 0 18px 44px rgba(40, 32, 10, .12);
+  --shadow-ink: 0 2px 4px rgba(40, 32, 10, .12), 0 12px 30px rgba(40, 32, 10, .18);
 
-  --window-bg: #FBFBFD;
-  --sidebar-grad: #F1F3F8;
-  --main-grad: #F8F9FC;
+  --window-bg: #FFFDF4;
+  --sidebar-grad: #F6F1E2;
+  --main-grad: #FBF8ED;
 
-  --border-soft: rgba(30, 45, 110, .09);
-  --border-soft-2: rgba(30, 45, 110, .13);
-  --border-soft-3: rgba(30, 45, 110, .17);
-  --border-dash: rgba(30, 45, 110, .26);
+  --border-soft: rgba(30, 24, 10, .10);
+  --border-soft-2: rgba(30, 24, 10, .16);
+  --border-soft-3: rgba(30, 24, 10, .24);
+  --border-dash: rgba(30, 24, 10, .32);
 
   --surface: #FFFFFF;
-  --surface-soft: #EFF1F7;
+  --surface-soft: #F3EEDD;
   --surface-strong: #FFFFFF;
   --surface-hover: #FFFFFF;
-  --surface-active: #F4F6FB;
+  --surface-active: #F5F0DF;
   --pill-bg: #FFFFFF;
 
-  --text-primary: #0D1017;
-  --text-secondary: #3B4150;
-  --text-tertiary: #5A6072;
-  --text-muted: #7E8598;
-  --text-faint: #A2A8B8;
-  --text-faint-2: #949BAC;
+  --text-primary: #171410;
+  --text-secondary: #4A4438;
+  --text-tertiary: #6B6455;
+  --text-muted: #8C8574;
+  --text-faint: #ADA692;
+  --text-faint-2: #9B9482;
 
-  --accent: #3D4EE6;
-  --accent-2: #5B6CFF;
+  --accent: #4A5FEA;
+  --accent-2: #6B7DFF;
+  --accent-pastel: #DCE1FF;
 }
-
-/* Dark = the primary Obsidian look. Near-black surfaces stepping up a cool,
-   near-neutral ladder (a whisper of blue, B leads R/G) so the signal-blue accent
-   is the only saturated color on screen. Elevation is the tonal ladder — page →
-   window → panel → card → raised → hover — since shadows barely read on black. */
 .dark {
-  --grad-app: #07080B;
+  --grad-app: #14120E;
 
   --leaf: #3FE0A0;
-  --seed: #10131C;
+  --seed: #1C1912;
   --go: #3FE0A0;
 
-  /* Shadows can't darken an already-dark page; the surface ladder carries the
-     lift, shadows just seat edges. */
   --shadow-1: 0 1px 2px rgba(0, 0, 0, .40), 0 2px 6px rgba(0, 0, 0, .30);
   --shadow-2: 0 2px 4px rgba(0, 0, 0, .44), 0 10px 24px rgba(0, 0, 0, .40);
   --shadow-3: 0 4px 8px rgba(0, 0, 0, .48), 0 18px 44px rgba(0, 0, 0, .52);
   --shadow-ink: 0 2px 4px rgba(0, 0, 0, .48), 0 12px 30px rgba(0, 0, 0, .56);
 
-  --window-bg: #0A0B10;
-  --sidebar-grad: #0C0E14;
-  --main-grad: #090A0E;
+  --window-bg: #17140F;
+  --sidebar-grad: #17130F;
+  --main-grad: #14120E;
 
-  --border-soft: rgba(150, 170, 255, .09);
-  --border-soft-2: rgba(150, 170, 255, .13);
-  --border-soft-3: rgba(150, 170, 255, .18);
-  --border-dash: rgba(150, 170, 255, .22);
+  --border-soft: rgba(255, 250, 230, .08);
+  --border-soft-2: rgba(255, 250, 230, .12);
+  --border-soft-3: rgba(255, 250, 230, .18);
+  --border-dash: rgba(255, 250, 230, .24);
 
-  --surface: #12141C;
-  --surface-soft: #0E1016;
-  --surface-strong: #171A24;
-  --surface-hover: #1C1F2B;
-  --surface-active: #191C27;
-  --pill-bg: #12141C;
+  --surface: #1D1912;
+  --surface-soft: #17140F;
+  --surface-strong: #221D15;
+  --surface-hover: #272117;
+  --surface-active: #241F17;
+  --pill-bg: #1D1912;
 
-  --text-primary: #ECEEF4;
-  --text-secondary: #AEB4C6;
-  --text-tertiary: #878EA1;
-  --text-muted: #6B7285;
-  --text-faint: #4C5265;
-  --text-faint-2: #5A6175;
+  --text-primary: #FBF6E8;
+  --text-secondary: #C9C2AE;
+  --text-tertiary: #A39C88;
+  --text-muted: #7D765F;
+  --text-faint: #5C563F;
+  --text-faint-2: #6B6450;
 
-  --accent: #5B6CFF;
-  --accent-2: #8493FF;
+  --accent: #6B7DFF;
+  --accent-2: #8C9AFF;
+  --accent-pastel: var(--accent);
 }
-
-/* ---------- keyboard focus ---------- */
 .new-conv:focus-visible,
 .card:focus-visible,
 .icon-btn:focus-visible,
@@ -129,12 +110,10 @@
   outline-offset: 2px;
 }
 :focus:not(:focus-visible) { outline: none; }
-
 @keyframes barA { 0%, 100% { transform: scaleY(.34); } 50% { transform: scaleY(1); } }
 @keyframes barB { 0%, 100% { transform: scaleY(.5); } 50% { transform: scaleY(.82); } }
 @keyframes barC { 0%, 100% { transform: scaleY(.24); } 50% { transform: scaleY(.95); } }
 @keyframes caret { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-
 .stage {
   position: relative;
   min-height: 100vh;
@@ -148,7 +127,6 @@
   overflow: hidden;
   transition: background .5s ease;
 }
-
 .window {
   position: relative;
   width: 100%;
@@ -159,12 +137,6 @@
   overflow: hidden;
   transition: background .5s ease;
 }
-
-/* ---------- sidebar (history drawer) ---------- */
-/* No persistent rail — the front door has no sidebar, so the workspace
-   doesn't either. History, memory, and the account live in a drawer that
-   slides over the full-bleed stage on demand, at every viewport size, the
-   same mechanic that used to be mobile-only. */
 .sidebar {
   position: absolute; left: 0; top: 0; bottom: 0; z-index: 20;
   width: 300px;
@@ -178,22 +150,17 @@
   transition: background .5s ease, transform .3s cubic-bezier(.4, 0, .2, 1);
 }
 .sidebar.open { transform: translateX(0); }
-
 .brand-mark {
   width: 30px; height: 30px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   animation: markBreathe 5s ease-in-out infinite;
 }
 @keyframes markBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-
 .fraise-mark { width: 100%; height: 100%; display: block; overflow: visible; }
 .fraise-mark .mark-berry { fill: var(--accent); }
 .fraise-mark .mark-leaf { fill: var(--leaf); }
 .fraise-mark .mark-stem { stroke: var(--leaf); fill: none; }
 .fraise-mark .mark-seed { fill: var(--seed); opacity: .85; }
-
-/* The brand now lives in the nav, not a sidebar header — same recipe as the
-   front door's hx-brand: mark, serif name, mono slash. */
 .nav-brand {
   display: flex; align-items: center; gap: 8px;
   background: none; border: none; cursor: pointer; padding: 0;
@@ -205,9 +172,6 @@
   font-size: 17px; font-weight: 700; line-height: 1; color: var(--text-primary); letter-spacing: -.01em;
 }
 .nav-brand-slash { font-family: var(--mono); font-size: 13px; color: var(--text-faint); }
-
-/* The drawer's own small header — a title and a close button, since the
-   brand and "new conversation" moved out to the nav. */
 .drawer-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: var(--s-2) 4px var(--s-4);
@@ -224,34 +188,26 @@
   font-size: 12px; transition: color .18s ease;
 }
 .drawer-close:hover { color: var(--text-primary); }
-
-/* The one solid-fill button in the shell — same recipe as the front door's
-   hx-cta: flat accent fill, no border, a colored glow only in dark mode. */
 .new-conv {
   display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
-  padding: 11px 14px;
-  border: none;
+  padding: 10px 14px;
+  border: 1.5px solid var(--text-primary);
   border-radius: 10px;
-  background: var(--accent);
+  background: var(--accent-pastel);
   cursor: pointer;
-  font-family: inherit; color: #fff; font-size: 13.5px; font-weight: 600;
-  transition: background .18s ease, transform .16s ease, box-shadow .18s ease;
+  font-family: inherit; color: var(--text-primary); font-size: 13.5px; font-weight: 700;
+  transition: transform .16s ease, background .18s ease;
 }
-.new-conv:hover { background: var(--accent-2); transform: translateY(-1px); }
+.new-conv:hover { transform: translateY(-1px); }
 .new-conv:active { transform: translateY(0); }
-.dark .new-conv { box-shadow: 0 4px 16px rgba(61, 90, 255, .3); }
-.dark .new-conv:hover { box-shadow: 0 8px 22px rgba(61, 90, 255, .4); }
-/* In the nav it's an auto-width button beside the other links, not a
-   full-bleed block the way it read inside the old sidebar. */
 .new-conv.nav-cta { width: auto; padding: 9px 16px 9px 12px; margin-left: 6px; }
 .new-conv .plus {
   width: 18px; height: 18px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  background: rgba(255, 255, 255, .22);
-  color: #fff; font-size: 14px; line-height: 0; padding-bottom: 1px;
+  background: rgba(23, 20, 16, .12);
+  color: var(--text-primary); font-size: 14px; line-height: 0; padding-bottom: 1px;
 }
-
-
+.dark .new-conv .plus { background: rgba(255, 255, 255, .18); }
 .section-label {
   display: flex; align-items: center; gap: 10px;
   font-family: var(--mono);
@@ -262,14 +218,11 @@
   content: ""; flex: 1; height: 1px;
   background: linear-gradient(90deg, var(--border-soft-3), transparent);
 }
-
 .recents { display: flex; flex-direction: column; gap: 1px; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-soft-3) transparent; }
 .recents::-webkit-scrollbar { width: 8px; }
 .recents::-webkit-scrollbar-track { background: transparent; }
 .recents::-webkit-scrollbar-thumb { background: var(--border-soft-3); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 .recents::-webkit-scrollbar-thumb:hover { background: var(--text-faint); background-clip: padding-box; }
-/* A lead-line, not a filled pill — the same annotation motif as the recent
-   list marks the active row, instead of a rounded highlight block. */
 .recent {
   display: flex; flex-direction: column; gap: 3px;
   padding: 8px 11px 8px 13px; border-radius: 0; cursor: pointer;
@@ -289,9 +242,7 @@
 .recent.active .recent-title span:last-child { color: var(--text-primary); }
 .recent-meta { font-size: 11px; color: var(--text-faint-2); padding-left: 15px; }
 .recents-empty { font-size: 12px; color: var(--text-faint); padding: 8px 11px; line-height: 1.5; }
-
 .account-wrap { position: relative; margin-top: 6px; border-top: 1px solid var(--border-soft); }
-
 .account {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 10px 8px 4px; margin-top: 6px;
@@ -318,9 +269,6 @@
 }
 .account-dots svg { fill: currentColor; }
 .account:hover .account-dots, .account.open .account-dots { color: var(--text-secondary); }
-
-/* ---------- account menu (rename, vibe, appearance) ---------- */
-/* Invisible full-window catcher so a click anywhere else closes the popover. */
 .account-scrim { position: fixed; inset: 0; z-index: 30; background: transparent; border: none; cursor: default; }
 .account-menu {
   position: absolute; z-index: 31; left: 0; right: 0; bottom: calc(100% + 8px);
@@ -369,7 +317,6 @@
   background: transparent; transition: background .15s ease, color .15s ease;
 }
 .acct-theme button.on { background: var(--accent); color: #fff; }
-
 .credit {
   font-family: "Instrument Serif", serif;
   font-size: 12px; color: var(--text-faint-2);
@@ -380,41 +327,12 @@
   text-decoration: none; transition: color .2s ease;
 }
 .credit a:hover { color: var(--accent-2); text-decoration: underline; }
-
-/* ---------- main ---------- */
 .main {
   flex: 1; position: relative; display: flex; flex-direction: column; min-width: 0;
   isolation: isolate;
   background: var(--main-grad);
   transition: background .5s ease;
 }
-/* The hero's cinematic backdrop, ported into the workspace so the app and the
-   front door read as one product: a dotted technical grid across the whole
-   stage, and (dark only) a signal-blue aurora seated behind the orb. Both sit
-   at z-index 0, below the header (z-5) and the stage (z-1). */
-.main::before {
-  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background-image: radial-gradient(circle at center, rgba(60, 70, 140, 0.14) 1.6px, transparent 1.9px);
-  background-size: 28px 28px;
-}
-.dark .main::before {
-  background-image: radial-gradient(circle at center, rgba(140, 160, 255, 0.2) 1.6px, transparent 1.9px);
-}
-.dark .main::after {
-  content: ""; position: absolute; left: 50%; top: 27%; z-index: 0;
-  width: min(36vw, 500px); aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(61, 90, 255, 0.13) 0%, rgba(61, 90, 255, 0.04) 40%, transparent 70%);
-  filter: blur(34px); pointer-events: none;
-  transition: background .5s ease, opacity .5s ease;
-}
-/* The aurora brightens as Fraise wakes — a quiet signal the app is listening. */
-.stage.listening .main::after { background: radial-gradient(circle, rgba(91, 108, 255, 0.19) 0%, rgba(61, 90, 255, 0.06) 42%, transparent 72%); }
-.stage.speaking .main::after { background: radial-gradient(circle, rgba(132, 147, 255, 0.18) 0%, rgba(99, 230, 255, 0.05) 42%, transparent 72%); }
-
-/* Mirrors the front door's hx-nav: a transparent bar that lets the ASCII
-   ground show through, a hairline rule standing in for a background — the
-   same engineered restraint instead of a solid app-chrome bar. */
 .main-header {
   position: relative; z-index: 5;
   height: 64px; flex-shrink: 0;
@@ -431,9 +349,6 @@
 }
 .header-left { display: flex; align-items: center; gap: 16px; }
 .header-right { display: flex; align-items: center; gap: 4px; }
-
-/* Plain icon links, like hx-nav-link — a color shift on hover, no pill, no
-   border, no shadow. Chrome is the one thing the front door never wears. */
 .icon-btn {
   position: relative;
   width: 34px; height: 34px; flex-shrink: 0;
@@ -446,7 +361,6 @@
 }
 .icon-btn:hover { background: none; color: var(--text-primary); }
 .icon-btn svg { width: 18px; height: 18px; display: block; }
-
 .auth-banner {
   margin: 0 26px 0;
   padding: 12px 18px;
@@ -471,8 +385,6 @@
   border: none; cursor: pointer;
 }
 .auth-banner-btn:hover { background: #A8481A; }
-/* No pill, no border — a dot and a mono label sitting straight on the nav,
-   the same restraint as hx-nav-link. */
 .status-pill { display: flex; align-items: center; gap: 8px; }
 .status-pill .dot {
   width: 6px; height: 6px; border-radius: 50%;
@@ -483,10 +395,6 @@
   font-size: 11px; font-weight: 500; letter-spacing: .12em;
   text-transform: uppercase; color: var(--text-tertiary);
 }
-
-/* ---------- assistant switcher (Phase 11) ---------- */
-/* Plain text tabs, like the front door's nav links — an underline for the
-   active one instead of a filled pill riding a shadow. */
 .assistant-switcher {
   display: flex; align-items: center; gap: clamp(2px, 1.6vw, 20px);
   min-width: 0; max-width: 46%;
@@ -516,12 +424,6 @@
   transition: color .18s ease;
 }
 .assistant-add:hover { color: var(--accent-2); }
-
-/* ---------- stage ---------- */
-/* The stage is the scroll plane. The hero scrolls WITH it — it used to be
-   `position: sticky`, which pinned the orb to the top of the window the moment
-   you scrolled and never let it come back down. A layering trick isn't worth an
-   orb that gets stuck. */
 .assistant-stage {
   flex: 1; position: relative; z-index: 1; min-height: 0;
   overflow-y: auto; overflow-x: hidden;
@@ -533,28 +435,11 @@
   background: var(--border-soft-3); border-radius: 999px;
   border: 3px solid transparent; background-clip: padding-box;
 }
-
-/* Sized by its content, not by the viewport — a vh floor here would push the
-   board below the fold and the page would read as empty. The board must break
-   the bottom edge; that bleed is what invites the scroll. */
 .hero {
   position: relative; z-index: 3;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; padding: 0 26px 14px;
 }
-/* The same small mono kicker that sits above the front door's headline —
-   here it names who you're talking to instead of the pitch line. */
-.hero-eyebrow {
-  font-family: var(--mono);
-  font-size: 11px; font-weight: 500; letter-spacing: .24em;
-  text-transform: uppercase; color: var(--accent-2);
-}
-.hero.compact .hero-eyebrow { display: none; }
-
-/* ---------- caption ---------- */
-/* Plain type on the page. The ruled-paper sheet is gone: it framed one line of
-   speech in a heavy object, which fought the artifact for attention and dragged
-   the whole hero down the screen. */
 .caption-wrap {
   width: 100%; max-width: 800px; min-height: 76px;
   display: flex; align-items: center; justify-content: center;
@@ -576,11 +461,6 @@
   background: var(--accent); vertical-align: 5px;
   animation: caret 1.05s steps(1) infinite;
 }
-
-/* ---------- the board ---------- */
-/* Two zones now: documents → suggestions. Upload moved to the dock so it stays
-   put while the board recedes. Narrower than the hero on purpose; a calm column
-   reads as considered, a full-bleed wall of cards reads as a dashboard. */
 .board {
   width: 100%; max-width: 940px; margin: 0 auto;
   padding: 0 26px 40px;
@@ -588,18 +468,11 @@
   transition: opacity .25s ease, transform .25s ease, filter .25s ease;
 }
 @keyframes suggestIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-/* recedes the moment a conversation begins — a shelf, not a feed */
 .board.receded {
   opacity: 0; transform: translateY(6px); filter: blur(1px);
   pointer-events: none;
 }
-
-.board-section { margin-top: var(--s-6); }
-/* One label per group. It used to be stamped on every card as a kicker — the
-   same three words, seven times, in accent caps. That repetition *was* the
-   clutter; a heading says it once and the cards get quiet. */
-/* The blueprint-annotation motif from the front door: a label with a thin line
-   trailing off into the empty space beside it, instead of just sitting alone. */
+.board-section { margin-top: 42px; }
 .board-label {
   margin: 0 0 var(--s-3) 2px;
   display: flex; align-items: center; gap: 12px;
@@ -611,18 +484,23 @@
   content: ""; flex: 1; height: 1px; min-width: 24px;
   background: linear-gradient(90deg, var(--border-soft-3), transparent);
 }
-
-
-/* ---------- cards ---------- */
-/* Suggestions are uniform, so they get a grid. Documents have variable height,
-   so they get masonry — that's the only place the ragged column earns itself. */
-.suggest-grid {
-  display: grid; gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+.suggest-list { display: flex; flex-direction: column; }
+.suggest-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 15px 4px;
+  border: none; border-bottom: 1px solid var(--border-soft);
+  background: transparent; cursor: pointer; text-align: left;
+  font-family: inherit; color: var(--text-secondary);
+  transition: background .15s ease, color .15s ease, padding-left .15s ease;
 }
+.suggest-list .suggest-row:last-child { border-bottom: none; }
+.suggest-row:hover { background: var(--surface-soft); padding-left: 10px; color: var(--text-primary); }
+.suggest-row .icon { width: 16px; height: 16px; flex-shrink: 0; color: var(--accent); opacity: .75; }
+.suggest-text { font-size: var(--t-lead); font-weight: 500; line-height: 1.4; }
+.suggest-row.accent { color: var(--text-primary); font-weight: 600; }
+.suggest-row.accent .icon { opacity: 1; }
 .docs-masonry { columns: 4 190px; column-gap: 14px; }
 .docs-masonry .card { break-inside: avoid; margin-bottom: 14px; }
-
 .card {
   width: 100%; display: block; text-align: left;
   background: var(--surface); border: 1px solid var(--border-soft);
@@ -638,60 +516,13 @@
 .card:nth-child(5) { animation-delay: .24s; }
 .card:nth-child(6) { animation-delay: .29s; }
 @keyframes suggestItemIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-/* In dark mode the lift reads as a signal-blue line catching light; in white
-   mode it's just a quiet border-color shift — no colored glow anywhere. */
 .card:hover {
   transform: translateY(-2px);
   border-color: var(--accent-2);
 }
 .dark .card:hover { box-shadow: 0 10px 30px rgba(91, 108, 255, .16); }
 .card:active { transform: translateY(0); }
-
-/* The kicker: a small technical label ahead of the ask, like hx-lane's glyph
-   + uppercase name — not an icon riding in a colored tile. Cards stay flat
-   panels; the only thing that changes is a line of type. */
-.card-icon {
-  display: inline-flex; align-items: center; gap: 7px;
-  margin-bottom: 10px;
-  font-family: var(--mono);
-  font-size: 11px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--accent-2);
-}
-.card-icon .icon { width: 14px; height: 14px; display: block; opacity: .9; }
-.card-say { font-size: var(--t-base); font-weight: 500; color: var(--text-secondary); line-height: 1.45; display: block; }
-
-/* Exactly one featured card per view — marked with an accent border and a
-   quiet glow, never a solid fill. The front door never paints a card solid
-   blue; a highlighted outline reads as "start here" without turning into a
-   banner ad. */
-.card.accent { border-color: var(--accent); }
-.dark .card.accent { box-shadow: 0 0 0 1px rgba(91, 108, 255, .18), 0 12px 30px rgba(91, 108, 255, .14); }
-.card.accent .card-say { color: var(--text-primary); }
-.card.accent .card-icon { color: var(--accent-2); }
-.card.accent:hover { border-color: var(--accent); transform: translateY(-2px); }
-.dark .card.accent:hover { box-shadow: 0 0 0 1px rgba(91, 108, 255, .28), 0 16px 38px rgba(91, 108, 255, .2); }
-
-/* Quote and documents aren't clickable — don't promise a press. */
-.card.quote, .card.doc-card { cursor: default; }
-
-.card.quote {
-  background: transparent; border-color: transparent; box-shadow: none;
-  display: flex; align-items: center; padding: var(--s-4) var(--s-2);
-}
-.card.quote:hover { transform: none; box-shadow: none; border-color: transparent; }
-.card.quote .card-say {
-  font-family: "Instrument Serif", serif; font-style: italic;
-  font-size: var(--t-title); line-height: 1.34; color: var(--text-tertiary);
-}
-/* Real typographic quotes, hung so the text stays optically aligned. */
-.card.quote .card-say::before,
-.card.quote .card-say::after { color: var(--accent); }
-.card.quote .card-say::before { content: "\201C"; margin-left: -.34em; }
-.card.quote .card-say::after { content: "\201D"; }
-
-/* A document wears a face derived from its own name — a motif, not a stock
-   photo. Deterministic, offline, and it can't accidentally be meaningful. */
-.card.doc-card { padding: 0; overflow: hidden; }
+.card.doc-card { cursor: default; padding: 0; overflow: hidden; }
 .cover {
   position: relative; aspect-ratio: 4 / 3;
   background: var(--accent); color: rgba(255, 255, 255, .3);
@@ -716,17 +547,12 @@
 }
 .card.doc-card.pending { opacity: .7; }
 .card.doc-card.pending .cover { background: var(--text-faint); }
-
 @media (max-width: 760px) {
   .board { padding: 0 16px 32px; }
   .board-section { margin-top: var(--s-5); }
   .suggest-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   .docs-masonry { columns: 2 150px; column-gap: 12px; }
 }
-
-/* ---------- dock ---------- */
-/* Topmost plane. Its scrim fades the scrolling board out just before it would
-   collide with the wave, so the board reads as passing behind the dock. */
 .dock {
   position: relative; z-index: 4;
   flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
@@ -763,10 +589,7 @@
 .wave span:nth-child(11){ height: 17px; animation: barB 1.20s ease-in-out infinite; animation-delay: -.10s; }
 .wave span:nth-child(12){ height: 12px; animation: barC .95s ease-in-out infinite; animation-delay: -.55s; }
 .wave span:nth-child(13){ height: 8px;  animation: barA 1.10s ease-in-out infinite; animation-delay: -.20s; }
-
 .dock-row { display: inline-flex; align-items: center; gap: 14px; }
-/* The same glass bar as the front door's composer — a blurred, bordered
-   panel instead of controls floating loose on the page. */
 .dark .dock-row {
   padding: 10px 18px;
   background: rgba(13, 15, 22, .78);
@@ -776,9 +599,6 @@
   -webkit-backdrop-filter: blur(14px);
 }
 .dock-hint { display: inline-flex; align-items: center; font-size: 12.5px; color: var(--text-muted); font-weight: 500; letter-spacing: .02em; }
-
-/* Compact, always-on upload. Small enough to sit in the dock beside the hint;
-   never recedes because the dock is the top plane, not the board. */
 .dock-upload {
   display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
   height: 32px; padding: 0 13px 0 10px; border-radius: 999px;
@@ -792,9 +612,7 @@
 .dark .dock-upload:hover { box-shadow: 0 0 0 3px rgba(91, 108, 255, .12); }
 .dock-upload.error { color: var(--accent); border-color: var(--accent); }
 .dock-upload-label { white-space: nowrap; }
-
 @media (max-width: 480px) {
-  /* Just the icon on the narrowest screens — the label would crowd the hint. */
   .dock-upload { padding: 0; width: 32px; justify-content: center; }
   .dock-upload-label { display: none; }
 }
@@ -806,8 +624,6 @@
   background: var(--surface);
   border: 1px solid var(--border-soft-2);
 }
-
-/* ---------- first-run name prompt ---------- */
 .name-overlay {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center;
@@ -861,8 +677,6 @@
   cursor: pointer; transition: color .2s ease;
 }
 .name-skip:hover { color: var(--text-secondary); }
-
-/* ---------- assistant editor (Phase 11) ---------- */
 .editor-card { max-width: 400px; }
 .editor-avatar-preview {
   align-self: center;
@@ -900,7 +714,6 @@
 .editor-card .name-go { margin-top: 20px; }
 .editor-delete { color: var(--accent); }
 .editor-delete:hover { color: var(--accent); opacity: .8; }
-
 .voice-grid {
   display: flex; flex-direction: column; gap: 6px; width: 100%;
   max-height: 220px; overflow-y: auto;
@@ -933,8 +746,6 @@
 }
 .voice-play:hover { color: var(--text-primary); }
 .voice-play.on { color: var(--accent); border-color: var(--accent); }
-
-/* ---------- mobile drawer scrim ---------- */
 .scrim {
   position: absolute; inset: 0; z-index: 18;
   background: rgba(30, 12, 20, .38);
@@ -943,13 +754,10 @@
   animation: scrimIn .25s ease;
 }
 @keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
-
 @media (max-width: 760px) {
   .stage { padding: 0; }
   .window { border-radius: 0; height: 100vh; max-height: 100vh; }
-
   .sidebar { width: 84vw; max-width: 300px; border-right: 1px solid var(--border-soft-3); }
-
   .caption { font-size: 24px; line-height: 1.28; }
   .main-header { padding: 0 12px; }
   .header-left { gap: 8px; }
@@ -959,22 +767,13 @@
   .new-conv.nav-cta .cta-label { display: none; }
   .assistant-stage { padding: 6px 16px 0; }
   .dock { padding: 0 16px 26px; }
-  /* Same tradeoff as the landing page: a big blurred layer sitting over the
-     scrolling stage is unnecessary weight on a phone GPU. */
-  .dark .main::after { width: min(50vw, 260px); filter: blur(20px); }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .wave span { animation: none !important; }
   .sidebar { transition: none; }
   .board, .card, .name-card, .caption, .brand-mark { animation: none !important; }
-  /* The typewriter itself is disabled in JS; this stops the caret strobing. */
   .caption .caret { animation: none; }
 }
-
-/* ---------- agents at work ---------- */
-/* The panel exists to make parallelism legible: N cards, N bars moving at once.
-   A single spinner would be a lie about what's happening underneath. */
 .agent-panel, .artifact {
   width: 100%; max-width: 960px; margin: 0 auto;
   padding: 0 26px 40px;
@@ -1003,9 +802,6 @@
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   align-items: start;
 }
-
-/* A working agent is lifted and outlined in accent; a finished one settles back
-   down. The card itself reports its state before you read a word of it. */
 .agent-card {
   display: flex; flex-direction: column;
   padding: var(--s-4);
@@ -1021,7 +817,6 @@
   box-shadow: 0 10px 30px rgba(91, 108, 255, .18);
 }
 .agent-card.failed { opacity: .6; }
-
 .agent-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
 .agent-name {
   display: inline-flex; align-items: center; gap: 7px;
@@ -1038,15 +833,12 @@
   padding: 3px 8px; border-radius: 999px;
   background: var(--accent); color: #fff; letter-spacing: .06em;
 }
-
 .agent-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--text-faint); }
 .agent-dot.searching, .agent-dot.reading, .agent-dot.thinking {
   background: var(--accent); animation: agentPulse 1.1s ease-in-out infinite;
 }
 .agent-dot.done { background: var(--accent); }
 @keyframes agentPulse { 0%, 100% { opacity: .3; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
-
-/* Indeterminate while working, filled when done — the track itself is the tell. */
 .agent-bar {
   position: relative; overflow: hidden;
   height: 3px; margin-top: var(--s-3); border-radius: 3px;
@@ -1061,14 +853,11 @@
   0% { transform: translateX(-105%); }
   100% { transform: translateX(255%); }
 }
-
-/* The live thought — what this agent is doing right now, in its own words. */
 .agent-note {
   margin: var(--s-3) 0 0;
   font-size: var(--t-fine); line-height: 1.5; color: var(--text-muted);
 }
 .agent-note.live { color: var(--text-secondary); }
-
 .agent-titles {
   margin: var(--s-2) 0 0; padding: var(--s-2) 0 0; list-style: none;
   border-top: 1px dashed var(--border-soft-2);
@@ -1084,7 +873,6 @@
   content: ""; position: absolute; left: 0; top: 7px;
   width: 3px; height: 3px; border-radius: 50%; background: var(--accent); opacity: .5;
 }
-
 .agent-toggle {
   align-self: flex-start; margin-top: var(--s-3); padding: 0;
   display: inline-flex; align-items: center; gap: 5px;
@@ -1093,22 +881,18 @@
 }
 .agent-toggle .chev { transition: transform .18s ease; display: inline-block; }
 .agent-toggle .chev.up { transform: rotate(-90deg); }
-
 .agent-findings { margin: var(--s-2) 0 0; padding-left: 15px; animation: suggestItemIn .25s ease both; }
 .agent-findings li {
   font-size: var(--t-fine); line-height: 1.55; color: var(--text-secondary); margin-bottom: 5px;
 }
 .agent-findings li::marker { color: var(--accent); }
-
 .agent-trail {
   margin: var(--s-3) 0 0; padding: var(--s-3) 0 0 16px;
   border-top: 1px solid var(--border-soft);
 }
 .agent-trail li { font-size: 10px; line-height: 1.5; color: var(--text-faint); margin-bottom: 3px; }
 .agent-trail li::marker { color: var(--text-faint); }
-
 .agent-error { margin-top: var(--s-2); font-size: var(--t-fine); color: var(--text-faint); }
-
 .agent-planning {
   display: flex; align-items: center; gap: 9px;
   padding: var(--s-4) var(--s-5);
@@ -1116,8 +900,6 @@
   border-radius: var(--r-lg);
   font-size: var(--t-base); font-weight: 550; color: var(--text-secondary);
 }
-
-/* ---------- artifact ---------- */
 .artifact-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-3);
   margin-bottom: var(--s-4);
@@ -1136,7 +918,6 @@
 }
 .artifact-close:hover { color: var(--accent); border-color: var(--accent); }
 .artifact-close svg { width: 15px; height: 15px; }
-
 .doc-section {
   padding: var(--s-4) var(--s-5);
   background: var(--surface); border: 1px solid var(--border-soft);
@@ -1155,8 +936,6 @@
   margin-bottom: 7px;
 }
 .doc-bullets li::marker, .slide-bullets li::marker { color: var(--accent); }
-
-/* A slide is one idea on a wide, quiet surface — deliberately not a doc section. */
 .slide {
   position: relative;
   min-height: 300px; padding: var(--s-6) var(--s-6) var(--s-5);
@@ -1191,7 +970,6 @@
   transition: background .2s ease, transform .2s ease;
 }
 .slide-dots .dot.on { background: var(--accent); transform: scale(1.25); }
-
 .artifact-sources { margin-top: var(--s-5); }
 .source-list { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
 .source {
@@ -1210,7 +988,6 @@
   font-size: var(--t-small); color: var(--text-tertiary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-
 @media (max-width: 760px) {
   .agent-panel, .artifact { padding: 0 16px 32px; }
   .slide { min-height: 240px; padding: var(--s-5) var(--s-4); }
@@ -1219,56 +996,13 @@
 @media (prefers-reduced-motion: reduce) {
   .agent-bar.on span { animation: none; width: 100%; opacity: .5; }
 }
-
-/* When agents are running, the work is the answer — shrink the hero so the deck
-   isn't pushed below the fold. transform:scale leaves the layout box at full
-   size, so the negative margin reclaims the gap it leaves behind (340px orb at
-   0.42 → (340 * 0.58) / 2 ≈ 99px on each side). */
-/* The orb NEVER moves or resizes. Compact mode used to scale it to 0.5 and pull
-   it up with negative margins, so the orb jumped to a different size and place
-   the moment agents started — which is what "the orb breaks position" was. Now
-   compact only trims padding; the orb is the one fixed point on the screen. */
 .hero.compact {
   gap: 6px;
   padding: 0 26px 10px;
 }
-/* The bloom is a 460px blur(44px) halo. Scaling the stage shrinks its box but it
-   still paints a soft pink smear across the top of the artifact — the thing you
-   actually came to read. In compact mode it has no job, so it goes. */
 .hero.compact .orb-bloom-a,
 .hero.compact .orb-shadow { display: none; }
 .hero.compact .caption-wrap { display: none; }
-
-/* Research agents, at rest — the capability shown before it's ever invoked. */
-.agents-idle {
-  display: flex; flex-direction: column; gap: var(--s-3);
-  padding: var(--s-4) var(--s-5);
-  background: var(--surface-soft);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--r-lg);
-}
-.agents-idle-copy {
-  margin: 0; width: 100%;
-  font-size: var(--t-lead); line-height: 1.55; color: var(--text-secondary);
-  text-wrap: pretty;
-}
-.agents-idle-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.agent-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 11px; border-radius: 999px;
-  background: var(--surface); border: 1px solid var(--border-soft-2);
-  font-family: var(--mono);
-  font-size: var(--t-fine); font-weight: 500; letter-spacing: .04em;
-  color: var(--text-tertiary);
-}
-.agent-chip::before {
-  content: ""; width: 5px; height: 5px; border-radius: 50%;
-  background: var(--accent); opacity: .55;
-}
-
-/* ---------- sidebar: conversation + memories ---------- */
-/* Each list scrolls in its own right, so a long conversation never grows the
-   sidebar or shoves the account row off the bottom. */
 .chat-log {
   flex: 1 1 auto; min-height: 60px; max-height: 32vh;
   overflow-y: auto; padding-right: 2px;
@@ -1277,7 +1011,6 @@
 }
 .chat-log::-webkit-scrollbar { width: 6px; }
 .chat-log::-webkit-scrollbar-thumb { background: var(--border-soft-3); border-radius: 999px; }
-
 .chat-turn { display: flex; flex-direction: column; gap: 3px; padding: 0 11px; min-width: 0; }
 .chat-turn .who {
   font-family: var(--mono);
@@ -1285,14 +1018,12 @@
   color: var(--text-faint); line-height: 1;
 }
 .chat-turn.assistant .who { color: var(--accent); }
-/* Clamp: a rambling reply must not blow the sidebar open. */
 .chat-turn .said {
   font-size: var(--t-fine); line-height: 1.5; color: var(--text-secondary);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden; overflow-wrap: anywhere;
 }
 .chat-turn.assistant .said { color: var(--text-tertiary); }
-
 .memories { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
 .memory-line {
   position: relative; padding: 5px 11px 5px 20px;

@@ -1,22 +1,10 @@
-// The board. Two zones: your documents, then things to say. It recedes the
-// moment a conversation begins — a shelf, not a feed. (Upload lives in the dock
-// so it stays reachable while the board is receded.)
-//
-// The suggestions are derived from state, not a fixed list: we never tell you to
-// summarize a document you haven't uploaded.
-
 import { DocCover, Icon, type IconName } from "./icons";
 
 type Suggestion = { icon: IconName; label: string; text: string; accent?: boolean };
 type Doc = { name: string; chunks: number };
 
-// One line of pure editorial texture — the thesis of the whole product.
-// Shared with the landing page (Hero.tsx), which features it as its own
-// section — one source of truth so the two never drift apart.
 export const QUOTE = "The best interface is a conversation you forget you're having.";
 
-// Research leads, and takes the accent card — it's the thing people don't know
-// they can ask for, and it's the most capable thing here.
 const RESTING: Suggestion[] = [
   { icon: "search", label: "Research", text: "Research the best SDE internships and make me a deck", accent: true },
   { icon: "web", label: "Compare", text: "Compare the best electric cars under 20 lakhs" },
@@ -30,8 +18,6 @@ function titleOf(filename: string): string {
   return stem.length > 24 ? `${stem.slice(0, 23)}…` : stem;
 }
 
-// With a document in hand, retrieval is the interesting thing to do — so it
-// takes the accent card, and the generic prompts step back.
 function suggestionsFor(docs: Doc[]): Suggestion[] {
   if (!docs.length) return RESTING;
   const title = titleOf(docs[0].name);
@@ -49,8 +35,6 @@ interface BoardProps {
   receded: boolean;
 }
 
-// Upload lives in the dock now (always visible, even while talking) — the board
-// only holds what's meant to recede: your documents and things to say.
 export default function Board({ docs, uploading, receded }: BoardProps) {
   const suggestions = suggestionsFor(docs);
   const hasDocs = docs.length > 0 || !!uploading;
@@ -83,41 +67,14 @@ export default function Board({ docs, uploading, receded }: BoardProps) {
         </section>
       )}
 
-      {/* The agents, at rest. People can't ask for what they don't know exists —
-          this shows the fan-out before it ever happens. */}
       <section className="board-section">
-        <h2 className="board-label">Research agents</h2>
-        <div className="agents-idle">
-          <p className="agents-idle-copy">
-            Ask me to research anything and I'll put a team of agents on it — each
-            searching a different source at the same time, then writing the findings
-            up as a document or a deck.
-          </p>
-          <div className="agents-idle-chips">
-            {["Job boards", "Reviews", "Forums", "News", "Docs", "The open web"].map((c) => (
-              <span key={c} className="agent-chip">{c}</span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="board-section">
-        <h2 className="board-label">Try saying</h2>
-        <div className="suggest-grid">
+        <div className="suggest-list">
           {suggestions.map((s) => (
-            <button key={s.text} className={`card${s.accent ? " accent" : ""}`}>
-              <span className="card-icon">
-                <Icon name={s.icon} />
-                {s.label}
-              </span>
-              <span className="card-say">{s.text}</span>
+            <button key={s.text} className={`suggest-row${s.accent ? " accent" : ""}`} aria-label={s.label}>
+              <Icon name={s.icon} />
+              <span className="suggest-text">{s.text}</span>
             </button>
           ))}
-          {!hasDocs && (
-            <div className="card quote">
-              <span className="card-say">{QUOTE}</span>
-            </div>
-          )}
         </div>
       </section>
     </div>

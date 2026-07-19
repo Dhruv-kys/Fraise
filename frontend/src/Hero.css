@@ -1,57 +1,44 @@
-/* Obsidian & Signal Blue — the front door. Follows the same light/dark switch
-   as the workspace (the `.dark` class on <html>), so it reads as one product
-   instead of a page frozen in whichever mode the app happens to be in.
-   .hx-page holds the shared tokens since the hero (.hx, one fixed screen) and
-   the showcase section below it are siblings, both reading off the same
-   palette. Light is the default here; .dark overrides to Obsidian. */
 
 .hx-page {
-  --ink: #F3F4F8;
+  --ink: #F7F3E6;
   --panel: #FFFFFF;
-  --line: rgba(30, 45, 110, 0.09);
-  --line-2: rgba(30, 45, 110, 0.16);
+  --line: rgba(30, 24, 10, 0.1);
+  --line-2: rgba(30, 24, 10, 0.16);
   --blue: #3D4EE6;
   --blue-2: #5B6CFF;
   --cyan: #0EA5B7;
   --go: #17A673;
-  --ivory: #0D1017;
-  --head: #2A2E3D;
-  --body: #3B4150;
-  --muted: #5A6072;
-  --faint: #7E8598;
-  --dot: rgba(60, 70, 140, 0.14);
+  --ivory: #171410;
+  --head: #2A2415;
+  --body: #4A4438;
+  --muted: #6B6455;
+  --faint: #8C8574;
+  --accent-pastel: #DCE1FF;
   --on-photo: #ECEEF4;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  background:
-    radial-gradient(circle at center, var(--dot) 1.6px, transparent 1.9px) 0 0 / 28px 28px,
-    var(--ink);
+  background: var(--ink);
   color: var(--ivory);
   font-family: "Hanken Grotesk", system-ui, sans-serif;
   transition: background-color .4s ease, color .4s ease;
 }
-
 .dark .hx-page {
-  --ink: #07080B;
-  --panel: #0D0F16;
-  --line: rgba(150, 170, 255, 0.12);
-  --line-2: rgba(150, 170, 255, 0.22);
-  --blue: #5B6CFF;
-  --blue-2: #8493FF;
+  --ink: #14120E;
+  --panel: #1D1912;
+  --line: rgba(255, 250, 230, 0.1);
+  --line-2: rgba(255, 250, 230, 0.16);
+  --blue: #6B7DFF;
+  --blue-2: #8C9AFF;
   --cyan: #63E6FF;
   --go: #3FE0A0;
-  --ivory: #ECEEF4;
-  --head: #D9DCE6;
-  --body: #C3C8D6;
-  --muted: #8A90A4;
-  --faint: #565C70;
-  --dot: rgba(140, 160, 255, 0.22);
+  --ivory: #FBF6E8;
+  --head: #E8E2CE;
+  --body: #C9C2AE;
+  --muted: #A39C88;
+  --faint: #5C563F;
+  --accent-pastel: var(--blue);
 }
-
 .hx {
   position: relative;
-  /* The hero itself is exactly one screen; the showcase section is a sibling
-     below it, which is what makes the page scrollable past the fold. */
   height: 100vh;
   height: 100dvh;
   width: 100%;
@@ -59,26 +46,6 @@
   display: flex;
   flex-direction: column;
 }
-
-/* a quiet signal-blue wash seated behind the orb — a hint of depth, not the
-   giant center-screen glow blob every AI-startup page leads with. Dark-mode
-   only, same as the workspace's aurora: the light surface stays flat. */
-.dark .hx::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 46%;
-  width: 46vw;
-  height: 46vw;
-  max-width: 560px;
-  max-height: 560px;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(61, 90, 255, 0.13) 0%, rgba(61, 90, 255, 0.04) 38%, transparent 68%);
-  filter: blur(30px);
-  pointer-events: none;
-}
-
-/* ---------- nav ---------- */
 .hx-nav {
   position: relative;
   z-index: 3;
@@ -91,7 +58,6 @@
 .hx-brand-mark { width: 24px; height: 24px; display: block; }
 .hx-brand-name { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
 .hx-brand-slash { color: var(--muted); font-size: 15px; font-weight: 500; }
-
 .hx-nav-right { display: flex; align-items: center; gap: clamp(10px, 2vw, 26px); }
 .hx-nav-link {
   display: inline-flex; align-items: center; gap: 7px;
@@ -101,7 +67,6 @@
   transition: color 0.18s ease;
 }
 .hx-nav-link:hover { color: var(--ivory); }
-
 .hx-theme-toggle {
   display: flex; align-items: center; justify-content: center;
   width: 32px; height: 32px; flex-shrink: 0;
@@ -111,23 +76,16 @@
 }
 .hx-theme-toggle:hover { color: var(--ivory); }
 .hx-theme-toggle svg { width: 17px; height: 17px; display: block; }
-
 .hx-cta {
-  background: var(--blue); color: #fff;
-  border: none; cursor: pointer;
-  padding: 9px 18px; border-radius: 9px;
-  font: inherit; font-size: 14px; font-weight: 600;
-  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  background: var(--accent-pastel); color: var(--ivory);
+  border: 1.5px solid var(--ivory); cursor: pointer;
+  padding: 8px 17px; border-radius: 9px;
+  font: inherit; font-size: 14px; font-weight: 700;
+  transition: transform 0.16s ease, background 0.16s ease;
 }
-.hx-cta:hover { background: var(--blue-2); transform: translateY(-1px); }
+.hx-cta:hover { transform: translateY(-1px); }
 .hx-cta:active { transform: translateY(0); }
-.dark .hx-cta { box-shadow: 0 4px 18px rgba(61, 90, 255, 0.35); }
-.dark .hx-cta:hover { box-shadow: 0 6px 24px rgba(61, 90, 255, 0.45); }
-
-/* ---------- stage ----------
-   A fixed-height column: headline pinned top, composer pinned bottom, and the
-   figure flexes to eat every pixel between them — so it's as large as the
-   viewport allows without ever scrolling. */
+.dark .hx-cta { color: #fff; }
 .hx-stage {
   position: relative;
   z-index: 2;
@@ -139,7 +97,6 @@
   justify-content: flex-start;
   padding: clamp(4px, 1.4vh, 18px) 20px 0;
 }
-
 .hx-headline { text-align: center; flex-shrink: 0; }
 .hx-annos-inline { display: none; }
 .hx-eyebrow {
@@ -168,13 +125,8 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-
-/* ---------- the orb reveal ---------- */
 .hx-reveal {
   position: relative;
-  /* Flex-grows to fill all the vertical space between headline and composer,
-     so the orb is always as large as the viewport allows — no scroll, no
-     fixed guess. */
   flex: 1 1 0;
   min-height: 0;
   width: 100%;
@@ -184,10 +136,6 @@
   justify-content: center;
   cursor: default;
 }
-
-/* The orb itself, and the frame the annotation lines are drawn relative to —
-   a square exactly the orb's size, so "flush against the edge" always means
-   flush against the glow, on any screen. */
 .hx-orb-slot {
   position: relative;
   width: min(52vh, 42vw, 400px);
@@ -198,12 +146,6 @@
 .hx-orb-slot .orb { width: 90%; height: 90%; max-width: none; max-height: none; }
 .hx-orb-slot .orb-bloom-a { max-width: none; max-height: none; }
 .hx-orb-slot .orb-shadow { display: none; }
-
-/* ---------- technical annotations ----------
-   Each line starts flush against the orb-slot's own edge — inside the bloom
-   halo — and runs outward into the empty space beside it, so the callout
-   visibly emanates from the one concrete object on screen. No index tags —
-   just the line and the label. */
 .hx-annos { position: absolute; inset: 0 -70% 0 -70%; pointer-events: none; z-index: 5; }
 .hx-anno {
   position: absolute;
@@ -227,18 +169,13 @@
   font-weight: 500;
   letter-spacing: 0.1em;
   line-height: 1.45;
-  /* Quieter than the ivory headline on purpose — a technical aside, not a
-     second headline competing for the same attention. */
   color: var(--muted);
   text-transform: uppercase;
   white-space: nowrap;
 }
 .dark .hx-anno-text { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 14px rgba(7, 8, 11, 0.9); }
-
-/* ---------- day board ---------- */
 .hx-stage.compact .hx-head { font-size: clamp(28px, 3.6vw, 44px); }
 .hx-stage.compact .hx-headline { margin-bottom: 4px; }
-
 .hx-board {
   width: min(1040px, 96vw);
   margin: clamp(10px, 2vh, 22px) 0 auto;
@@ -263,7 +200,6 @@
 .hx-board-thinking { display: flex; align-items: center; gap: 12px; color: var(--muted); padding: 40px 4px; font-size: 15px; }
 .hx-pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 0 rgba(91, 108, 255, 0.5); animation: hxPulse 1.4s ease-out infinite; }
 @keyframes hxPulse { 0% { box-shadow: 0 0 0 0 rgba(91, 108, 255, 0.5); } 100% { box-shadow: 0 0 0 14px rgba(91, 108, 255, 0); } }
-
 .hx-board-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -288,7 +224,6 @@
 .hx-task.done { border-color: rgba(63, 224, 160, 0.28); }
 .hx-task.proposed { border-color: rgba(132, 147, 255, 0.32); }
 .hx-task.failed { border-color: rgba(224, 107, 126, 0.32); }
-
 .hx-task-head { display: flex; align-items: center; justify-content: space-between; }
 .hx-lane { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--blue-2); letter-spacing: 0.02em; }
 .hx-lane-glyph { font-size: 13px; opacity: 0.9; }
@@ -298,21 +233,17 @@
 .hx-task-status.proposed { color: var(--blue-2); }
 .hx-task-status.failed { color: #E06B7E; }
 .hx-task-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--ivory); line-height: 1.35; }
-
 .hx-task-bar { height: 2px; border-radius: 2px; background: var(--line); overflow: hidden; position: relative; }
 .hx-task-bar span { position: absolute; inset: 0; display: block; }
 .hx-task-bar.on span { width: 40%; background: linear-gradient(90deg, transparent, var(--blue), transparent); animation: hxSlide 1.3s ease-in-out infinite; }
 .hx-task.done .hx-task-bar span, .hx-task.proposed .hx-task-bar span { inset: 0; width: 100%; background: linear-gradient(90deg, var(--blue), var(--go)); }
 @keyframes hxSlide { 0% { left: -40%; } 100% { left: 100%; } }
-
 .hx-task-note { margin: 0; font-size: 13px; color: var(--muted); }
 .hx-task-result { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--body); white-space: pre-line; }
 .hx-task-error { margin: 0; font-size: 13px; color: #E06B7E; }
 .hx-task-sources { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
 .hx-task-sources a { font-size: 12px; color: var(--faint); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.15s ease; }
 .hx-task-sources a:hover { color: var(--blue-2); }
-
-/* ---------- responsive ---------- */
 @media (max-width: 720px) {
   .hx-annos { display: none; }
   .hx-annos-inline {
@@ -329,12 +260,6 @@
   }
   .hx-nav-link { display: none; }
   .hx-nav-right .hx-cta { display: inline-flex; }
-
-  /* The "exactly one screen, orb centered in whatever's left over" hero is a
-     desktop trick — on a phone the leftover is enormous (there's so little
-     else on screen) and it reads as a dead, unstyled gap before the quote.
-     Below 720px the hero just flows: headline, then the orb sized to its own
-     content, done — no forced full-height box, no centering slack to fill. */
   .hx {
     height: auto;
     overflow: visible;
@@ -345,31 +270,16 @@
     height: clamp(240px, 62vw, 340px);
     margin: 18px auto 0;
   }
-  /* A 30px blur over a 560px box is a lot of pixels for a phone GPU to
-     rasterize; it's a static layer so it's not the main jank source, but it's
-     easy weight to cut. Smaller and softer scales fine at this size anyway. */
-  .dark .hx::before { width: 60vw; height: 60vw; max-width: 320px; max-height: 320px; filter: blur(18px); }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .hx-task-bar.on span, .hx-pulse { animation: none !important; }
-  .hx-showcase-card, .hx-quote { transition: none !important; }
+  .hx-quote { transition: none !important; }
 }
-
-/* ---------- quote ----------
-   The product's thesis, said once, plainly — the same line that appears as a
-   small aside inside the workspace board, given the full weight of its own
-   section here. Rises into place the first time it crosses into view, same
-   beat as the showcase below it. */
 .hx-quote {
   position: relative;
   max-width: 900px;
   margin: 0 auto;
-  /* The hero above already leaves its own slack below the orb before the
-     100vh edge — stacking a second, larger pad here on top of that is what
-     read as a dead, unstyled gap. This only needs to clear the showcase
-     eyebrow that follows, not restate the same breathing room twice. */
-  padding: clamp(8px, 2vh, 32px) clamp(20px, 6vw, 80px) 0;
+  padding: clamp(8px, 2vh, 32px) clamp(20px, 6vw, 80px) clamp(48px, 9vh, 100px);
   text-align: center;
   opacity: 0;
   transform: translateY(16px);
@@ -397,81 +307,4 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-
-/* ---------- showcase ----------
-   Below the hero's one fixed screen — scrolling into it is what makes the
-   page taller than 100vh. A horizontal, snap-scrolling strip: cards start
-   pulled inward and small, and land at full size in a stagger (each one
-   delayed a beat past the last, via inline transitionDelay) the first time
-   the section enters view — dense, not a plain fade. */
-.hx-showcase {
-  position: relative;
-  padding: clamp(64px, 12vh, 140px) 0 clamp(80px, 14vh, 160px);
-  text-align: center;
-}
-.hx-showcase-title {
-  margin: 10px clamp(20px, 6vw, 80px) 0;
-  font-family: "Instrument Serif", serif;
-  font-weight: 400;
-  font-size: clamp(30px, 4.2vw, 56px);
-  line-height: 1.05;
-  letter-spacing: -0.01em;
-  color: var(--head);
-}
-.hx-showcase-track {
-  margin: clamp(36px, 6vh, 64px) 0 0;
-  padding: 4px clamp(20px, 6vw, 80px) 20px;
-  display: flex;
-  justify-content: center;
-  gap: clamp(20px, 3vw, 40px);
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scroll-padding-left: clamp(20px, 6vw, 80px);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-2) transparent;
-}
-/* Centering only reads as intentional when every card already fits on
-   screen. Once it can't, a centered start crops both edge cards instead of
-   showing the first one whole — start the scroll at card one instead. */
-@media (max-width: 840px) {
-  .hx-showcase-track { justify-content: flex-start; }
-}
-.hx-showcase-card {
-  position: relative;
-  flex: 0 0 auto;
-  width: min(78vw, 380px);
-  aspect-ratio: 4 / 5;
-  scroll-snap-align: start;
-  border-radius: 20px;
-  overflow: hidden;
-  border: 1px solid var(--line-2);
-  background: var(--panel);
-  opacity: 0;
-  transform: scale(0.9);
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.hx-showcase.in .hx-showcase-card { opacity: 1; transform: scale(1); }
-.hx-showcase-card img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.hx-showcase-card figcaption {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 28px 18px 16px;
-  background: linear-gradient(0deg, rgba(7, 8, 11, 0.85) 0%, transparent 100%);
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  /* Always light — it's captioning a photo's own dark scrim, not the page,
-     so it doesn't flip with the site's theme. */
-  color: var(--on-photo);
-  text-align: left;
 }

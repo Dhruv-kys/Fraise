@@ -1,8 +1,3 @@
-// The agents at work, and what they produce.
-//
-// Two views. AgentPanel is the live one: N agents side by side, each showing its
-// own phase, so the parallelism is *visible* rather than implied by a spinner.
-// ArtifactView is the payoff — a doc you scroll or a deck you page through.
 
 import { useEffect, useState } from "react";
 import type { AgentStatus, Artifact, Run } from "./useAgents";
@@ -16,7 +11,6 @@ const PHASE_LABEL: Record<AgentStatus["status"], string> = {
   failed: "Failed",
 };
 
-// The model writes bullets as plain lines; render them as lines, not a blob.
 function bullets(text: string): string[] {
   return text
     .split("\n")
@@ -45,11 +39,8 @@ function AgentCard({ a }: { a: AgentStatus }) {
         <span />
       </div>
 
-      {/* The live thought — what this agent is doing *right now*, in its words. */}
       {a.note && <p className={`agent-note${working ? " live" : ""}`}>{a.note}</p>}
 
-      {/* What it's actually looking at. Seeing the titles stream in is the
-          difference between trusting the agent and taking it on faith. */}
       {a.titles && a.titles.length > 0 && a.status !== "done" && (
         <ul className="agent-titles">
           {a.titles.slice(0, 3).map((t, i) => (
@@ -76,7 +67,6 @@ function AgentCard({ a }: { a: AgentStatus }) {
         </>
       )}
 
-      {/* The trail: every step it took, once it's finished. */}
       {open && a.thoughts && a.thoughts.length > 1 && (
         <ol className="agent-trail">
           {a.thoughts.map((t, i) => (
@@ -107,8 +97,6 @@ export function AgentPanel({ run }: { run: Run }) {
       </div>
       <p className="agent-query">{run.query}</p>
 
-      {/* Before the team exists there is nothing to show but the deciding itself —
-          and the agents are picked for the question, so this beat is worth seeing. */}
       {run.status === "planning" && run.agents.length === 0 ? (
         <div className="agent-planning">
           <span className="agent-dot searching" />
