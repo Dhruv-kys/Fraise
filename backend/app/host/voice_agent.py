@@ -211,11 +211,20 @@ async def _build_settings(
             "relevant or they ask what you talked about:\n" + context
         )
 
+    # flux-general-multi + language_hints biases Flux toward Indian English/Hinglish
+    # code-switching while keeping Flux's end-of-turn detection (eot_threshold/
+    # eot_timeout_ms are Flux-v2-only). If accents are still misheard, the next lever
+    # is nova-3 with "language": "en-IN" — but that drops Flux's end-of-turn params in
+    # favor of Nova's endpointing/utterance_end_ms, changing turn-taking behavior.
+    language_hints = [
+        h.strip() for h in os.environ.get("DEEPGRAM_LANGUAGE_HINTS", "en,hi").split(",") if h.strip()
+    ]
     agent: dict = {
         "listen": {"provider": {
             "type": "deepgram",
             "version": "v2",
-            "model": os.environ.get("DEEPGRAM_LISTEN_MODEL", "flux-general-en"),
+            "model": os.environ.get("DEEPGRAM_LISTEN_MODEL", "flux-general-multi"),
+            "language_hints": language_hints,
             "eot_threshold": float(os.environ.get("DEEPGRAM_EOT_THRESHOLD", "0.7")),
             "eot_timeout_ms": int(os.environ.get("DEEPGRAM_EOT_TIMEOUT_MS", "15000")),
         }},
