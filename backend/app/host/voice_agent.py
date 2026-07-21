@@ -191,18 +191,23 @@ async def _build_settings(
             "relevant or they ask what you talked about:\n" + context
         )
 
-    language_hints = [
-        h.strip() for h in os.environ.get("DEEPGRAM_LANGUAGE_HINTS", "en,hi").split(",") if h.strip()
-    ]
+    listen_model = os.environ.get("DEEPGRAM_LISTEN_MODEL", "nova-3")
+    listen_provider = {"type": "deepgram", "model": listen_model}
+    if listen_model.startswith("flux"):
+        # Flux's own end-of-turn detection; language_hints only applies to flux-general-multi.
+        listen_provider["version"] = "v2"
+        listen_provider["language_hints"] = [
+            h.strip() for h in os.environ.get("DEEPGRAM_LANGUAGE_HINTS", "en,hi").split(",") if h.strip()
+        ]
+        listen_provider["eot_threshold"] = float(os.environ.get("DEEPGRAM_EOT_THRESHOLD", "0.7"))
+        listen_provider["eot_timeout_ms"] = int(os.environ.get("DEEPGRAM_EOT_TIMEOUT_MS", "15000"))
+    else:
+        # nova-3/nova-2 have an explicit en-IN locale with real Indian-English training
+        # data, unlike Flux which only offers generic "en" (all accents, no dedicated tuning).
+        listen_provider["language"] = os.environ.get("DEEPGRAM_LISTEN_LANGUAGE", "en-IN")
+
     agent: dict = {
-        "listen": {"provider": {
-            "type": "deepgram",
-            "version": "v2",
-            "model": os.environ.get("DEEPGRAM_LISTEN_MODEL", "flux-general-multi"),
-            "language_hints": language_hints,
-            "eot_threshold": float(os.environ.get("DEEPGRAM_EOT_THRESHOLD", "0.7")),
-            "eot_timeout_ms": int(os.environ.get("DEEPGRAM_EOT_TIMEOUT_MS", "15000")),
-        }},
+        "listen": {"provider": listen_provider},
         "think": {
             "provider": {
                 "type": os.environ.get("DEEPGRAM_THINK_TYPE", "open_ai"),
