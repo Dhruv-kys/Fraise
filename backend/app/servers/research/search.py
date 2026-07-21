@@ -4,6 +4,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from app.servers.research import llm
+
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(30.0, connect=10.0)
@@ -46,7 +48,7 @@ async def search(
 
     cleaned = [
         {
-            "title": (x.get("title") or "").strip(),
+            "title": llm.strip_markdown((x.get("title") or "").strip()),
             "url": x.get("url") or "",
             "content": (x.get("content") or "").strip()[:900],
             "score": x.get("score") or 0.0,
