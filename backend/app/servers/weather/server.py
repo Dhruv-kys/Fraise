@@ -42,7 +42,11 @@ async def _current_conditions(lat: float, lon: float) -> dict:
         resp.raise_for_status()
         return resp.json()["current"]
 
-@mcp.tool()
+@mcp.tool(description=(
+    "Get the current weather for a place.\n\n"
+    "location: a city or place name, e.g. \"Austin\" or \"Paris, France\". Ask the "
+    "user which place they mean if they haven't said one — never guess."
+))
 async def get_weather(location: str) -> str:
     try:
         place = await _geocode(location)

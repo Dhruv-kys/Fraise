@@ -203,9 +203,7 @@ async def _run_agent(spec: dict, run_id: str, session_id: str) -> dict:
             ),
             _AGENT_BUDGET,
         )
-        findings = "\n".join(
-            line for line in (llm.strip_markdown(l) for l in raw.splitlines()) if line
-        )
+        findings = "\n".join(line for line in llm.strip_markdown(raw).splitlines() if line)
         elapsed = round(time.monotonic() - started, 1)
         step("done", f"Done in {elapsed}s",
              found=len(results), titles=titles, summary=findings, elapsed=elapsed)
@@ -329,10 +327,14 @@ async def _run_impl(run_id: str, query: str, hint: str, fmt: str, session_id: st
         })
         return
 
-    citations = [
-        {"label": a["label"], "title": s["title"], "url": s["url"]}
-        for a in results for s in a.get("sources", [])[:4]
-    ]
+    citations: list[dict] = []
+    seen_urls: set[str] = set()
+    for a in results:
+        for s in a.get("sources", [])[:4]:
+            if s["url"] in seen_urls:
+                continue
+            seen_urls.add(s["url"])
+            citations.append({"label": a["label"], "title": s["title"], "url": s["url"]})
     body = {
         "title": artifact["title"],
         "query": query,
@@ -353,7 +355,23 @@ async def _run_impl(run_id: str, query: str, hint: str, fmt: str, session_id: st
         "artifact": body, "spoken": artifact["spoken"],
     })
 
-@mcp.tool()
+@mcp.tool(description=(
+    "Put a team of research agents to work IN PARALLEL on one question, each on a "
+    "different source or angle, then collect their findings into a document or slide "
+    "deck the user can read on screen.\n\n"
+    "The agents are chosen to fit the question — job boards for a job search, review "
+    "sites and forums for a product comparison, and so on. You do not pick them.\n\n"
+    "This is the right tool whenever the answer deserves more than a sentence: "
+    "finding jobs or internships, comparing options, researching a company, topic, or "
+    "market, or any request for a write-up, report, summary, document, or slides. "
+    "Prefer it over tavily_search or tavily_research for those — those return raw "
+    "results, while this runs several agents and produces a written artifact.\n\n"
+    "query: the user's actual question, in their own words — do not paraphrase or "
+    "narrow it, e.g. \"best SDE internships for 2026 grads\".\n"
+    "sources: only if the user names specific places to look (\"check LinkedIn and "
+    "Reddit\"). Pass their words through. Leave empty otherwise.\n"
+    "format: \"slides\" if they ask for a deck or presentation, otherwise \"doc\"."
+))
 async def deep_research(
     query: str,
     sources: str = "",

@@ -1,5 +1,6 @@
 import logging
 import os
+from urllib.parse import urlparse
 
 import httpx
 
@@ -11,6 +12,11 @@ class SearchUnavailable(RuntimeError):
     pass
 
 _VALID_TIME_RANGES = {"day", "week", "month", "year"}
+_NEWS_RANGES = {"day", "week"}
+_MAX_PER_DOMAIN = 2
+
+def _domain(url: str) -> str:
+    return urlparse(url).netloc.lower().removeprefix("www.")
 
 async def search(
     query: str, domains: list[str], max_results: int = 5, time_range: str | None = None
@@ -22,9 +28,10 @@ async def search(
     payload: dict = {
         "api_key": key,
         "query": query,
-        "max_results": max_results,
+        "max_results": max_results * 3 if not domains else max_results,
         "search_depth": "advanced",
         "include_answer": False,
+        "topic": "news" if time_range in _NEWS_RANGES else "general",
     }
     if domains:
         payload["include_domains"] = domains
@@ -49,4 +56,16 @@ async def search(
     ]
     cleaned = [c for c in cleaned if c["content"]]
     cleaned.sort(key=lambda c: c["score"], reverse=True)
-    return cleaned
+
+    if not domains:
+        per_domain: dict[str, int] = {}
+        diverse = []
+        for c in cleaned:
+            d = _domain(c["url"])
+            if per_domain.get(d, 0) >= _MAX_PER_DOMAIN:
+                continue
+            per_domain[d] = per_domain.get(d, 0) + 1
+            diverse.append(c)
+        cleaned = diverse
+
+    return cleaned[:max_results]

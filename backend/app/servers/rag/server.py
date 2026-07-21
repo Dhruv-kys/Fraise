@@ -7,7 +7,11 @@ from . import store
 
 mcp = FastMCP("rag", streamable_http_path="/")
 
-@mcp.tool()
+@mcp.tool(description=(
+    "Answer a question using the user's uploaded documents.\n\n"
+    "question: what the user wants to know. Call this whenever the user asks about "
+    "their files, notes, or documents."
+))
 async def ask(question: str, session_id: str = "") -> str:
     if not session_id:
         return ""
@@ -16,7 +20,7 @@ async def ask(question: str, session_id: str = "") -> str:
         return "I couldn't find anything about that in your documents."
     return "Here's what your documents say: " + " … ".join(passages)
 
-@mcp.tool()
+@mcp.tool(description="Summarize an uploaded document.\n\nfilename: which document to summarize. Leave blank for the most recent upload.")
 async def summarize(filename: str = "", session_id: str = "") -> str:
     if not session_id:
         return ""
@@ -25,7 +29,7 @@ async def summarize(filename: str = "", session_id: str = "") -> str:
         return "I don't have that document to summarize."
     return "Here's the document — summarize it for the user: " + text
 
-@mcp.tool()
+@mcp.tool(description="List the documents the user has uploaded.")
 async def list_documents(session_id: str = "") -> str:
     if not session_id:
         return ""

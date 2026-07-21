@@ -28,6 +28,7 @@ _MD_LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 _MD_BOLD = re.compile(r"(\*{1,3}|_{2,3})(.+?)\1", re.S)
 _MD_CODE = re.compile(r"`+([^`]*)`+")
 _MD_HEAD = re.compile(r"^\s{0,3}#{1,6}\s*", re.M)
+_MD_BULLET = re.compile(r"^[ \t]{0,3}[-*•][ \t]+", re.M)
 _BARE_URL = re.compile(r"<?(?:https?://|www\.)[^\s<>]*[^\s<>.,;:!?)\]'\"]>?", re.I)
 _WS = re.compile(r"[ \t]{2,}")
 
@@ -36,9 +37,14 @@ def strip_markdown(text: str) -> str:
         return ""
     text = _MD_LINK.sub(r"\1", text)
     text = _MD_HEAD.sub("", text)
+    text = _MD_BULLET.sub("", text)
     text = _MD_CODE.sub(r"\1", text)
     text = _MD_BOLD.sub(r"\2", text)
     text = _BARE_URL.sub("", text)
+    # Any asterisk still standing at this point is a stray/unbalanced markdown
+    # marker (e.g. an unclosed **), never intentional content — voice output must
+    # never speak "asterisk asterisk".
+    text = text.replace("*", "")
     text = _WS.sub(" ", text)
     text = re.sub(r"\(\s*\)", "", text)
     text = re.sub(r"\s+([.,;:!?])", r"\1", text)
