@@ -1,14 +1,3 @@
-"""Fraise MCP Host — connects to every server in mcp_servers.json.
-
-Three server types:
-  builtin — a FastMCP instance in this process (e.g. the calculator)
-  stdio   — a local subprocess speaking the MCP stdio transport
-  http    — a remote server speaking MCP streamable-HTTP
-
-MCPManager aggregates all tools into one flat list and routes each voice
-function call to the server that owns it. Adding a new server = one entry in
-mcp_servers.json, no code changes here.
-"""
 import importlib
 import json
 import logging
@@ -31,12 +20,6 @@ _VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _INJECTED_PARAMS = ("session_id",)
 
 def _expand_env(value: Any) -> Any:
-    """Resolve ${VAR} references against the process environment.
-
-    mcp_servers.json is committed to git, so credentials are written as
-    ${BRAVE_API_KEY} etc. and resolved here from .env at connect time —
-    the secret itself never touches the tracked config file.
-    """
     if isinstance(value, str):
         def repl(m: re.Match) -> str:
             var = m.group(1)
@@ -53,14 +36,6 @@ def _expand_env(value: Any) -> Any:
     return value
 
 def _flatten_structured(structured: dict | None) -> str | None:
-    """Unwrap FastMCP's auto structured-output envelope, or pass a real dict through as JSON.
-
-    FastMCP wraps any non-object tool return (e.g. a plain `str`) as
-    {"result": <value>} in structuredContent. Tools like rag.ask() return an
-    already-speakable sentence — JSON-encoding that whole envelope instead of
-    unwrapping it sends the LLM `{"result": "..."}` instead of plain text,
-    which breaks the "always speak the answer" contract on later turns.
-    """
     if not structured:
         return None
     if structured.keys() == {"result"}:
@@ -69,7 +44,6 @@ def _flatten_structured(structured: dict | None) -> str | None:
     return json.dumps(structured)
 
 def _hide_injected(schema: dict) -> dict:
-    """Return a copy of an input schema with host-injected params removed."""
     props = schema.get("properties")
     if not props or not any(p in props for p in _INJECTED_PARAMS):
         return schema
@@ -160,11 +134,6 @@ class MCPManager:
         self._functions_by_server_cache = None
 
     def functions(self) -> list[dict]:
-        """All tools as Deepgram-compatible function declarations.
-
-        Parameters named `session_id` are host-injected (see `call`) and stripped
-        here so the LLM never sees or supplies them.
-        """
         if self._functions_cache is None:
             self._functions_cache = [
                 {
@@ -177,8 +146,6 @@ class MCPManager:
         return self._functions_cache
 
     def functions_by_server(self) -> dict[str, list[dict]]:
-        """Function declarations grouped by the server that owns them, for
-        building a spoken capability summary — see `functions()` for the flat form."""
         if self._functions_by_server_cache is None:
             out: dict[str, list[dict]] = {}
             for public, (sname, tname) in self._route.items():
@@ -192,11 +159,6 @@ class MCPManager:
     async def call(
         self, public_name: str, arguments: dict[str, Any], session_id: str | None = None
     ) -> str:
-        """Run a tool by its exposed name and return a string result.
-
-        If the tool declares a `session_id` parameter, the host fills it from the
-        live connection — the LLM can't see or spoof it.
-        """
         if public_name not in self._route:
             raise KeyError(f"unknown tool: {public_name!r}")
 

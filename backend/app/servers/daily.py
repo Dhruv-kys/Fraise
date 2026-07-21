@@ -1,17 +1,3 @@
-"""Dictation → a day, split into tasks, each handled by its own agent.
-
-You speak your whole day in one breath — "email Sarah the deck, book a dentist
-Tuesday, find me the best noise-cancelling headphones, remind me to call mom" —
-and this splits that monologue into atomic tasks, classifies each into a lane,
-and fans them out to run at once. Each task is a tiny agent: research searches
-the web and summarizes, remember writes to memory, email drafts a reply, and so
-on. Progress streams to `bus` (the same channel the research fan-out uses), so
-the browser watches the day get handled task by task instead of a spinner.
-
-This is orchestration over the existing capabilities, not a new one — it reuses
-the research search, the Groq LLM helper, and the memory store. Triggered by the
-`POST /dictate` HTTP endpoint (like `/upload`), not a voice tool.
-"""
 import asyncio
 import json
 import logging
@@ -76,8 +62,6 @@ _SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
 _TASK_OBJ = re.compile(r'\{[^{}]*"title"[^{}]*\}', re.S)
 
 def _split_into_chunks(text: str, max_chars: int = _CHUNK_CHARS) -> list[str]:
-    """Sentence-bounded chunks so no sentence — and no task inside it — is ever
-    cut in half at a chunk boundary."""
     text = text.strip()
     if len(text) <= max_chars:
         return [text]
@@ -94,9 +78,6 @@ def _split_into_chunks(text: str, max_chars: int = _CHUNK_CHARS) -> list[str]:
     return chunks or [text]
 
 def _context_block(session_id: str) -> str:
-    """Recent remembered facts + conversation, folded into the segmentation
-    prompt so references in the dictation ("email her again", "same place as
-    last time") resolve instead of turning into vague or misrouted tasks."""
     facts = memory_store.recall(session_id, limit=8)
     turns = memory_store.recent_turns(session_id, limit=6)
     parts = []
@@ -218,7 +199,6 @@ async def _lane_email(detail: str) -> tuple[str, str, str, list]:
     return "proposed", "Draft ready to review.", llm.strip_markdown(raw) or detail, []
 
 async def _run_task(task: dict, day_id: str, session_id: str) -> dict:
-    """One task, one lane, never raises — a failed task is reported, not fatal."""
     tid, lane, detail = task["id"], task["lane"], task["detail"]
     started = time.monotonic()
 
@@ -303,11 +283,6 @@ async def _run(day_id: str, text: str, session_id: str, tz_offset_min: int) -> N
         })
 
 def start(text: str, session_id: str, tz_offset_min: int = 0) -> str:
-    """Kick off a day run in the background; return its id immediately.
-
-    Like the research fan-out, this outlives a single request, so it's detached
-    and streams its story over the bus rather than blocking the POST.
-    """
     day_id = db.new_id()
     task = asyncio.create_task(_run(day_id, text, session_id, tz_offset_min))
     _running.add(task)

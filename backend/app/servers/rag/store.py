@@ -1,10 +1,3 @@
-"""Session-scoped data access for the RAG store.
-
-Every query filters on session_id so one user never sees another's documents.
-Ingestion does late chunking (encode once, pool per chunk span); retrieval is
-hybrid — dense KNN over `vec_chunks` fused with FTS5 BM25 over `chunks` via
-Reciprocal Rank Fusion, then a cross-encoder rerank.
-"""
 import re
 from contextlib import closing
 from datetime import datetime, timezone
@@ -18,13 +11,6 @@ from . import chunk, embeddings, reranker
 _RRF_K = 60
 
 def _match_query(text: str) -> str:
-    """Quote each word as an FTS5 phrase so user text can't be read as operators.
-
-    OR-joined: bare space-separated terms mean AND in FTS5, which would require
-    every word in a natural-language question (including "what", "is", "the")
-    to appear verbatim in a chunk — zeroing out lexical matches for almost any
-    real question. OR lets BM25 rank by how many terms hit instead.
-    """
     terms = re.findall(r"\w+", text)
     return " OR ".join(f'"{t}"' for t in terms)
 

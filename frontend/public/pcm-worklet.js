@@ -1,10 +1,8 @@
-// Captures mono mic audio and emits batched 16-bit PCM (linear16) frames.
-// The AudioContext runs at 16 kHz, so no resampling is needed here.
 class PCMProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this._buf = [];
-    this._target = 1024; // ~64 ms at 16 kHz
+    this._target = 1024;
   }
 
   process(inputs) {

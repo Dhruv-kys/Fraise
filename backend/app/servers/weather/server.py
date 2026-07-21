@@ -1,10 +1,3 @@
-"""Weather MCP server for Fraise — current conditions via Open-Meteo.
-
-Open-Meteo needs no API key, which keeps this a zero-config builtin like
-calculator.py. Speakable output: returns one plain-English sentence, not raw
-JSON or units the LLM would have to interpret (same rule the calendar and RAG
-servers follow).
-"""
 import httpx
 from mcp.server.fastmcp import FastMCP
 
@@ -51,11 +44,6 @@ async def _current_conditions(lat: float, lon: float) -> dict:
 
 @mcp.tool()
 async def get_weather(location: str) -> str:
-    """Get the current weather for a place.
-
-    location: a city or place name, e.g. "Austin" or "Paris, France". Ask the
-    user which place they mean if they haven't said one — never guess.
-    """
     try:
         place = await _geocode(location)
         if not place and "," in location:

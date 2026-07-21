@@ -1,4 +1,3 @@
-"""Turn an uploaded file's bytes into plain text for indexing."""
 import io
 from pathlib import Path
 

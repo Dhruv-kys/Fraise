@@ -1,14 +1,3 @@
-"""Long-context ONNX encoder for late chunking.
-
-`jina-embeddings-v2-small-en` (8192-token context, 512-dim) run directly through
-onnxruntime — no torch. `encode_tokens` returns per-token hidden states plus the
-character offsets of each token, which is what late chunking needs: we encode the
-whole document once, then mean-pool token vectors within each chunk's span so every
-chunk embedding carries full-document context. `encode_query` pools to one vector.
-
-The session loads lazily and is reused; `warm()` triggers the download/load at
-startup so the first `ask` doesn't pay for it.
-"""
 import threading
 
 import numpy as np
@@ -50,13 +39,6 @@ def _run(input_ids: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
     return _session.run(None, feeds)[0]
 
 def encode_tokens(text: str) -> tuple[np.ndarray, list[tuple[int, int]]]:
-    """Encode a document into per-token vectors plus each token's char offsets.
-
-    Tokenized once (no special tokens, so every position maps to a substring),
-    then run through the encoder in `_SEGMENT_TOKENS` slices — each wrapped in
-    CLS/SEP so the model sees a well-formed sequence — and the slice outputs are
-    concatenated back into one per-token array aligned with the offsets.
-    """
     _load()
     with _lock:
         enc = _tokenizer(
@@ -99,5 +81,4 @@ def _normalize(vec: np.ndarray) -> np.ndarray:
     return vec / norm if norm else vec
 
 def pool_span(token_vectors: np.ndarray) -> np.ndarray:
-    """Mean-pool the token vectors of one chunk into a normalized embedding."""
     return _normalize(token_vectors.mean(axis=0))

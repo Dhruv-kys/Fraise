@@ -1,9 +1,3 @@
-"""Groq calls for the research agents.
-
-Deepgram's voice LLM is busy being the conversation — it can't also read twenty
-search results out loud. So the sub-agents and the synthesizer run on Groq
-(OpenAI-compatible, already keyed in .env): fast, cheap, and off the voice path.
-"""
 import asyncio
 import json
 import logging
@@ -51,7 +45,7 @@ def strip_markdown(text: str) -> str:
     return text.strip(" -–—•*\t")
 
 class LLMUnavailable(RuntimeError):
-    """No key configured, or Groq refused — callers degrade instead of crashing."""
+    pass
 
 async def complete(
     system: str, user: str, *, json_mode: bool = False, model: str = "",
@@ -92,8 +86,6 @@ async def complete(
     raise LLMUnavailable("Groq rate limit — out of retries")
 
 async def complete_json(system: str, user: str, *, model: str = "") -> dict:
-    """Same, but the model is told to emit an object. A model that ignores that
-    shouldn't take the whole run down, so a bad parse degrades to {}."""
     raw = await complete(system, user, json_mode=True, model=model)
     try:
         return json.loads(raw) if isinstance(json.loads(raw), dict) else {}

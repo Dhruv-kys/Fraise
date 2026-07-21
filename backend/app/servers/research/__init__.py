@@ -1,18 +1,3 @@
-"""Research MCP server — a planner designs the agents, then they fan out.
-
-One voice command becomes N agents running at once, each on a different angle,
-each summarizing its own slice. A synthesizer merges them into an artifact — a
-doc or a slide deck — and the voice LLM speaks only a headline, because the
-artifact is the answer and TTS is a bad way to read twenty search results.
-
-The agents are NOT a fixed list. A planner decides them per question: ask about
-internships and you get job boards; ask to compare electric cars and you get
-reviews, pricing, and owner forums. Hardcoding sources would mean this only ever
-worked for the one example it was built against.
-
-Progress is published to `bus` as the plan lands and each agent moves, so the
-browser renders them working in parallel rather than staring at a spinner.
-"""
 import asyncio
 import json
 import logging
@@ -89,7 +74,6 @@ def _clean_domains(raw) -> list[str]:
     return out[:4]
 
 def _fallback_plan(query: str) -> list[dict]:
-    """The planner is an LLM call, and LLM calls fail. A run must still happen."""
     return [
         {"id": "web", "label": "Web", "query": query, "domains": [],
          "angle": "anything that directly answers the question", "recency": "year"},
@@ -99,7 +83,6 @@ def _fallback_plan(query: str) -> list[dict]:
     ]
 
 async def _plan(query: str, hint: str) -> list[dict]:
-    """Decide who goes looking. This is what makes the team fit the question."""
     ask = f"{_today_line()}\n\nQuestion: {query}"
     if hint:
         ask += f"\nThe user specifically asked for these sources: {hint}"
@@ -169,13 +152,6 @@ def _agent_system(label: str, angle: str) -> str:
     )
 
 async def _run_agent(spec: dict, run_id: str, session_id: str) -> dict:
-    """One agent: search its angle, summarize its slice. Never raises — a failed
-    agent is a reported failure, not a dead run (the others still land).
-
-    Every step publishes a `note`: the agent's own account of what it is doing right
-    now. A bar says something is happening; the note says *what*, which is the
-    difference between watching agents and watching a spinner.
-    """
     name, label = spec["id"], spec["label"]
     started = time.monotonic()
 
@@ -302,12 +278,6 @@ async def _synthesize(query: str, agent_results: list[dict]) -> dict:
     }
 
 async def _run(run_id: str, query: str, hint: str, fmt: str, session_id: str) -> None:
-    """Run a research job without ever leaving the browser waiting forever.
-
-    This task is intentionally detached from the voice turn. Any unexpected
-    exception therefore has to become a visible failure event; otherwise the task
-    is merely discarded by its done callback and the UI remains in "planning".
-    """
     try:
         await _run_impl(run_id, query, hint, fmt, session_id)
     except asyncio.CancelledError:
@@ -319,8 +289,6 @@ async def _run(run_id: str, query: str, hint: str, fmt: str, session_id: str) ->
         })
 
 async def _run_impl(run_id: str, query: str, hint: str, fmt: str, session_id: str) -> None:
-    """The background job: plan the team, fan out, synthesize, store, announce."""
-    """The background job: plan the team, fan out, synthesize, store, announce."""
     bus.publish(session_id, {
         "type": "run", "run_id": run_id, "status": "planning", "query": query,
         "format": fmt, "agents": [],
@@ -392,24 +360,6 @@ async def deep_research(
     format: Literal["doc", "slides"] = "doc",
     session_id: str = "",
 ) -> str:
-    """Put a team of research agents to work IN PARALLEL on one question, each on a
-    different source or angle, then collect their findings into a document or slide
-    deck the user can read on screen.
-
-    The agents are chosen to fit the question — job boards for a job search, review
-    sites and forums for a product comparison, and so on. You do not pick them.
-
-    This is the right tool whenever the answer deserves more than a sentence:
-    finding jobs or internships, comparing options, researching a company, topic, or
-    market, or any request for a write-up, report, summary, document, or slides.
-    Prefer it over tavily_search or tavily_research for those — those return raw
-    results, while this runs several agents and produces a written artifact.
-
-    query: what to research, in plain words, e.g. "best SDE internships for 2026 grads".
-    sources: only if the user names specific places to look ("check LinkedIn and
-      Reddit"). Pass their words through. Leave empty otherwise.
-    format: "slides" if they ask for a deck or presentation, otherwise "doc".
-    """
     run_id = db.new_id()
 
     task = asyncio.create_task(_run(run_id, query, sources, format, session_id))

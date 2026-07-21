@@ -1,12 +1,3 @@
-"""The MCP server — capabilities defined as `@mcp.tool` functions.
-
-This `mcp` instance is the single source of truth for tools. It is mounted into
-the FastAPI app (streamable HTTP at `/mcp`) for external MCP clients and called
-in-process by the agent via `mcp.call_tool(...)`. Tool I/O is typed with
-pydantic, which FastMCP uses to validate arguments and shape structured output.
-
-Add a capability by writing another `@mcp.tool()` function here.
-"""
 import ast
 import operator
 
@@ -43,9 +34,4 @@ def _eval(node: ast.AST) -> float:
 
 @mcp.tool()
 def calculate(expression: str) -> CalcResult:
-    """Evaluate a basic arithmetic expression.
-
-    Supports + - * / // % ** and parentheses, e.g. "2 + 2" or "(3 + 4) * 5".
-    Evaluated over a restricted AST (never `eval`), so only arithmetic runs.
-    """
     return CalcResult(expression=expression, result=_eval(ast.parse(expression, mode="eval")))

@@ -1,14 +1,3 @@
-"""One-time generator for the voice-picker's audio previews.
-
-Calls Deepgram's TTS REST API for each curated voice with the same line
-("Hi, I'm Fraise.") and saves the result to frontend/public/voices/<id>.mp3,
-where the VoicePicker in App.tsx plays it from. Run this once whenever the
-curated voice list (frontend/src/voices.ts) changes:
-
-    python backend/scripts/generate_voice_samples.py
-
-Requires DEEPGRAM_API_KEY in the repo-root .env (same one the backend loads).
-"""
 import sys
 from pathlib import Path
 

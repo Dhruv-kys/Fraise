@@ -1,10 +1,3 @@
-"""Cross-encoder reranker over the fused candidate shortlist.
-
-A bi-encoder (the dense embedder) scores query and passage separately; a
-cross-encoder reads the pair together and is far more precise, but too slow to run
-over a whole corpus — so it only rescores the ~30 candidates hybrid retrieval
-already surfaced. `jina-reranker-v1-tiny-en` via fastembed is ONNX, no torch.
-"""
 import threading
 
 from fastembed.rerank.cross_encoder import TextCrossEncoder
@@ -26,7 +19,6 @@ def warm() -> None:
     rerank("warm up", ["warm up"])
 
 def rerank(query: str, passages: list[str]) -> list[int]:
-    """Return passage indices ordered best-first by cross-encoder relevance."""
     if not passages:
         return []
     scores = list(_load().rerank(query, passages))

@@ -1,8 +1,3 @@
-"""Session-scoped data access for the memory store.
-
-Every query filters on session_id so one user never sees another's memories.
-All FTS5-specific SQL lives here; the server module just speaks plain English.
-"""
 import re
 from contextlib import closing
 from datetime import datetime, timezone
@@ -10,11 +5,6 @@ from datetime import datetime, timezone
 from app.storage.db import connect
 
 def _match_query(text: str) -> str:
-    """Turn free text into a safe FTS5 MATCH expression.
-
-    User content can contain characters FTS5 treats as operators, so we quote
-    each word as a phrase and AND them together.
-    """
     terms = re.findall(r"\w+", text)
     return " ".join(f'"{t}"' for t in terms)
 

@@ -1,9 +1,3 @@
-"""SQLite for Fraise's local stores (memory and RAG vectors).
-
-One file on disk, no server. Schema changes are forward-only migrations keyed
-by SQLite's built-in `PRAGMA user_version`. The sqlite-vec extension is loaded on
-every connection so the RAG `vec0` table is queryable.
-"""
 import json
 import logging
 import sqlite3
@@ -101,7 +95,6 @@ def save_artifact(artifact_id: str, session_id: str, title: str, fmt: str, body:
         conn.close()
 
 def _artifact_body(raw: str) -> dict | None:
-    """Read stored artifact JSON without turning one bad row into a 500."""
     try:
         body = json.loads(raw)
     except (TypeError, json.JSONDecodeError):
@@ -112,8 +105,6 @@ def _artifact_body(raw: str) -> dict | None:
     return body
 
 def get_artifact(artifact_id: str, session_id: str) -> dict | None:
-    """Scoped by session_id as well as id — an artifact id is a guessable handle,
-    and one browser must never be able to read another's research."""
     conn = connect()
     try:
         row = conn.execute(

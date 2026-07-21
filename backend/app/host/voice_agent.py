@@ -1,11 +1,3 @@
-"""Bridge between the browser and Deepgram's Voice Agent.
-
-The browser streams microphone audio to /ws; we forward it to Deepgram's Voice
-Agent (STT → LLM → TTS in one socket) and stream audio back. When the LLM picks
-a tool, MCPManager routes the call to whichever MCP server owns it and returns
-the result. The function list is built from all connected servers — adding a
-server to mcp_servers.json makes its tools voice-callable with no changes here.
-"""
 import asyncio
 import json
 import logging
@@ -97,22 +89,14 @@ PROMPT = (
 )
 
 def _clean_name(raw: str) -> str:
-    """Keep the name safe to drop into a prompt: printable chars, single line,
-    capped length. Guards against prompt-injection via the query string."""
     name = "".join(ch for ch in raw if ch.isprintable() and ch not in "{}").strip()
     return name[:40]
 
 def _clean_instructions(raw: str) -> str:
-    """Per-assistant custom instructions folded into the system prompt. Unlike a
-    name this may span lines, so newlines are kept; control chars are dropped and
-    length is capped since this is user-authored persona config, not trusted input."""
     text = "".join(ch for ch in raw if ch.isprintable() or ch == "\n").strip()
     return text[:1500]
 
 def _describe_capabilities() -> str:
-    """Build a per-server capability summary from whatever's actually connected,
-    so a new MCP server is describable in 'what can you do' without editing this
-    file — only mcp_servers.json changes, matching the host's own design rule."""
     lines = []
     for sname, tools in manager.functions_by_server().items():
         bullets = "; ".join(t["description"] for t in tools if t["description"])
@@ -121,10 +105,6 @@ def _describe_capabilities() -> str:
     return "\n".join(lines)
 
 async def _recent_context(session_id: str) -> str:
-    """Recent turns from this session_id, across reconnects and even prior
-    visits (session_id persists in the browser's localStorage) — the only
-    memory of the conversation itself, distinct from things explicitly told
-    to `remember`. Returns "" for a brand-new session with no history yet."""
     if not session_id:
         return ""
     turns = await anyio.to_thread.run_sync(memory_store.recent_turns, session_id)
@@ -211,11 +191,6 @@ async def _build_settings(
             "relevant or they ask what you talked about:\n" + context
         )
 
-    # flux-general-multi + language_hints biases Flux toward Indian English/Hinglish
-    # code-switching while keeping Flux's end-of-turn detection (eot_threshold/
-    # eot_timeout_ms are Flux-v2-only). If accents are still misheard, the next lever
-    # is nova-3 with "language": "en-IN" — but that drops Flux's end-of-turn params in
-    # favor of Nova's endpointing/utterance_end_ms, changing turn-taking behavior.
     language_hints = [
         h.strip() for h in os.environ.get("DEEPGRAM_LANGUAGE_HINTS", "en,hi").split(",") if h.strip()
     ]
@@ -251,8 +226,6 @@ async def _build_settings(
     }
 
 def _translate(text: str) -> str:
-    """Map a browser 'document_uploaded' signal to a Deepgram user turn that makes
-    Fraise summarize the new document via RAG. Everything else passes through."""
     try:
         event = json.loads(text)
     except (json.JSONDecodeError, TypeError):
@@ -286,7 +259,6 @@ def _extract_action(content: str) -> dict | None:
     return data.get("_action") if isinstance(data, dict) else None
 
 def _strip_action(content: str) -> str:
-    """Drop the `_action` envelope, leaving the rest for the LLM to speak from."""
     try:
         data = json.loads(content)
     except (json.JSONDecodeError, TypeError):

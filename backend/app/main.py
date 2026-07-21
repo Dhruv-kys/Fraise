@@ -1,11 +1,3 @@
-"""Voice-MCP backend — one FastAPI process.
-
-  * `/ws` bridges the browser to Deepgram's Voice Agent (STT → LLM → TTS).
-    When the LLM calls a tool, MCPManager routes it to the right MCP server.
-  * MCPManager reads mcp_servers.json on startup and connects to every server
-    listed there. Adding a server to that file makes its tools voice-callable.
-  * The built-in FastMCP server is also mounted at `/mcp` for external clients.
-"""
 import asyncio
 import contextlib
 import json
@@ -100,13 +92,6 @@ async def agents_stream(sid: str = Query(...)) -> StreamingResponse:
 
 @app.get("/history")
 async def history(sid: str = Query(...), limit: int = Query(40)) -> dict:
-    """The conversation itself, plus what Fraise was told to remember.
-
-    Both were already being written on every turn — `conversation_turns` by the
-    voice bridge, `memories` by the remember tool — but nothing could read them
-    back, so a reload looked like amnesia even though nothing was lost. Same
-    session id scopes both, which is what makes them one connected memory.
-    """
     turns = await anyio.to_thread.run_sync(memory_store.recent_turns, sid, limit)
     facts = await anyio.to_thread.run_sync(memory_store.recall, sid, "", 20)
     return {
@@ -127,9 +112,6 @@ async def artifact(artifact_id: str, sid: str = Query(...)) -> dict:
 
 @app.post("/dictate")
 async def dictate(sid: str = Query(...), body: dict = Body(...)) -> dict:
-    """Take a dictated brain-dump of the day, split it into tasks, and fan them
-    out to their lane agents. Returns the day id at once; progress streams over
-    `/agents/stream` (the same SSE the research fan-out uses)."""
     text = (body.get("text") or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="nothing was dictated")

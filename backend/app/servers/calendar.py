@@ -1,11 +1,3 @@
-"""Google Calendar MCP server for Fraise.
-
-Tools return plain-English strings designed to be read aloud. No raw IDs,
-no ISO timestamps — just natural language the LLM can speak directly.
-
-Authentication: run the OAuth flow once via GET /auth/calendar. The token
-is stored in backend/calendar_token.json and refreshed automatically.
-"""
 import json
 import os
 from datetime import date, datetime, timedelta
@@ -24,7 +16,7 @@ TOKEN_PATH = Path(__file__).resolve().parents[1] / "calendar_token.json"
 AUTH_URL = "/auth/calendar"
 
 class CalendarAuthRequired(RuntimeError):
-    """Raised when the user needs to (re)connect Google Calendar."""
+    pass
 
 def _auth_needed_response() -> str:
     return json.dumps({
@@ -58,7 +50,6 @@ def _parse_date(s: str) -> date:
     return date.today() if not s.strip() else date.fromisoformat(s.strip())
 
 def _parse_event_dt(event_time: dict) -> datetime | None:
-    """Parse a Google Calendar event start/end dict; returns None for all-day."""
     if "dateTime" in event_time:
         return datetime.fromisoformat(event_time["dateTime"])
     return None
@@ -107,11 +98,6 @@ def _find_event_by_title(svc, title: str, on_date: date) -> dict | None:
 
 @mcp.tool()
 def list_events(date: str = "") -> str:
-    """List calendar events for a given date.
-
-    date: YYYY-MM-DD. Leave blank for today.
-    Returns a plain-English summary ready to be spoken aloud.
-    """
     try:
         svc = _service()
     except CalendarAuthRequired:
@@ -152,12 +138,6 @@ def list_events(date: str = "") -> str:
 
 @mcp.tool()
 def find_free_slot(date: str, duration_minutes: int = 60) -> str:
-    """Find open time slots on a given date within working hours.
-
-    date: YYYY-MM-DD.
-    duration_minutes: how long the slot needs to be (default 60).
-    Returns a plain-English list of available slots.
-    """
     try:
         svc = _service()
     except CalendarAuthRequired:
@@ -210,12 +190,6 @@ def create_event(
     duration_minutes: int = 60,
     description: str = "",
 ) -> str:
-    """Create a calendar event.
-
-    date: YYYY-MM-DD.
-    start_time: HH:MM in 24-hour format (e.g. '14:30').
-    duration_minutes: how long the event lasts (default 60).
-    """
     try:
         svc = _service()
     except CalendarAuthRequired:
@@ -249,15 +223,6 @@ def move_event(
     new_start_time: str,
     confirmed: bool = False,
 ) -> str:
-    """Move a calendar event to a new date and time, found by title.
-
-    Searches for an event matching event_title on current_date.
-    On the first call (confirmed=False) returns a confirmation prompt — read it
-    aloud and ask the user to confirm. Call again with confirmed=True to execute.
-
-    current_date / new_date: YYYY-MM-DD.
-    new_start_time: HH:MM in 24-hour format.
-    """
     try:
         svc = _service()
     except CalendarAuthRequired:

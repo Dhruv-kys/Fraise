@@ -1,4 +1,3 @@
-"""Tavily search, scoped to a source's domains."""
 import logging
 import os
 

@@ -1,12 +1,3 @@
-"""Google Calendar OAuth 2.0 flow.
-
-GET /auth/calendar         — starts the OAuth consent flow
-GET /auth/calendar/callback — receives the code and saves the token
-
-Credentials come from:
-  1. backend/google_credentials.json  (downloaded from Google Cloud Console)
-  2. GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET env vars (fallback)
-"""
 import os
 import secrets
 from pathlib import Path
