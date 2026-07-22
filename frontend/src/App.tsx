@@ -10,7 +10,7 @@ import {
   updateAssistant,
   type Assistant,
 } from "./assistants";
-import { DEFAULT_VOICE } from "./voices";
+import { DEFAULT_VOICE, INDIA_VOICE } from "./voices";
 import Orb from "./Orb";
 import Board from "./Board";
 import Hero from "./Hero";
@@ -176,14 +176,18 @@ export default function App() {
   const [askName, setAskName] = useState<boolean>(() => localStorage.getItem("fraise-name") === null);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  const [voiceRegion, setVoiceRegion] = useState<"us" | "in">("us");
   const saveName = (raw: string) => {
     const clean = raw.trim().slice(0, 40);
     localStorage.setItem("fraise-name", clean);
     setName(clean);
     const wasEdit = editingName;
+    if (!wasEdit) {
+      setAssistants(updateAssistant(activeId, { voice: voiceRegion === "in" ? INDIA_VOICE : DEFAULT_VOICE }));
+    }
     setAskName(false);
     setEditingName(false);
-    if (wasEdit && listening) reconnect();
+    if (listening) reconnect();
   };
   const openRename = () => {
     setNameInput(name);
@@ -617,6 +621,28 @@ export default function App() {
           >
             <div className="brand-mark name-mark"><FraiseMark /></div>
             <h2 className="name-title">{editingName ? "Your name" : "Welcome to Fraise"}</h2>
+            {!editingName && (
+              <div className="region-picker" role="radiogroup" aria-label="Voice">
+                <button
+                  type="button"
+                  className={`region-choice${voiceRegion === "us" ? " active" : ""}`}
+                  role="radio"
+                  aria-checked={voiceRegion === "us"}
+                  onClick={() => setVoiceRegion("us")}
+                >
+                  🇺🇸 USA
+                </button>
+                <button
+                  type="button"
+                  className={`region-choice${voiceRegion === "in" ? " active" : ""}`}
+                  role="radio"
+                  aria-checked={voiceRegion === "in"}
+                  onClick={() => setVoiceRegion("in")}
+                >
+                  🇮🇳 India
+                </button>
+              </div>
+            )}
             <p className="name-sub">What should I call you?</p>
             <input
               className="name-input"
