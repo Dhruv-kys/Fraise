@@ -58,6 +58,7 @@ A private MCP server over your own calendar. Tokens and event data are stored on
 - [x] **Conversation continuity** (host + storage) — every user/assistant turn is logged to a `conversation_turns` table (migration 3), keyed on the same session id as memory. On connect, recent turns are folded into the prompt, so a reload, a dropped socket, or a return visit days later doesn't start cold — distinct from the explicit `remember`/`recall` tools, which are for things the user asks Fraise to keep, not the conversation itself.
 - [x] **Date/time awareness** (host) — the prompt is given the actual current date and UTC time on every connect, so "today"/"tomorrow"/deadline questions don't get answered from stale training data.
 - [ ] **Progress narration** (host) — long-running calls speak MCP progress events.
+- [ ] **Call recording insights** — extend `/upload` + the RAG pipeline to accept audio files (today capped at `.txt`/`.md`/`.pdf`), transcribe via Deepgram's pre-recorded API (reusing the existing `DEEPGRAM_API_KEY`, no new provider), then run the same LLM-summarization pattern `deep_research`'s synthesis step uses to speak back a summary plus decisions, action items, and follow-ups. Upload-only — you bring an existing recording from your phone, Zoom, Meet, etc. Deliberately not live call-recording: capturing a call as it happens needs a calling-platform integration (Twilio/Zoom/Meet bots) and raises real multi-party consent issues that vary by state and country, so that's out of scope here.
 
 ---
 
@@ -166,7 +167,7 @@ Planned integrations, added as the need arises rather than up front:
 - [ ] **Slack** — read/post messages, summarize channels by voice.
 - [ ] **GitHub / Jira / Linear** — issues, PRs, and status by voice.
 - [ ] **Notion / Google Docs** — read and append to notes.
-- [ ] **Gmail** — triage and dictate replies.
+- [ ] **Gmail — compose & send by voice** — mirrors the Calendar OAuth pattern (`google-auth-oauthlib` + `googleapiclient`, file-based token) with Gmail's send scope. Reuses `daily.py`'s existing `_lane_email` drafting logic — today it only proposes text via the `email` lane, it never sends — and layers in the calendar's confirm-before-destructive pattern: Fraise drafts and reads the email back, and only sends once you explicitly say "send it." Never fires on the first ask, so a misheard recipient or garbled dictation never goes out unconfirmed. Also covers triage/reading replies once send is in place.
 - [ ] **Zapier / Make** — reach thousands of long-tail apps through one MCP bridge.
 
 ---
