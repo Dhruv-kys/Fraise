@@ -176,21 +176,19 @@ export default function App() {
   const [askName, setAskName] = useState<boolean>(() => localStorage.getItem("fraise-name") === null);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
-  const [voiceRegion, setVoiceRegion] = useState<"us" | "in">("us");
+  const [voiceRegion, setVoiceRegion] = useState<"us" | "in">(() => (active?.voice === INDIA_VOICE ? "in" : "us"));
   const saveName = (raw: string) => {
     const clean = raw.trim().slice(0, 40);
     localStorage.setItem("fraise-name", clean);
     setName(clean);
-    const wasEdit = editingName;
-    if (!wasEdit) {
-      setAssistants(updateAssistant(activeId, { voice: voiceRegion === "in" ? INDIA_VOICE : DEFAULT_VOICE }));
-    }
+    setAssistants(updateAssistant(activeId, { voice: voiceRegion === "in" ? INDIA_VOICE : DEFAULT_VOICE }));
     setAskName(false);
     setEditingName(false);
     if (listening) reconnect();
   };
   const openRename = () => {
     setNameInput(name);
+    setVoiceRegion(active?.voice === INDIA_VOICE ? "in" : "us");
     setEditingName(true);
     setAccountMenuOpen(false);
   };
@@ -621,28 +619,26 @@ export default function App() {
           >
             <div className="brand-mark name-mark"><FraiseMark /></div>
             <h2 className="name-title">{editingName ? "Your name" : "Welcome to Fraise"}</h2>
-            {!editingName && (
-              <div className="region-picker" role="radiogroup" aria-label="Voice">
-                <button
-                  type="button"
-                  className={`region-choice${voiceRegion === "us" ? " active" : ""}`}
-                  role="radio"
-                  aria-checked={voiceRegion === "us"}
-                  onClick={() => setVoiceRegion("us")}
-                >
-                  🇺🇸 USA
-                </button>
-                <button
-                  type="button"
-                  className={`region-choice${voiceRegion === "in" ? " active" : ""}`}
-                  role="radio"
-                  aria-checked={voiceRegion === "in"}
-                  onClick={() => setVoiceRegion("in")}
-                >
-                  🇮🇳 India
-                </button>
-              </div>
-            )}
+            <div className="region-picker" role="radiogroup" aria-label="Voice">
+              <button
+                type="button"
+                className={`region-choice${voiceRegion === "us" ? " active" : ""}`}
+                role="radio"
+                aria-checked={voiceRegion === "us"}
+                onClick={() => setVoiceRegion("us")}
+              >
+                🇺🇸 USA
+              </button>
+              <button
+                type="button"
+                className={`region-choice${voiceRegion === "in" ? " active" : ""}`}
+                role="radio"
+                aria-checked={voiceRegion === "in"}
+                onClick={() => setVoiceRegion("in")}
+              >
+                🇮🇳 India
+              </button>
+            </div>
             <p className="name-sub">What should I call you?</p>
             <input
               className="name-input"
