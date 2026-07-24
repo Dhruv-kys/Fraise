@@ -14,9 +14,11 @@ import { DEFAULT_VOICE, INDIA_VOICE, VOICES, sampleUrl, type VoiceOption } from 
 import Orb from "./Orb";
 import Board from "./Board";
 import Hero from "./Hero";
+import Dictation from "./Dictation";
+import DayView from "./DayView";
 import { AgentPanel, ArtifactView } from "./Agents";
 import { useAgents } from "./useAgents";
-import { useDay } from "./useDay";
+import { useDay, useDayHistory } from "./useDay";
 import { useHistory } from "./useHistory";
 import { FraiseMark, GitHubMark, SunIcon, MoonIcon } from "./icons";
 import "./App.css";
@@ -134,8 +136,10 @@ export default function App() {
 
   const { run, artifact, history, openId, openArtifact, dismiss: dismissRun } = useAgents(activeId);
 
-  const { day, dismiss: dismissDay } = useDay(activeId);
+  const { day, process: processDay, open: openDay, dismiss: dismissDay } = useDay(activeId);
+  const dayHistory = useDayHistory(activeId, `${day?.dayId ?? ""}:${day?.status ?? ""}`);
   const [enteredApp, setEnteredApp] = useState(false);
+  const [dictating, setDictating] = useState(false);
 
   const { turns, memories } = useHistory(activeId, messages.length);
 
@@ -215,6 +219,29 @@ export default function App() {
     }
   }
 
+  const openDictation = useCallback(() => {
+    if (listening) toggle();
+    setDictating(true);
+  }, [listening, toggle]);
+
+  const dictationToTasks = useCallback(
+    (text: string) => {
+      setDictating(false);
+      dismissRun();
+      void processDay(text);
+    },
+    [processDay, dismissRun],
+  );
+
+  const openPastDay = useCallback(
+    (id: string) => {
+      dismissRun();
+      setMenuOpen(false);
+      void openDay(id);
+    },
+    [openDay, dismissRun],
+  );
+
   const waveRef = useRef<HTMLDivElement>(null);
   const orbStateRef = useRef(orbState);
   orbStateRef.current = orbState;
@@ -240,7 +267,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       const typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-      if (e.code === "Space" && !e.repeat && !typing && speechSupported) {
+      if (e.code === "Space" && !e.repeat && !typing && speechSupported && !dictating) {
         e.preventDefault();
         toggle();
       } else if (e.key === "Escape") {
@@ -250,7 +277,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggle, speechSupported]);
+  }, [toggle, speechSupported, dictating]);
 
   const lastAgent = [...messages].reverse().find((m) => m.role === "agent");
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -296,9 +323,16 @@ export default function App() {
           day={day}
           onDismissDay={dismissDay}
           onEnterApp={() => setEnteredApp(true)}
+          onDictate={() => {
+            setEnteredApp(true);
+            openDictation();
+          }}
           theme={theme}
           onToggleTheme={toggleTheme}
         />
+        {dictating && (
+          <Dictation sid={activeId} onClose={() => setDictating(false)} onPlanDay={dictationToTasks} />
+        )}
         <SpeedInsights />
       </>
     );
@@ -340,6 +374,31 @@ export default function App() {
               ))
             )}
           </div>
+
+          {dayHistory.length > 0 && (
+            <>
+              <div className="section-label">Days</div>
+              <div className="recents">
+                {dayHistory.map((d) => (
+                  <button
+                    key={d.id}
+                    className={`recent${day?.dayId === d.id ? " active" : ""}`}
+                    onClick={() => openPastDay(d.id)}
+                    title={d.snippet}
+                  >
+                    <span className="recent-title">
+                      <span className="dot" />
+                      <span>{d.snippet || "Dictated day"}</span>
+                    </span>
+                    <span className="recent-meta">
+                      {d.task_count} task{d.task_count === 1 ? "" : "s"}
+                      {d.status !== "done" && ` · ${d.status}`} · {timeAgo(d.created_at)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           {turns.length > 0 && (
             <>
@@ -545,7 +604,7 @@ export default function App() {
           )}
 
           <section className="assistant-stage">
-            <div className={`hero${run || artifact ? " compact" : ""}`}>
+            <div className={`hero${run || artifact || day ? " compact" : ""}`}>
               <Orb state={orbState} onClick={toggle} inputLevelRef={levelRef} outputLevelRef={outLevelRef} />
 
               <div className="caption-wrap">
@@ -560,6 +619,8 @@ export default function App() {
               <ArtifactView artifact={artifact} onClose={dismissRun} />
             ) : run ? (
               <AgentPanel run={run} />
+            ) : day ? (
+              <DayView day={day} onClose={dismissDay} />
             ) : (
               showBoard && <Board docs={docs} uploading={uploading} receded={orbState !== "idle"} />
             )}
@@ -583,6 +644,19 @@ export default function App() {
                 {speechSupported ? DOCK_HINT[orbState] : "Voice needs Chrome or Edge"}
                 {speechSupported && orbState === "idle" && <kbd className="kbd">Space</kbd>}
               </span>
+              <button
+                className="dock-upload"
+                onClick={openDictation}
+                disabled={!speechSupported}
+                title="Dictate — speak a long message or essay, transcribed locally"
+                aria-label="Dictate"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="9" y="3" width="6" height="11" rx="3" />
+                  <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                </svg>
+                <span className="dock-upload-label">Dictate</span>
+              </button>
               <button
                 className={`dock-upload${docError ? " error" : ""}`}
                 onClick={() => fileInputRef.current?.click()}
@@ -662,6 +736,14 @@ export default function App() {
             </button>
           </form>
         </div>
+      )}
+
+      {dictating && (
+        <Dictation
+          sid={activeId}
+          onClose={() => setDictating(false)}
+          onPlanDay={dictationToTasks}
+        />
       )}
 
       {editing && (

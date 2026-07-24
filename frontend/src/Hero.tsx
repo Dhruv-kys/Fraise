@@ -187,6 +187,7 @@ export interface HeroProps {
   day: Day | null;
   onDismissDay: () => void;
   onEnterApp: () => void;
+  onDictate: () => void;
   theme: Theme;
   onToggleTheme: () => void;
 }
@@ -199,6 +200,7 @@ export default function Hero({
   day,
   onDismissDay,
   onEnterApp,
+  onDictate,
   theme,
   onToggleTheme,
 }: HeroProps) {
@@ -217,6 +219,9 @@ export default function Hero({
             <span className="hx-brand-slash">/voice</span>
           </div>
           <div className="hx-nav-right">
+            <button className="hx-nav-link" onClick={onDictate} title="Speak long messages or essays — transcribed on-device">
+              Dictate
+            </button>
             <button className="hx-nav-link" onClick={onEnterApp}>
               Workspace
             </button>

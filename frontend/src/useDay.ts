@@ -80,6 +80,27 @@ export function useDay(sid: string) {
 
   const dismiss = useCallback(() => setDay(null), []);
 
+  const open = useCallback(
+    async (id: string): Promise<void> => {
+      try {
+        const url = new URL(`/days/${id}`, httpBase());
+        url.searchParams.set("sid", sid);
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const d = await res.json();
+        setDay({
+          dayId: d.id,
+          status: d.status as DayStatus,
+          text: d.text ?? undefined,
+          tasks: d.tasks ?? [],
+          spoken: d.spoken ?? undefined,
+          error: d.error ?? undefined,
+        });
+      } catch {}
+    },
+    [sid],
+  );
+
   useEffect(() => {
     if (!sid) return;
     const url = new URL("/agents/stream", httpBase());
@@ -142,5 +163,35 @@ export function useDay(sid: string) {
     return () => es.close();
   }, [sid]);
 
-  return { day, process, dismiss };
+  return { day, process, open, dismiss };
+}
+
+export interface DaySummary {
+  id: string;
+  snippet: string;
+  status: string;
+  task_count: number;
+  created_at: string;
+}
+
+export function useDayHistory(sid: string, refreshKey: string | undefined) {
+  const [days, setDays] = useState<DaySummary[]>([]);
+
+  useEffect(() => {
+    if (!sid) return;
+    let stale = false;
+    const url = new URL("/days", httpBase());
+    url.searchParams.set("sid", sid);
+    fetch(url)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list) => {
+        if (!stale) setDays(list);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [sid, refreshKey]);
+
+  return days;
 }
