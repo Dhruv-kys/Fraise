@@ -25,6 +25,8 @@ from app.servers.memory import store as memory_store
 from app.servers.rag import embeddings, extract, reranker, store as rag_store
 from app.storage import db
 from app.host.voice_agent import bridge
+from app.stt import engine as stt_engine
+from app.stt.segmenter import Segmenter
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +112,19 @@ async def artifact(artifact_id: str, sid: str = Query(...)) -> dict:
         raise HTTPException(status_code=404, detail="no such artifact")
     return found
 
+@app.get("/days")
+async def days(sid: str = Query(...), limit: int = Query(20)) -> list[dict]:
+    return await anyio.to_thread.run_sync(db.list_days, sid, limit)
+
+
+@app.get("/days/{day_id}")
+async def day(day_id: str, sid: str = Query(...)) -> dict:
+    found = await anyio.to_thread.run_sync(db.get_day, day_id, sid)
+    if not found:
+        raise HTTPException(status_code=404, detail="no such day")
+    return found
+
+
 @app.post("/dictate")
 async def dictate(sid: str = Query(...), body: dict = Body(...)) -> dict:
     text = (body.get("text") or "").strip()
@@ -155,6 +170,101 @@ async def voice_socket(ws: WebSocket) -> None:
         logger.exception("voice bridge failed")
         with contextlib.suppress(Exception):
             await ws.send_json({"type": "error", "message": "Voice connection failed. Please try again."})
+
+_MAX_DICTATION_S = 3600
+
+
+@app.websocket("/ws/dictation")
+async def dictation_socket(ws: WebSocket) -> None:
+    await ws.accept()
+    language = ws.query_params.get("language") or None
+    hints = [h.strip() for h in (ws.query_params.get("hints") or "").split(",") if h.strip()]
+
+    segmenter = Segmenter()
+    transcript: list[str] = []
+    utterances: asyncio.Queue = asyncio.Queue()
+    send_lock = asyncio.Lock()
+
+    async def send(payload: dict) -> None:
+        async with send_lock:
+            await ws.send_json(payload)
+
+    async def worker() -> None:
+        while True:
+            utterance = await utterances.get()
+            if utterance is None:
+                return
+            try:
+                context = " ".join(transcript)[-400:]
+                text = await anyio.to_thread.run_sync(
+                    stt_engine.transcribe, utterance, context, hints, language
+                )
+            except Exception:
+                logger.exception("dictation transcribe failed")
+                with contextlib.suppress(Exception):
+                    await send({"type": "error", "message": "Transcription hiccuped — keep going."})
+                continue
+            if text:
+                transcript.append(text)
+                await send({"type": "segment", "text": text})
+
+    async def announce() -> None:
+        try:
+            if not stt_engine.is_loaded():
+                await send({"type": "info", "message": "Warming up the transcription model — the first run can take a minute. Keep talking, nothing is lost."})
+            await anyio.to_thread.run_sync(stt_engine.load)
+            await send({"type": "ready", "model": stt_engine.MODEL_NAME})
+        except Exception:
+            logger.exception("STT model failed to load")
+            with contextlib.suppress(Exception):
+                await send({"type": "error", "message": "Couldn't load the local transcription model.", "fatal": True})
+            with contextlib.suppress(Exception):
+                await ws.close()
+
+    announce_task = asyncio.create_task(announce())
+    worker_task = asyncio.create_task(worker())
+    total_samples = 0
+    try:
+        while True:
+            msg = await ws.receive()
+            if msg["type"] == "websocket.disconnect":
+                return
+            if msg.get("bytes"):
+                total_samples += len(msg["bytes"]) // 2
+                if total_samples > _MAX_DICTATION_S * stt_engine.SAMPLE_RATE:
+                    await send({"type": "error", "message": "That's an hour of audio — wrapping up.", "fatal": True})
+                    break
+                for utterance in await anyio.to_thread.run_sync(segmenter.feed, msg["bytes"]):
+                    utterances.put_nowait(utterance)
+            elif msg.get("text"):
+                try:
+                    event = json.loads(msg["text"])
+                except ValueError:
+                    continue
+                if event.get("type") == "stop":
+                    break
+        for utterance in await anyio.to_thread.run_sync(segmenter.flush):
+            utterances.put_nowait(utterance)
+        utterances.put_nowait(None)
+        await worker_task
+        worker_task = None
+        with contextlib.suppress(Exception):
+            await send({"type": "final", "text": " ".join(transcript).strip()})
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.exception("dictation socket failed")
+        with contextlib.suppress(Exception):
+            await send({"type": "error", "message": "Dictation connection failed.", "fatal": True})
+    finally:
+        announce_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await announce_task
+        if worker_task is not None:
+            worker_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await worker_task
+
 
 app.include_router(calendar_auth_router)
 app.mount("/mcp", mcp.streamable_http_app())

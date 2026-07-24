@@ -60,6 +60,19 @@ _MIGRATIONS = [
     );
     CREATE INDEX idx_artifacts_session ON artifacts (session_id, created_at DESC);
     """,
+    """
+    CREATE TABLE days (
+        id TEXT PRIMARY KEY,
+        session_id TEXT,
+        text TEXT,
+        status TEXT,
+        spoken TEXT,
+        error TEXT,
+        tasks TEXT,
+        created_at TEXT
+    );
+    CREATE INDEX idx_days_session ON days (session_id, created_at DESC);
+    """,
 ]
 
 def connect() -> sqlite3.Connection:
@@ -81,6 +94,83 @@ def _migrate(conn: sqlite3.Connection) -> None:
 
 def new_id() -> str:
     return uuid4().hex
+
+def save_day(
+    day_id: str,
+    session_id: str,
+    text: str,
+    status: str,
+    tasks: list[dict],
+    spoken: str | None = None,
+    error: str | None = None,
+) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = connect()
+    try:
+        conn.execute(
+            "INSERT INTO days (id, session_id, text, status, spoken, error, tasks, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET status = excluded.status, spoken = excluded.spoken, "
+            "error = excluded.error, tasks = excluded.tasks",
+            (day_id, session_id, text, status, spoken, error, json.dumps(tasks), now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_day(day_id: str, session_id: str) -> dict | None:
+    conn = connect()
+    try:
+        row = conn.execute(
+            "SELECT id, text, status, spoken, error, tasks, created_at FROM days "
+            "WHERE id = ? AND session_id = ?",
+            (day_id, session_id),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    try:
+        tasks = json.loads(row["tasks"] or "[]")
+    except json.JSONDecodeError:
+        tasks = []
+    return {
+        "id": row["id"],
+        "text": row["text"],
+        "status": row["status"],
+        "spoken": row["spoken"],
+        "error": row["error"],
+        "tasks": tasks,
+        "created_at": row["created_at"],
+    }
+
+
+def list_days(session_id: str, limit: int = 20) -> list[dict]:
+    conn = connect()
+    try:
+        rows = conn.execute(
+            "SELECT id, text, status, tasks, created_at FROM days WHERE session_id = ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            (session_id, limit),
+        ).fetchall()
+    finally:
+        conn.close()
+    days = []
+    for row in rows:
+        try:
+            count = len(json.loads(row["tasks"] or "[]"))
+        except json.JSONDecodeError:
+            count = 0
+        days.append({
+            "id": row["id"],
+            "snippet": (row["text"] or "").strip()[:80],
+            "status": row["status"],
+            "task_count": count,
+            "created_at": row["created_at"],
+        })
+    return days
+
 
 def save_artifact(artifact_id: str, session_id: str, title: str, fmt: str, body: str) -> None:
     conn = connect()

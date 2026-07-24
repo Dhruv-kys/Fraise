@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import logging
 import re
@@ -239,31 +240,42 @@ async def _run_task(task: dict, day_id: str, session_id: str) -> dict:
 
         elapsed = round(time.monotonic() - started, 1)
         emit(status, note, result=result, sources=sources, elapsed=elapsed)
-        return {**task, "status": status, "result": result}
+        return {**task, "status": status, "note": note, "result": result, "sources": sources, "elapsed": elapsed}
 
     except Exception as exc:
         logger.warning("day task %s (%s) failed: %s", tid, lane, exc)
         emit("failed", "Couldn't finish this one.", error=str(exc)[:160])
-        return {**task, "status": "failed"}
+        return {**task, "status": "failed", "error": str(exc)[:160]}
 
 async def _run(day_id: str, text: str, session_id: str, tz_offset_min: int) -> None:
+    state: dict[str, dict] = {}
     try:
         bus.publish(session_id, {
             "type": "day", "day_id": day_id, "status": "segmenting",
             "note": "Splitting your day into tasks…",
         })
         tasks = await _segment(text, tz_offset_min, session_id)
+        state.update({t["id"]: {**t, "status": "queued"} for t in tasks})
+        state_lock = asyncio.Lock()
+
+        def save(status: str, spoken: str | None = None, error: str | None = None) -> None:
+            db.save_day(day_id, session_id, text, status, list(state.values()), spoken, error)
 
         bus.publish(session_id, {
             "type": "day", "day_id": day_id, "status": "running", "text": text,
-            "tasks": [{**t, "status": "queued"} for t in tasks],
+            "tasks": list(state.values()),
         })
+        await asyncio.to_thread(save, "running")
 
         sem = asyncio.Semaphore(_LANE_LIMIT)
 
         async def guarded(t: dict) -> dict:
             async with sem:
-                return await _run_task(t, day_id, session_id)
+                finished = await _run_task(t, day_id, session_id)
+            async with state_lock:
+                state[t["id"]] = finished
+                await asyncio.to_thread(save, "running")
+            return finished
 
         done = await asyncio.gather(*(guarded(t) for t in tasks))
 
@@ -273,11 +285,17 @@ async def _run(day_id: str, text: str, session_id: str, tz_offset_min: int) -> N
             f"That's your day sorted — {handled} of {n} handled. "
             "The research is written up and any drafts are ready for you to check."
         )
+        await asyncio.to_thread(save, "done", spoken)
         bus.publish(session_id, {
             "type": "day", "day_id": day_id, "status": "done", "spoken": spoken,
         })
     except Exception as exc:
         logger.exception("day run %s crashed", day_id)
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(
+                db.save_day, day_id, session_id, text, "failed",
+                list(state.values()), None, str(exc)[:160],
+            )
         bus.publish(session_id, {
             "type": "day", "day_id": day_id, "status": "failed", "error": str(exc)[:160],
         })

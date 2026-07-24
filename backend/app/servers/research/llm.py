@@ -41,9 +41,6 @@ def strip_markdown(text: str) -> str:
     text = _MD_CODE.sub(r"\1", text)
     text = _MD_BOLD.sub(r"\2", text)
     text = _BARE_URL.sub("", text)
-    # Any asterisk still standing at this point is a stray/unbalanced markdown
-    # marker (e.g. an unclosed **), never intentional content — voice output must
-    # never speak "asterisk asterisk".
     text = text.replace("*", "")
     text = _WS.sub(" ", text)
     text = re.sub(r"\(\s*\)", "", text)
