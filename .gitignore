@@ -23,3 +23,5 @@ backend/.cache/
 # Local Netlify folder
 .netlify
 HANDOFF.md
+.vercel
+.env*

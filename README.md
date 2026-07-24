@@ -9,6 +9,7 @@ A voice-first AI assistant you talk to out loud. Say what you need — a calenda
 - Real-time voice over a single WebSocket (Deepgram Voice Agent: STT + LLM + TTS in one stream).
 - Skills are MCP servers — calculator, calendar, memory, weather, web research, on-device document Q&A.
 - Dictate your whole day and it gets split into tasks, fanned out to parallel agents, and handled.
+- Dictation mode — speak long messages or essays instead of typing. Transcribed fully on-device (faster-whisper + Silero VAD); nothing leaves your machine. Set `STT_MODEL` (default `large-v3-turbo`) to trade accuracy for speed.
 - Multi-agent research: ask a question, a team of agents searches different sources in parallel and writes up a doc or deck.
 - On-device document Q&A — upload a PDF/txt/md and ask about it; nothing leaves your machine.
 - Persistent memory across a session, and spoken confirmation before anything destructive.
@@ -70,6 +71,7 @@ Write an MCP server (see `backend/app/servers/calculator.py`), add one entry to 
 | --- | --- | --- |
 | `GET` | `/health` | Liveness check. |
 | `WS` | `/ws?sid=<id>` | Voice session. |
+| `WS` | `/ws/dictation?sid=<id>` | Dictation mode — stream PCM16 in, transcript segments out (local STT). |
 | `POST` | `/upload?sid=<id>` | Add a document. |
 | `POST` | `/dictate?sid=<id>` | Segment a day's dictation into tasks. |
 | `GET` | `/agents/stream?sid=<id>` | SSE progress for research/dictate runs. |
