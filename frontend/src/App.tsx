@@ -555,7 +555,7 @@ export default function App() {
           </div>
 
           <div className="credit">
-            made by <a href="https://github.com/Dhruv-kys/Fraise" target="_blank" rel="noreferrer noopener">Dhruv</a>
+            made by <a href="https://github.com/Bunny-777/Fraise" target="_blank" rel="noreferrer noopener">Bunny</a>
           </div>
         </aside>
 
@@ -623,7 +623,7 @@ export default function App() {
               </button>
               <a
                 className="icon-btn"
-                href="https://github.com/Dhruv-kys/Fraise"
+                href="https://github.com/Bunny-777/Fraise"
                 target="_blank"
                 rel="noreferrer noopener"
                 aria-label="View source on GitHub"

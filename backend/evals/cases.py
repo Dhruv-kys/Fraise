@@ -22,13 +22,13 @@ ROUTING = [
 
 SPEECH = [
     ("plain sentence", "It's twenty-six degrees and clear in Austin.", True),
-    ("bold markers", "Here's an overview: **Dhruv Diwakirti** works in Noida.", False),
+    ("bold markers", "Here's an overview: **Bunny** works in Noida.", False),
     ("bullet list", "- Location: Noida\n- Contact: 9302551161", False),
-    ("markdown link", "See [LinkedIn](linkedin.com/in/dhruvdiwa) for more.", False),
+    ("markdown link", "See [GitHub](github.com/Bunny-777) for more.", False),
     ("bare url", "It's at https://example.com/report.", False),
     ("heading", "## Summary\nHe is a student.", False),
     ("arithmetic stays", "That's 2 * 3, which is 6.", True),
-    ("filename stays", "Dhruv_Diwakirti_Resume.pdf is two pages long.", True),
+    ("filename stays", "Bunny_Resume.pdf is two pages long.", True),
 ]
 
 MESSY_DEBRIEF = {

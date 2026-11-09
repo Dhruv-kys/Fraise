@@ -225,7 +225,7 @@ export default function Hero({
             <button className="hx-nav-link" onClick={onEnterApp}>
               Workspace
             </button>
-            <a className="hx-nav-link" href="https://github.com/Dhruv-kys/Fraise" target="_blank" rel="noreferrer noopener">
+            <a className="hx-nav-link" href="https://github.com/Bunny-777/Fraise" target="_blank" rel="noreferrer noopener">
               <GitHubMark />
               Source
             </a>

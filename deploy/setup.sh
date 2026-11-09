@@ -3,7 +3,7 @@
 # Usage:  ./setup.sh            (run as ubuntu, from anywhere)
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/Dhruv-kys/Fraise}"
+REPO_URL="${REPO_URL:-https://github.com/Bunny-777/Fraise}"
 APP_DIR="/home/ubuntu/Fraise"
 
 echo "==> Detecting public IP for the sslip.io hostname"
